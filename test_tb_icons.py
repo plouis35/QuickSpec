@@ -36,6 +36,7 @@ class Navigator(NavigationToolbar2Tk):
                               "icons/config.png",
                               None,
                               "icons/save.png"]
+        
         xmin, xmax = self.canvas.figure.bbox.intervalx
         height, width = 50, xmax-xmin
         Frame.__init__(self, master=self.window,
