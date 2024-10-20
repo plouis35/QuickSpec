@@ -4,15 +4,12 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolb
 
 class CustomToolbar(NavigationToolbar2Tk):
     def edit_config(self):
-        print("You have to create edit_parameters()")
         msg.showwarning("Warning", "You have to create edit_parameters()")
 
     def load_function(self):
-        # Fonction vide pour le bouton 'Load'
         pass
 
     def param_function(self):
-        # Fonction vide pour le bouton 'Paramètres'
         pass
 
     def __init__(self, canvas, parent):
@@ -40,6 +37,7 @@ class CustomToolbar(NavigationToolbar2Tk):
 
         super().__init__(canvas, parent)
         #self.config(background='white')
+        #self.config(height=120)
         #self._message_label.config(background='gray20', foreground='white')
         self.add_custom_buttons()
 

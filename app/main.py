@@ -74,4 +74,6 @@ class Application(tk.Tk):
         toolbar.update()
         logging.debug('toolbar updated')
 
+        figure.tight_layout()
+
 
