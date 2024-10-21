@@ -1,4 +1,5 @@
 import logging
+import warnings
 import numpy as np
 import tkinter as tk
 from tkinter import ttk
@@ -13,6 +14,7 @@ from app.toolbar import CustomToolbar
 from img.image import spec2d
 from spc.spectrum import spec1d
 
+
 class Application(tk.Tk):
     def __init__(self, version):
         super().__init__()
@@ -21,7 +23,12 @@ class Application(tk.Tk):
         # read config 
         self.conf = Config().config
 
+        # catch useless warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+
         # set theme & geometry
+        plt.rcParams['figure.constrained_layout.use'] = True
         plt.style.use(self.conf['window']['theme'])
         self.geometry(self.conf['window']['geometry'])
         self.wm_state(self.conf['window']['state'])
@@ -54,14 +61,13 @@ class Application(tk.Tk):
         ax_spc = figure.add_subplot(212)
         logging.debug('figure created')
 
-        # create image
+        # create image widget
         self._image = spec2d(ax_img)
         logging.debug('image frame created')
 
-        # create spectrum
+        # create spectrum widget
         self._spectrum = spec1d(ax_spc)
         logging.debug('spectrum frame created')
-
 
         # pack all
         canvas = FigureCanvasTkAgg(figure, self)
@@ -73,7 +79,5 @@ class Application(tk.Tk):
         toolbar = CustomToolbar(canvas, toolbar_frame)
         toolbar.update()
         logging.debug('toolbar updated')
-
-        figure.tight_layout()
 
 

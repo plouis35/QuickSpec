@@ -1,6 +1,7 @@
 import tkinter as tk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 
+from img.image import spec2d
 
 class CustomToolbar(NavigationToolbar2Tk):
     def edit_config(self):
@@ -44,7 +45,7 @@ class CustomToolbar(NavigationToolbar2Tk):
 
     def add_custom_buttons(self):
         self.bt_load_img = tk.PhotoImage(file='./icons/load.png')        
-        self.load_button = tk.Button(self, text="Load", command=self.load_function, #) #,
+        self.load_button = tk.Button(self, text="Load", command=spec2d.load_image, #) #,
                                      image=self.bt_load_img) #, bg='white', fg='white')
         self.load_button.pack(side=tk.LEFT) #, padx=2, pady=2)
 
@@ -53,6 +54,11 @@ class CustomToolbar(NavigationToolbar2Tk):
         self.param_button = tk.Button(self, text="Configuration", command=self.param_function, #) #, bg='gray20', fg='white')
                                      image=self.bt_conf_img) #, bg='gray20', fg='white')
         self.param_button.pack(side=tk.LEFT) #, padx=2, pady=2)
+
+        self.bt_run_img = tk.PhotoImage(file='./icons/run.png')
+        self.run_button = tk.Button(self, text="Run processing", command=self.param_function, #) #, bg='gray20', fg='white')
+                                     image=self.bt_run_img) #, bg='gray20', fg='white')
+        self.run_button.pack(side=tk.LEFT) #, padx=2, pady=2)
 
         self.bt_watch_img = tk.PhotoImage(file='./icons/eye.png')
         self.watch_button = tk.Button(self, text="Watch mode", command=self.param_function, #) #, bg='gray20', fg='white')

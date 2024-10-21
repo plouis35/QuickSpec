@@ -1,4 +1,5 @@
 import logging
+import warnings
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.figure import Axes
@@ -27,52 +28,97 @@ from astropy.modeling import models
 from specreduce import tracing, background, extract
 
 class spec2d:
-    def __init__(self, ax: Axes):
-        self.conf = Config().config
-        self._ax = ax
 
+    # set class variables
+    _fig_axe = None         # main axe passed to class
+    _img_name = []
+    _img_axe = None         # showimage returned axe
+    _img_data = []
+    _img_count = 0
+    _slider = None
+    _slider_ax = None
+    
+    
+    def __init__(self, ax: Axes):
+        warnings.simplefilter('ignore', category=AstropyWarning)
+        warnings.simplefilter('ignore', UserWarning)
+
+        spec2d.conf = Config().config
+        
+        # change default label format (x, y)
         def format_coord(x,y):
             return f'x={x:.0f}, y={y:.0f}'
             
-        self._ax.format_coord=format_coord
-        
-        #self._img = np.random.rand(4000, 5000)
+        spec2d._fig_axe = ax
+        spec2d._fig_axe.format_coord=format_coord
 
-        self._img = CCDData.read('albireo-10.fit', unit = u.adu).data
-        self._img_ax = self.show_image(image = self._img,
-                        #percl = 0,
-                        #percu = 99.5,
-                        fig = self._ax.get_figure(),
-                        ax = self._ax,
-                        #show_colorbar=False,
-                        cmap = self.conf['window']['colormap'])
-
-        self._img_ax.norm.vmin = self._img.min()
-        self._img_ax.norm.vmax = self._img.max()
+        spec2d._fig_axe.set_title(' ')
+        spec2d._fig_axe.xaxis.set_visible(False)
+        spec2d._fig_axe.yaxis.set_visible(False)
+        spec2d._fig_axe.get_figure().set_label(' ')
 
         # Create the RangeSlider
-        #plt.subplots_adjust(top=0.25)
-        self._slider_ax = self._img_ax.get_figure().add_axes([0.065, 0.95, 0.77, 0.015])
+        spec2d._slider_ax = ax.get_figure().add_axes([0.052, 0.98, 0.75, 0.015])
         # (left, bottom, width, height)
-        self._slider = RangeSlider(self._slider_ax, "Cuts: ",
+        spec2d._slider = RangeSlider(self._slider_ax, "Cuts: ",
                                    orientation = 'horizontal',
-                                   valinit = [self._img.min(), self._img.max()],
+                                   valstep = 10,
+                                   dragging = True,
+                                   valinit = [0, 65535], #[vmin, vmax],
                                    valmin = 0,
-                                   valmax = self._img.max() * 1.0)
+                                   valmax = 65535) #vmax * 1.5)
 
-        self._slider.on_changed(self.update)
 
-    def update(self, val):
+    @staticmethod
+    def update(val):
         # Update the image's colormap
-        self._img_ax.norm.vmin = val[0]
-        self._img_ax.norm.vmax = val[1]
-
-        self._img_ax.set_clim([val[0], val[1]])
+        spec2d._img_axe.norm.vmin = val[0]
+        spec2d._img_axe.norm.vmax = val[1]
+        
+        # update image cuts levels
+        spec2d._img_axe.set_clim([val[0], val[1]])
 
         # Redraw the figure to ensure it updates
-        self._img_ax.get_figure().canvas.draw_idle()
-       
-    def show_image(self, image,
+        spec2d._fig_axe.get_figure().canvas.draw_idle()
+
+    @staticmethod
+    def load_image():
+
+        spec2d._img_name.append('HD171780_600s_120_20-1.fits')
+        logging.info(f"loading {spec2d._img_name[0]}...")
+        spec2d._img_data.append(CCDData.read(spec2d._img_name[0], unit = u.adu).data)
+
+        vstd = spec2d._img_data[0].std()
+        vmean = spec2d._img_data[0].mean()
+        _min = spec2d._img_data[0].min()
+        _max = spec2d._img_data[0].max()
+        vmin = vmean - vstd
+        vmax = vmean + vstd
+
+        logging.info (f"image stats : min = {_min}, max = {_max}, mean = {vmean}, std = {vstd}")
+
+        spec2d._img_axe = spec2d.show_image(image = spec2d._img_data[0],
+                        #percl = 0,
+                        #percu = 99.5,
+                        fig = spec2d._fig_axe.get_figure(),
+                        ax = spec2d._fig_axe,
+                        cmap = spec2d.conf['window']['colormap'])
+
+        spec2d._img_axe.norm.vmin = vmin
+        spec2d._img_axe.norm.vmax = vmax
+        spec2d._img_count += 1
+
+        spec2d._slider.valmin = _min
+        spec2d._slider.valmax = vmax * 1.5
+        spec2d._slider.valinit = [vmin, vmax]
+        spec2d._slider_ax.set_xlim(vmin, vmax * 1.5)
+        spec2d._slider.reset()
+
+        spec2d._slider.on_changed(spec2d.update)
+        spec2d._fig_axe.get_figure().canvas.draw_idle()
+
+    @staticmethod
+    def show_image(image,
                    percl=99.5, percu=None, is_mask=False,
                    figsize=(10, 10),
                    cmap='viridis', log=False, clip=True,
