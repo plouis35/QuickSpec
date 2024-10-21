@@ -1,6 +1,13 @@
 import logging
 import warnings
+import psutil
 import numpy as np
+
+import tkinter as tk
+from tkinter import ttk
+from tkinter import messagebox
+from tkinter.filedialog import askopenfilename
+
 import matplotlib.pyplot as plt
 from matplotlib.figure import Axes
 
@@ -37,6 +44,11 @@ class spec2d:
     _img_count = 0
     _slider = None
     _slider_ax = None
+    _img_stacked = None
+    _colorbar = None
+    _clear_image_ax = None
+    _bt_clear_image = None
+
     
     
     def __init__(self, ax: Axes):
@@ -68,6 +80,18 @@ class spec2d:
                                    valmin = 0,
                                    valmax = 65535) #vmax * 1.5)
 
+        """
+        spec2d._clear_image_ax = ax.get_figure().add_axes([0.045, 0.90, 0.05, 0.025])
+        spec2d._bt_clear_image = Button(spec2d._clear_image_ax,
+                                        'Clear',
+                                        color='k',
+                                        hovercolor='r')
+        spec2d._bt_clear_image.on_clicked(spec2d.clear_image)
+        """
+        
+    @staticmethod
+    def clear_image(event):
+        logging.info("clear frame")
 
     @staticmethod
     def update(val):
@@ -78,44 +102,77 @@ class spec2d:
         # update image cuts levels
         spec2d._img_axe.set_clim([val[0], val[1]])
 
+        #spec2d._colorbar.update_normal(spec2d._img_axe)
+
         # Redraw the figure to ensure it updates
         spec2d._fig_axe.get_figure().canvas.draw_idle()
 
     @staticmethod
     def load_image():
+        # create openfile dialogÒ
+        path = askopenfilename(title='Select image(s)',
+                               initialdir='./',
+                               defaultextension = 'fit, fits, fts',
+                               multiple = True)
+        if path == '': return
 
-        spec2d._img_name.append('HD171780_600s_120_20-1.fits')
-        logging.info(f"loading {spec2d._img_name[0]}...")
-        spec2d._img_data.append(CCDData.read(spec2d._img_name[0], unit = u.adu).data)
+        # cleanup previous images
+        spec2d._fig_axe.clear()
+        if (spec2d._img_axe is None):
+            show_colorbar = True
+        else:
+            show_colorbar = False
+            
+        spec2d._img_count = 0
+        spec2d._img_data = []
+        spec2d._img_name = []
+        
+        # read new images into memory
+        for img_name in path:
+            logging.info(f"loading {img_name}...")
+            spec2d._img_data.append(CCDData.read(img_name, unit = u.adu).data)
+            spec2d._img_name.append(img_name)
+            spec2d._img_count += 1
 
-        vstd = spec2d._img_data[0].std()
-        vmean = spec2d._img_data[0].mean()
-        _min = spec2d._img_data[0].min()
-        _max = spec2d._img_data[0].max()
+        # stack images
+        spec2d._img_stacked = spec2d._img_data[0]
+        for i in range(1, spec2d._img_count):
+            spec2d._img_stacked = np.add(spec2d._img_stacked, spec2d._img_data[i])
+
+       # collect image stats
+        vstd = spec2d._img_stacked.std()
+        vmean = spec2d._img_stacked.mean()
+        _min = spec2d._img_stacked.min()
+        _max = spec2d._img_stacked.max()
         vmin = vmean - vstd
         vmax = vmean + vstd
 
+        # display image
         logging.info (f"image stats : min = {_min}, max = {_max}, mean = {vmean}, std = {vstd}")
-
-        spec2d._img_axe = spec2d.show_image(image = spec2d._img_data[0],
+        spec2d._img_axe = spec2d.show_image(image = spec2d._img_stacked,
                         #percl = 0,
                         #percu = 99.5,
                         fig = spec2d._fig_axe.get_figure(),
                         ax = spec2d._fig_axe,
+                        show_colorbar=show_colorbar, 
                         cmap = spec2d.conf['window']['colormap'])
 
+        spec2d._colorbar.update_normal(spec2d._img_axe)
+
+        # setup slider
         spec2d._img_axe.norm.vmin = vmin
         spec2d._img_axe.norm.vmax = vmax
-        spec2d._img_count += 1
 
         spec2d._slider.valmin = _min
-        spec2d._slider.valmax = vmax * 1.5
+        spec2d._slider.valmax = vmax * 2
         spec2d._slider.valinit = [vmin, vmax]
-        spec2d._slider_ax.set_xlim(vmin, vmax * 1.5)
+        spec2d._slider_ax.set_xlim(vmin, vmax * 2)
         spec2d._slider.reset()
 
         spec2d._slider.on_changed(spec2d.update)
         spec2d._fig_axe.get_figure().canvas.draw_idle()
+
+        logging.info(f"memory used = {int(psutil.Process().memory_info().rss / (1024 * 1024))}MB")
 
     @staticmethod
     def show_image(image,
@@ -156,7 +213,6 @@ class spec2d:
                 figsize = (max(figsize) * image_aspect_ratio, max(figsize))
 
             fig, ax = plt.subplots(1, 1, figsize=figsize, layout = 'constrained')
-
 
         # To preserve details we should *really* downsample correctly and
         # not rely on matplotlib to do it correctly for us (it won't).
@@ -215,20 +271,21 @@ class spec2d:
         ax.xaxis.set_visible(False)
         ax.yaxis.set_visible(False)
         fig.set_label(' ')
-
+        
         if show_colorbar:
             # I haven't a clue why the fraction and pad arguments below work to make
             # the colorbar the same height as the image, but they do....unless the image
             # is wider than it is tall. Sticking with this for now anyway...
             # Thanks: https://stackoverflow.com/a/26720422/3486425
     #        fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
-            fig.colorbar(im, ax=ax, fraction=0.02, pad=0.01)
+            #if (spec2d._colorbar is not None): spec2d._colorbar.remove()            
+            spec2d._colorbar = fig.colorbar(im, ax=ax, fraction=0.02, pad=0.01)
             
             # In case someone in the future wants to improve this:
             # https://joseph-long.com/writing/colorbars/
             # https://stackoverflow.com/a/33505522/3486425
             # https://matplotlib.org/mpl_toolkits/axes_grid/users/overview.html#colorbar-whose-height-or-width-in-sync-with-the-master-axes
-
+            
         if not show_ticks:
             ax.tick_params(labelbottom=False, labelleft=False, labelright=False, labeltop=False)
 
