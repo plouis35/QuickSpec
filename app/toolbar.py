@@ -37,8 +37,6 @@ class CustomToolbar(NavigationToolbar2Tk):
         )
 
         super().__init__(canvas, parent)
-        #self.config(background='white')
-        #self.config(height=120)
         #self._message_label.config(background='gray20', foreground='white')
         self.add_custom_buttons()
 

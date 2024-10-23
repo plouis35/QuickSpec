@@ -18,7 +18,7 @@ from spc.spectrum import spec1d
 class Application(tk.Tk):
     def __init__(self, version):
         super().__init__()
-        self.title(f"QuickSpec - {version}")
+        self.title(f"QuickSpec")
         
         # read config 
         self.conf = Config().config
@@ -49,12 +49,12 @@ class Application(tk.Tk):
         handler = LogHandler(log_text)
         self.logger.addHandler(handler)
         logging.info('logger started')
-        
+
         # pre-create toolbar frame on top
-        toolbar_frame = tk.Frame(self) #, bg='gray20')
+        toolbar_frame = tk.Frame(self) #, height = 80, bg='white')
         toolbar_frame.pack(side=tk.TOP, fill=tk.X)
         logging.debug('toolbar created')
-
+ 
         # create a single frame for both image & spectrum horizontaly packed
         figure = Figure(figsize=(5, 4))
         ax_img = figure.add_subplot(211)
@@ -69,13 +69,13 @@ class Application(tk.Tk):
         self._spectrum = spec1d(ax_spc)
         logging.debug('spectrum frame created')
 
-        # pack all
+        # create canvas for customized toolbar
         canvas = FigureCanvasTkAgg(figure, self)
         canvas.draw()
         canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
         logging.debug('canvas created')
 
-        # and finnaly update toolbar
+        # and finally update toolbar
         toolbar = CustomToolbar(canvas, toolbar_frame)
         toolbar.update()
         logging.debug('toolbar updated')

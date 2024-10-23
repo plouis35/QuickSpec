@@ -60,15 +60,10 @@ class spec2d:
         # change default label format (x, y)
         def format_coord(x,y):
             return f'x={x:.0f}, y={y:.0f}'
-            
+
         spec2d._fig_axe = ax
         spec2d._fig_axe.format_coord=format_coord
-
-        spec2d._fig_axe.set_title(' ')
-        spec2d._fig_axe.xaxis.set_visible(False)
-        spec2d._fig_axe.yaxis.set_visible(False)
-        spec2d._fig_axe.get_figure().set_label(' ')
-
+        
         # Create the RangeSlider
         spec2d._slider_ax = ax.get_figure().add_axes([0.052, 0.98, 0.75, 0.015])
         # (left, bottom, width, height)
@@ -80,7 +75,17 @@ class spec2d:
                                    valmin = 0,
                                    valmax = 65535) #vmax * 1.5)
 
+        # create a dummy (zeros) image to start            
+        spec2d._img_axe = spec2d.show_image(image = np.zeros((2, 8)),
+                        #percl = 0,
+                        #percu = 99.5,
+                        fig = spec2d._fig_axe.get_figure(),
+                        ax = spec2d._fig_axe,
+                        show_colorbar=True, 
+                        cmap = 'Grays') #spec2d.conf['window']['colormap'])
+
         """
+        # 
         spec2d._clear_image_ax = ax.get_figure().add_axes([0.045, 0.90, 0.05, 0.025])
         spec2d._bt_clear_image = Button(spec2d._clear_image_ax,
                                         'Clear',
@@ -102,22 +107,25 @@ class spec2d:
         # update image cuts levels
         spec2d._img_axe.set_clim([val[0], val[1]])
 
-        #spec2d._colorbar.update_normal(spec2d._img_axe)
+        # uodate colorbar
+        spec2d._colorbar.update_normal(spec2d._img_axe)
 
         # Redraw the figure to ensure it updates
         spec2d._fig_axe.get_figure().canvas.draw_idle()
 
     @staticmethod
     def load_image():
-        # create openfile dialogÒ
+        # create openfile dialog
         path = askopenfilename(title='Select image(s)',
-                               initialdir='./',
-                               defaultextension = 'fit, fits, fts',
+                               initialdir = spec2d.conf['files']['initial_directory'],
+                               defaultextension = spec2d.conf['files']['file_types'],
                                multiple = True)
         if path == '': return
 
         # cleanup previous images
         spec2d._fig_axe.clear()
+
+        # do not recreate colorbar
         if (spec2d._img_axe is None):
             show_colorbar = True
         else:
@@ -154,12 +162,13 @@ class spec2d:
                         #percu = 99.5,
                         fig = spec2d._fig_axe.get_figure(),
                         ax = spec2d._fig_axe,
-                        show_colorbar=show_colorbar, 
+                        show_colorbar = show_colorbar, 
                         cmap = spec2d.conf['window']['colormap'])
 
+        # update colorbar
         spec2d._colorbar.update_normal(spec2d._img_axe)
 
-        # setup slider
+        # update slider
         spec2d._img_axe.norm.vmin = vmin
         spec2d._img_axe.norm.vmax = vmax
 
