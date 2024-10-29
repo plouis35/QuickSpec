@@ -4,5 +4,5 @@ from app.main import Application
 
 if __name__ == "__main__":
     app = Application(__version__)
-    logging.info("QuickSpec ready")
+    logging.info(f"QuickSpec version {__version__} ready")
     app.mainloop()

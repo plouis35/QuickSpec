@@ -1,14 +1,21 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, Button, RadioButtons
+from matplotlib.figure import Figure
 
-fig, ax = plt.subplots()
+#fig, ax = plt.subplots()
+fig = Figure(figsize=(5, 4))
 plt.subplots_adjust(left=0.25, bottom=0.25)
+#ax_img = fig.add_subplot(211)
+#ax_spc = fig.add_subplot(212)
+#ax = fig.add_subplot(222)
+ax = fig.add_subplot(211)
 t = np.arange(0.0, 1.0, 0.001)
 a0 = 5
 f0 = 3
 delta_f = 5.0
 s = a0 * np.sin(2 * np.pi * f0 * t)
+""""""
 l, = plt.plot(t, s, lw=2)
 ax.margins(x=0)
 
@@ -36,6 +43,11 @@ button = Button(resetax, 'Reset', color=axcolor, hovercolor='0.975')
 
 
 def reset(event):
+    """_summary_
+
+    Args:
+        event (_type_): _description_
+    """
     sfreq.reset()
     samp.reset()
 button.on_clicked(reset)
@@ -44,7 +56,7 @@ rax = plt.axes([0.025, 0.5, 0.15, 0.15], facecolor=axcolor)
 radio = RadioButtons(rax, ('red', 'blue', 'green'), active=0)
 
 
-def colorfunc(label):
+def colorfunc(label) -> None:
     l.set_color(label)
     fig.canvas.draw_idle()
 radio.on_clicked(colorfunc)

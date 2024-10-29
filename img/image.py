@@ -9,15 +9,18 @@ from tkinter import messagebox
 from tkinter.filedialog import askopenfilename
 
 import matplotlib.pyplot as plt
-from matplotlib.figure import Axes
+from  matplotlib.image import AxesImage
+from matplotlib.figure import Figure
+from matplotlib.axes import Axes
 
-from matplotlib.widgets import Slider, Button, RadioButtons
+from matplotlib.widgets import Button
 from matplotlib.widgets import RangeSlider
+from matplotlib.colorbar import Colorbar
 
 from app.config import Config
 
 from astropy import units as u
-from astropy.nddata import CCDData, StdDevUncertainty
+from astropy.nddata import CCDData, NDData, StdDevUncertainty
 from astropy.stats import mad_std
 from astropy.io import fits
 from astropy.utils.exceptions import AstropyWarning
@@ -34,162 +37,156 @@ from astropy.nddata.utils import Cutout2D
 from astropy.modeling import models
 from specreduce import tracing, background, extract
 
+from spc.spectrum import spec1d
+
+warnings.simplefilter('ignore', category=AstropyWarning)
+warnings.simplefilter('ignore', UserWarning)
+
 class spec2d:
-
-    # set class variables
-    _fig_axe = None         # main axe passed to class
-    _img_name = []
-    _img_axe = None         # showimage returned axe
-    _img_data = []
-    _img_count = 0
-    _slider = None
-    _slider_ax = None
-    _img_stacked = None
-    _colorbar = None
-    _clear_image_ax = None
-    _bt_clear_image = None
-
+    # class variables to be shared with spec1d class that needs to draw on it and process data from
+    img_stacked: np.ndarray         # the np.array loaded
+    img_axe: Axes               # the img axe to draw into
     
-    
-    def __init__(self, ax: Axes):
-        warnings.simplefilter('ignore', category=AstropyWarning)
-        warnings.simplefilter('ignore', UserWarning)
+    def __init__(self, ax: Axes) -> None:
+        self.conf:Config = Config()
+        spec2d.img_axe: Axes = ax
 
-        spec2d.conf = Config().config
-        
+        self._figure: Figure | None = ax.get_figure()
+                
         # change default label format (x, y)
-        def format_coord(x,y):
+        def format_coord(x,y) -> str:
             return f'x={x:.0f}, y={y:.0f}'
 
-        spec2d._fig_axe = ax
-        spec2d._fig_axe.format_coord=format_coord
+        spec2d.img_axe.format_coord = format_coord
         
         # Create the RangeSlider
-        spec2d._slider_ax = ax.get_figure().add_axes([0.052, 0.98, 0.75, 0.015])
-        # (left, bottom, width, height)
-        spec2d._slider = RangeSlider(self._slider_ax, "Cuts: ",
+        self._slider_ax: Axes = self._figure.add_axes((0.052, 0.98, 0.75, 0.01))  # (left, bottom, width, height)
+        self._slider: RangeSlider = RangeSlider(self._slider_ax, "Cuts: ",
                                    orientation = 'horizontal',
                                    valstep = 10,
                                    dragging = True,
-                                   valinit = [0, 65535], #[vmin, vmax],
+                                   valinit = (0, 65535),
                                    valmin = 0,
-                                   valmax = 65535) #vmax * 1.5)
+                                   valmax = 65535)
 
-        # create a dummy (zeros) image to start            
-        spec2d._img_axe = spec2d.show_image(image = np.zeros((2, 8)),
+        # show a dummy (zeros) image to start            
+        self._img: AxesImage = self.show_image(image = np.zeros((2, 8)),
                         #percl = 0,
                         #percu = 99.5,
-                        fig = spec2d._fig_axe.get_figure(),
-                        ax = spec2d._fig_axe,
+                        fig = self._figure,
+                        ax = spec2d.img_axe,
                         show_colorbar=True, 
-                        cmap = 'Grays') #spec2d.conf['window']['colormap'])
+                        cmap = 'Grays')
 
-        """
-        # 
-        spec2d._clear_image_ax = ax.get_figure().add_axes([0.045, 0.90, 0.05, 0.025])
-        spec2d._bt_clear_image = Button(spec2d._clear_image_ax,
-                                        'Clear',
-                                        color='k',
-                                        hovercolor='r')
-        spec2d._bt_clear_image.on_clicked(spec2d.clear_image)
-        """
-        
-    @staticmethod
-    def clear_image(event):
-        logging.info("clear frame")
+        # create load button
+        self._load_image_ax = self._figure.add_axes(rect=(0.935, 0.43, 0.06, 0.05)) # (left, bottom, width, height
+        self._bt_load_image = Button(self._load_image_ax,'Load', color='k') #, hovercolor='grey')
+        self._bt_load_image.on_clicked(self.load_image)
 
-    @staticmethod
-    def update(val):
+        # create conf button
+        self._params_ax = self._figure.add_axes(rect=(0.935, 0.27, 0.06, 0.05)) # (left, bottom, width, height
+        self._bt_params = Button(self._params_ax,'Settings', color='k') #, hovercolor='grey')
+        self._bt_params.on_clicked(self.params)
+
+
+    def params(self, event) -> None:
+        logging.info('entering parameters...')
+
+
+    def update_image(self, val) -> None:
         # Update the image's colormap
-        spec2d._img_axe.norm.vmin = val[0]
-        spec2d._img_axe.norm.vmax = val[1]
+        self._img.norm.vmin = val[0]
+        self._img.norm.vmax = val[1]
         
         # update image cuts levels
-        spec2d._img_axe.set_clim([val[0], val[1]])
+        self._img.set_clim(val[0], val[1])
 
         # uodate colorbar
-        spec2d._colorbar.update_normal(spec2d._img_axe)
+        self._colorbar.update_normal(self._img)
 
         # Redraw the figure to ensure it updates
-        spec2d._fig_axe.get_figure().canvas.draw_idle()
+        self._figure.canvas.draw_idle()
 
-    @staticmethod
-    def load_image():
+    def load_image(self, event) -> None:
         # create openfile dialog
-        path = askopenfilename(title='Select image(s)',
-                               initialdir = spec2d.conf['files']['initial_directory'],
-                               defaultextension = spec2d.conf['files']['file_types'],
-                               multiple = True)
+        path = askopenfilename(title='Select image(s) or a directory for watch mode',
+                            initialdir = self.conf.get_config('files', 'initial_directory'),
+                            defaultextension = self.conf.get_config('files', 'file_types'),
+                            multiple = True)
         if path == '': return
 
         # cleanup previous images
-        spec2d._fig_axe.clear()
+        spec2d.img_axe.clear()
 
         # do not recreate colorbar
-        if (spec2d._img_axe is None):
+        if (self._colorbar is None):
             show_colorbar = True
         else:
             show_colorbar = False
             
-        spec2d._img_count = 0
-        spec2d._img_data = []
-        spec2d._img_name = []
+        self._img_count: int = 0
+        self._img_data: list[np.ndarray] = []
+        self._img_name: list[str] = []
         
         # read new images into memory
         for img_name in path:
             logging.info(f"loading {img_name}...")
-            spec2d._img_data.append(CCDData.read(img_name, unit = u.adu).data)
-            spec2d._img_name.append(img_name)
-            spec2d._img_count += 1
+            self._img_data.append(CCDData.read(img_name, unit = 'adu').data)
+            self._img_name.append(img_name)
+            self._img_count += 1
 
         # stack images
-        spec2d._img_stacked = spec2d._img_data[0]
-        for i in range(1, spec2d._img_count):
-            spec2d._img_stacked = np.add(spec2d._img_stacked, spec2d._img_data[i])
+        spec2d.img_stacked = self._img_data[0]
+        for i in range(1, self._img_count):
+            spec2d.img_stacked = np.add(spec2d.img_stacked, self._img_data[i])
 
        # collect image stats
-        vstd = spec2d._img_stacked.std()
-        vmean = spec2d._img_stacked.mean()
-        _min = spec2d._img_stacked.min()
-        _max = spec2d._img_stacked.max()
+        vstd = spec2d.img_stacked.std()
+        vmean = spec2d.img_stacked.mean()
+        _min = spec2d.img_stacked.min()
+        _max = spec2d.img_stacked.max()
         vmin = vmean - vstd
         vmax = vmean + vstd
 
         # display image
         logging.info (f"image stats : min = {_min}, max = {_max}, mean = {vmean}, std = {vstd}")
-        spec2d._img_axe = spec2d.show_image(image = spec2d._img_stacked,
+        self._img = self.show_image(image = spec2d.img_stacked,
                         #percl = 0,
                         #percu = 99.5,
-                        fig = spec2d._fig_axe.get_figure(),
-                        ax = spec2d._fig_axe,
+                        fig = self._figure,
+                        ax = spec2d.img_axe,
                         show_colorbar = show_colorbar, 
-                        cmap = spec2d.conf['window']['colormap'])
+                        cmap = self.conf.get_config('window', 'colormap'))
 
         # update colorbar
-        spec2d._colorbar.update_normal(spec2d._img_axe)
+        self._colorbar.update_normal(self._img)
 
         # update slider
-        spec2d._img_axe.norm.vmin = vmin
-        spec2d._img_axe.norm.vmax = vmax
+        self._img.norm.vmin = vmin
+        self._img.norm.vmax = vmax
 
-        spec2d._slider.valmin = _min
-        spec2d._slider.valmax = vmax * 2
-        spec2d._slider.valinit = [vmin, vmax]
-        spec2d._slider_ax.set_xlim(vmin, vmax * 2)
-        spec2d._slider.reset()
+        self._slider.valmin = _min
+        self._slider.valmax = vmax * 2
+        self._slider.valinit = (vmin, vmax)
+        self._slider_ax.set_xlim(vmin, vmax * 2)
+        self._slider.reset()
 
-        spec2d._slider.on_changed(spec2d.update)
-        spec2d._fig_axe.get_figure().canvas.draw_idle()
+        self._slider.on_changed(self.update_image)
+        self._figure.canvas.draw_idle()
 
-        logging.info(f"memory used = {int(psutil.Process().memory_info().rss / (1024 * 1024))}MB")
+        logging.info(f"total memory used = {int(psutil.Process().memory_info().rss / (1024 * 1024))}MB")
 
-    @staticmethod
-    def show_image(image,
-                   percl=99.5, percu=None, is_mask=False,
-                   figsize=(10, 10),
-                   cmap='viridis', log=False, clip=True,
-                   show_colorbar=True, show_ticks=False,
-                   fig=None, ax=None, input_ratio=None):
+    def show_image(self, image,
+                    percl = 99.5,
+                    percu = None,
+                    is_mask = False,
+                    figsize= (10, 10),
+                    cmap = 'viridis',
+                    log = False,
+                    clip = True,
+                    show_colorbar = True,
+                    show_ticks = False,
+                    fig = None, ax = None, input_ratio= None) -> AxesImage:
         """
         Show an image in matplotlib with some basic astronomically-appropriat stretching.
         from : https://github.com/astropy/ccd-reduction-and-photometry-guide/blob/main/notebooks/convenience_functions.py
@@ -232,7 +229,7 @@ class spec2d:
         # Thanks, https://stackoverflow.com/questions/29702424/how-to-get-matplotlib-figure-size
         fig_size_pix = fig.get_size_inches() * fig.dpi
 
-        ratio = (image.shape // fig_size_pix).max()
+        ratio:float = (image.shape // fig_size_pix).max()
 
         if ratio < 1:
             ratio = 1
@@ -250,7 +247,7 @@ class spec2d:
         # Of course, now that we have downsampled, the axis limits are changed to
         # match the smaller image size. Setting the extent will do the trick to
         # change the axis display back to showing the actual extent of the image.
-        extent = [0, image.shape[1], 0, image.shape[0]]
+        extent = (0, image.shape[1], 0, image.shape[0])
 
         if log:
             stretch = aviz.LogStretch()
@@ -287,8 +284,7 @@ class spec2d:
             # is wider than it is tall. Sticking with this for now anyway...
             # Thanks: https://stackoverflow.com/a/26720422/3486425
     #        fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
-            #if (spec2d._colorbar is not None): spec2d._colorbar.remove()            
-            spec2d._colorbar = fig.colorbar(im, ax=ax, fraction=0.02, pad=0.01)
+            self._colorbar: Colorbar = fig.colorbar(im, ax=ax, fraction=0.02, pad=0.01)
             
             # In case someone in the future wants to improve this:
             # https://joseph-long.com/writing/colorbars/

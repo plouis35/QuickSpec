@@ -1,19 +1,12 @@
 import tkinter as tk
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg #, NavigationToolbar2Tk
+from matplotlib.backends._backend_tk import NavigationToolbar2Tk
 
 from img.image import spec2d
 
 class CustomToolbar(NavigationToolbar2Tk):
-    def edit_config(self):
-        msg.showwarning("Warning", "You have to create edit_parameters()")
 
-    def load_function(self):
-        pass
-
-    def param_function(self):
-        pass
-
-    def __init__(self, canvas, parent):
+    def __init__(self, canvas, parent) -> None:
         # list of toolitems to add/modify to the toolbar, format is:
         # (
         #   text, # the text of the button (often not visible to users)
@@ -36,14 +29,14 @@ class CustomToolbar(NavigationToolbar2Tk):
             ('Save', 'Save the figure', 'filesave', 'save_figure'), 
         )
 
-        super().__init__(canvas, parent)
+        super().__init__(canvas = canvas, window = parent, pack_toolbar = True)
         #self._message_label.config(background='gray20', foreground='white')
-        self.add_custom_buttons()
+        #self.add_custom_buttons()
 
 
-    def add_custom_buttons(self):
+    def add_custom_buttons(self) -> None:
         self.bt_load_img = tk.PhotoImage(file='./icons/load.png')        
-        self.load_button = tk.Button(self, text="Load", command=spec2d.load_image, #) #,
+        self.load_button = tk.Button(self, text="Load", command=self.load_function, #) #,
                                      image=self.bt_load_img) #, bg='white', fg='white')
         self.load_button.pack(side=tk.LEFT) #, padx=2, pady=2)
 
