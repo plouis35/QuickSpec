@@ -28,7 +28,7 @@ photutils>=1.10.0
 specutils>=1.12.0
 astroquery>=0.4.7dev9008
 openpyxl
-specreduce
+specreduce>=1.4
 ipympl
 ipyfilechooser
 tqdm
