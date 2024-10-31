@@ -1,6 +1,7 @@
 ipython>=8.0
 cython
 jupyter
+colorlog
 notebook>=7.0
 numpy>=1.26
 scipy>=1.11

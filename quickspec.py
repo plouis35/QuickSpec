@@ -1,8 +1,14 @@
+"""_summary_
+"""
+__app__ = 'QuickSpec'
 __version__ = '0.1'
 import logging
+
+from app.logger import LogHandler
 from app.main import Application
 
 if __name__ == "__main__":
-    app = Application(__version__)
-    logging.info(f"QuickSpec version {__version__} ready")
-    app.mainloop()
+    LogHandler().set()
+    logging.info(f"{__app__}{__version__} starting...")
+    Application().run()
+    logging.info(f"{__app__} ending...")

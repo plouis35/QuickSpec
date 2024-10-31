@@ -1,78 +1,47 @@
 import logging
-import warnings
 import numpy as np
-import tkinter as tk
-from tkinter import ttk
-import tkinter.messagebox as msg
-import matplotlib.pyplot as plt
-from matplotlib.widgets import Slider, Button, RadioButtons
-from matplotlib.figure import Figure
 
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg #, NavigationToolbar2Tk
-from matplotlib.backends._backend_tk import NavigationToolbar2Tk
+import matplotlib.pyplot as plt
+from matplotlib.axes import Axes
+from matplotlib.image import AxesImage
+from matplotlib.widgets import Button
 
 from app.config import Config
-from app.logger import LogHandler
-#from app.toolbar import CustomToolbar  
-from img.image import spec2d
-from spc.spectrum import spec1d
+from img.utils import ImgTools
+from spc.calibration import Calibration
 
-class Application(tk.Tk):
-    def __init__(self, version: str) -> None:
-        super().__init__()
-        self.title(f"QuickSpec")
-        
-        # read config 
+class Application(object):
+    def __init__(self) -> None:
         self.conf = Config()
+        #self.img_stacked: np.ndarray = np.zeros((2, 8))        # the image initialized with zeros
 
-        # catch useless warnings
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", UserWarning)
+        self.create_gui()
 
-        # set theme & geometry
-        plt.rcParams['figure.constrained_layout.use'] = True
+    def run(self) -> None:
+        plt.show(block=True)
+
+    def create_gui(self) -> None:
         plt.style.use(self.conf.get_config('window', 'theme'))
-        self.geometry(self.conf.get_config('window', 'geometry'))
-        self.wm_state(self.conf.get_config('window', 'state'))
 
-        # create & configure logger frame
-        log_frame = tk.Frame(self, bg='gray20')
-        log_frame.pack(side=tk.BOTTOM, fill=tk.X, expand=False)
-        log_text = tk.Text(log_frame, state='disabled', height=self.conf.get_config('logger', 'nb_lines'), bg='black', fg='white')
-        log_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        log_text.configure(font = (self.conf.get_config('logger', 'font')))
-
-        scrollbar = ttk.Scrollbar(log_frame, command=log_text.yview)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        log_text['yscrollcommand'] = scrollbar.set
-
-        self.logger = logging.getLogger()
-        self.logger.setLevel(self.conf.get_config('logger', 'level'))
-        handler = LogHandler(log_text)
-        self.logger.addHandler(handler)
-        logging.info('logger started')
- 
-        # create a single frame for both image & spectrum horizontaly packed
-        figure = Figure(figsize=(5, 4))
-        ax_img = figure.add_subplot(211)        # nrows/ncols/index
-        ax_spc = figure.add_subplot(212)
+        # create a single figure for both image & spectrum horizontaly packed
+        self.figure, (self.axe_img, self.axe_spc) = plt.subplots(2, 1, figsize=(8, 6))
+        plt.subplots_adjust(left=0.1, right=0.9, bottom=0.1, top=0.99)        
         logging.debug('figure created')
 
-        # create image widget
-        self._image = spec2d(ax_img)
-        logging.debug('image frame created')
+        # intialize imgTools
+        ImgTools(self.axe_img, self.axe_spc)
 
-        # create spectrum widget
-        self._spectrum = spec1d(ax_spc, self._image)
-        logging.debug('spectrum frame created')
+        # create load button
+        self._load_image_ax = self.figure.add_axes(rect=(0.03, 0.55, 0.06, 0.05)) # (left, bottom, width, height
+        self._bt_load_image = Button(self._load_image_ax,'Load', color='k') #, hovercolor='grey')
+        self._bt_load_image.on_clicked(ImgTools.open_image)
+
+        # create calib button
+        _calib = Calibration(self.axe_img, self.axe_spc)
         
-        # create canvas 
-        canvas = FigureCanvasTkAgg(figure, self)
+        self._run_calib_ax: Axes = self.figure.add_axes(rect=(0.10, 0.55, 0.06, 0.05)) # (left, bottom, width, height
+        self._bt_run = Button(self._run_calib_ax, 'Run', color='k') #, hovercolor='grey')
+        self._bt_run.on_clicked(_calib.do_calibration)
 
-        # create toolbar
-        toolbar = NavigationToolbar2Tk(canvas, self, pack_toolbar = False)
-        toolbar.pack(side = tk.TOP, fill = tk.X)
+        logging.debug('buttons created')
 
-        # pack all
-        canvas.get_tk_widget().pack(side = tk.TOP, fill = tk.BOTH, expand = True)
-        canvas.draw_idle()

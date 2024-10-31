@@ -1,22 +1,21 @@
 import logging
-import tkinter as tk
+from colorlog import ColoredFormatter
+from app.config import Config
 
 class LogHandler(logging.Handler):
-    def __init__(self, text_widget) -> None:
-        logging.Handler.__init__(self)
-        logging.Handler.setFormatter(self,
-            logging.Formatter('%(asctime)s %(levelname)s - %(message)s',
-            datefmt='%H:%M:%S'))
-   
-        self.text_widget = text_widget
-
-    def emit(self, record):
-        msg: str = self.format(record)
+    def __init__(self) -> None:
+        self.conf = Config()
         
-        def append() -> None:
-            self.text_widget.configure(state='normal')
-            self.text_widget.insert(tk.END, msg + '\n')
-            self.text_widget.configure(state='disabled')
-            self.text_widget.yview(tk.END)
-            
-        self.text_widget.after(0, append)
+        LOG_LEVEL = self.conf.get_config('logger', 'level')
+        LOGFORMAT = format = "%(log_color)s%(asctime)s %(levelname)s - %(message)s%(reset)s "
+
+        logging.root.setLevel(LOG_LEVEL)
+        formatter = ColoredFormatter(LOGFORMAT)
+        self.stream = logging.StreamHandler()
+        self.stream.setLevel(LOG_LEVEL)
+        self.stream.setFormatter(formatter)
+        self.log = logging.getLogger()
+        self.log.setLevel(LOG_LEVEL)
+
+    def set(self) -> None:
+        self.log.addHandler(self.stream)
