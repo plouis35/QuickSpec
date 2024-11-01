@@ -26,14 +26,19 @@ from astropy.utils.exceptions import AstropyWarning
 from ccdproc import Combiner, combine, subtract_bias, subtract_dark, flat_correct
 from ccdproc import trim_image, Combiner, ccd_process, cosmicray_median
 
+import tkinter as tk
+from tkinter import ttk
 from tkinter.filedialog import askopenfilenames
+
+#from tkinter import Tk, filedialog, Frame, Button, Canvas
+
 
 from app.config import Config
 
 warnings.simplefilter('ignore', category=AstropyWarning)
 warnings.simplefilter('ignore', UserWarning)
 
-class ImgTools(object):
+class ImgTools(tk.Tk):
 
     def __init__(self, axe_img: Axes, axe_spc: Axes) -> None:
         ImgTools.conf: Config = Config()
@@ -51,7 +56,7 @@ class ImgTools(object):
 
         ImgTools._ax_img.format_coord = format_coord
         
-        ImgTools._slider_ax: Axes = ImgTools._figure.add_axes((0.30, 0.575, 0.5, 0.01))  # (left, bottom, width, height)
+        ImgTools._slider_ax: Axes = ImgTools._figure.add_axes((0.30, 0.55, 0.5, 0.01))  # (left, bottom, width, height)
         ImgTools._slider: RangeSlider = RangeSlider(ImgTools._slider_ax, "Cuts: ",
                                    orientation = 'horizontal',
                                    valstep = 10,
@@ -87,15 +92,19 @@ class ImgTools(object):
 
 
     @staticmethod
-    def open_image(event) -> tuple[str, ...] | None:
+    def open_image(event) -> None:
         # create openfile dialog
+
         path = askopenfilenames(title='Select image(s) or a directory for watch mode',
-                            initialdir = ImgTools.conf.get_config('files', 'initial_directory'),
-                            defaultextension = ImgTools.conf.get_config('files', 'file_types')
+                            initialdir = ImgTools.conf.get_str('files', 'initial_directory'),
+                            defaultextension = ImgTools.conf.get_str('files', 'file_types')
                             )
         #path = (['albireo-10.fit'])
-        if path == '': return None
-        else: ImgTools.load_image(path)
+        if path == '': 
+            return 
+        else: 
+            ImgTools.load_image(path)
+            return
         
 
  
@@ -146,7 +155,7 @@ class ImgTools(object):
                         fig = ImgTools._ax_img.get_figure(),
                         ax = ImgTools._ax_img,
                         show_colorbar = show_colorbar, 
-                        cmap = ImgTools.conf.get_config('window', 'colormap'))
+                        cmap = ImgTools.conf.get_str('window', 'colormap'))
 
         # update colorbar
         ImgTools._colorbar.update_normal(ImgTools._img)

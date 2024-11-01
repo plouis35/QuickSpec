@@ -1,9 +1,11 @@
 import os
+import time
 import configparser
 import logging
+import functools
 from typing import LiteralString
 
-class Config:
+class Config(object):
     """
     Singleton-type class to manage configuration ini file
     Handles exceptions (i.e. returns '' instead of raising except)
@@ -15,6 +17,7 @@ class Config:
     _instance = None
     _configFile: str = 'quickspec.ini'
     _configDir: str = './'
+    _last_time_check: float = time.time()
 
     def __new__(cls):
         if cls._instance is None:
@@ -31,12 +34,51 @@ class Config:
 
         self.config.read(self._config_path)
 
-    def get_config(self, section, key) -> str:
+    @staticmethod
+    def _check_changes(func):
+
+        @functools.wraps(func)
+        def wrap(self, *args, **kwargs):
+            # check if config file has been modified - if so re-read it
+            if Config._last_time_check <= os.path.getmtime(self._config_path): 
+                logging.warning("config has changed - reloading it...")
+                self.config.read(self._config_path)
+                Config._last_time_check = time.time() 
+
+            return func(self, *args, **kwargs)
+        return wrap
+
+    @_check_changes
+    def get_str(self, section, key) -> str:
         try:
             return self.config.get(section, key)
-        except (configparser.NoSectionError, configparser.NoOptionError, ValueError):
-            logging.error(f"configuration error : {section}.{key} key not found in {self._config_path} file")
+        except (configparser.NoSectionError, configparser.NoOptionError, ValueError) as e:
+            logging.error(f"configuration error : key : {section}.{key} {e} in {self._config_path} file")
             return ""
+
+    @_check_changes
+    def get_int(self, section, key) -> int:
+        try:
+            return self.config.getint(section, key)
+        except (configparser.NoSectionError, configparser.NoOptionError, ValueError) as e:
+            logging.error(f"configuration error : key : {section}.{key} {e} in {self._config_path} file")
+            return 0
+
+    @_check_changes
+    def get_float(self, section, key) -> float:
+        try:
+            return self.config.getfloat(section, key)
+        except (configparser.NoSectionError, configparser.NoOptionError, ValueError) as e:
+            logging.error(f"configuration error : key : {section}.{key} {e} in {self._config_path} file")
+            return 0.0
+
+    @_check_changes
+    def get_bool(self, section, key) -> bool:
+        try:
+            return self.config.getboolean(section, key)
+        except (configparser.NoSectionError, configparser.NoOptionError, ValueError) as e:
+            logging.error(f"configuration error : key : {section}.{key} {e} in {self._config_path} file")
+            return False
 
     def save(self) -> None:
         with open(self._config_path, 'w') as configfile:
@@ -62,7 +104,29 @@ colormap = magma                    #
         with open(self._config_path, 'w') as configfile:
             configfile.write(contents + '\n')
 
+# test
 if __name__ == "__main__":
-    config_manager = Config()
-    log_level = config_manager.get_config('logger', 'leel')
-    print(f'log level: {log_level}')
+    conf = Config()
+
+    from astropy import units as u
+    from astropy.table import QTable
+
+    __wavelength = [6506.53, 6532.88, 6598.95, 6678.28, 6717.04]*u.AA
+    __pixels = [770, 1190, 2240, 3484, 4160]*u.pix
+    print(' ok -> ', __wavelength, __pixels)
+
+    _wavelength = conf.get_str('processing', 'calib_x_wavelength') #[6506.53, 6532.88, 6598.95, 6678.28, 6717.04]*u.AA
+    _pixels = conf.get_str('processing', 'calib_x_pixel')    #[770, 1190, 2240, 3484, 4160]*u.pix
+    print('raw -> ', _wavelength, _pixels)
+
+    #___wavelength = _wavelength
+    #___wavelength = _wavelength.replace(',', '').split()
+    ____wavelength = [float(x) for x in _wavelength.replace(',', '').split()]*u.AA
+    print('cnv -> ', ____wavelength)
+
+    #line_list = QTable([_pixels, _wavelength], names=["pixel_center", "wavelength"]) #, dtype=[u.pix, u.AA])
+
+    wavelength = _wavelength
+    pixels = _pixels
+    print('nok -> ', wavelength, pixels)
+

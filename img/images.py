@@ -106,8 +106,8 @@ class Spec2d(object):
 
         # create openfile dialog
         path = askopenfilenames(title='Select image(s) or a directory for watch mode',
-                            initialdir = conf.get_config('files', 'initial_directory'),
-                            defaultextension = conf.get_config('files', 'file_types')
+                            initialdir = conf.get_str('files', 'initial_directory'),
+                            defaultextension = conf.get_str('files', 'file_types')
                             )
         #path = (['albireo-10.fit'])
         if path == '': return
@@ -154,7 +154,7 @@ class Spec2d(object):
                         fig = ax_img.get_figure(),
                         ax = ax_img,
                         show_colorbar = show_colorbar, 
-                        cmap = conf.get_config('window', 'colormap'))
+                        cmap = conf.get_str('window', 'colormap'))
 
         # update colorbar
         #_img._colorbar.update_normal(_img)

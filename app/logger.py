@@ -6,7 +6,7 @@ class LogHandler(logging.Handler):
     def __init__(self) -> None:
         self.conf = Config()
         
-        LOG_LEVEL = self.conf.get_config('logger', 'level')
+        LOG_LEVEL = self.conf.get_str('logger', 'level')
         LOGFORMAT = format = "%(log_color)s%(asctime)s %(levelname)s - %(message)s%(reset)s "
 
         logging.root.setLevel(LOG_LEVEL)
