@@ -38,7 +38,7 @@ from app.config import Config
 warnings.simplefilter('ignore', category=AstropyWarning)
 warnings.simplefilter('ignore', UserWarning)
 
-class ImgTools(tk.Tk):
+class ImgTools(object):
 
     def __init__(self, axe_img: Axes, axe_spc: Axes) -> None:
         ImgTools.conf: Config = Config()
@@ -56,7 +56,7 @@ class ImgTools(tk.Tk):
 
         ImgTools._ax_img.format_coord = format_coord
         
-        ImgTools._slider_ax: Axes = ImgTools._figure.add_axes((0.30, 0.55, 0.5, 0.01))  # (left, bottom, width, height)
+        ImgTools._slider_ax: Axes = ImgTools._figure.add_axes((0.082, 0.97, 0.55, 0.01))  # (left, bottom, width, height)
         ImgTools._slider: RangeSlider = RangeSlider(ImgTools._slider_ax, "Cuts: ",
                                    orientation = 'horizontal',
                                    valstep = 10,
@@ -92,7 +92,7 @@ class ImgTools(tk.Tk):
 
 
     @staticmethod
-    def open_image(event) -> None:
+    def open_image() -> None:
         # create openfile dialog
 
         path = askopenfilenames(title='Select image(s) or a directory for watch mode',
@@ -164,7 +164,7 @@ class ImgTools(tk.Tk):
         ImgTools._img.norm.vmax = vmax
         ImgTools._img.norm.vmin = vmin
 
-        ImgTools._slider.valmin = _min
+        ImgTools._slider.valmin = vmin / 2 #_min 
         ImgTools._slider.valmax = vmax * 2
         ImgTools._slider.valinit = (vmin, vmax)
         ImgTools._slider_ax.set_xlim(vmin, vmax * 2)
