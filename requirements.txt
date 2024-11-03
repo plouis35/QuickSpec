@@ -35,3 +35,4 @@ ipyfilechooser
 tqdm
 astroplan
 jdaviz
+customtkinter

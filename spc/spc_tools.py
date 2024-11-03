@@ -22,10 +22,9 @@ from specreduce.extract import BoxcarExtract
 
 from specreduce import WavelengthCalibration1D
 
-
 from app.os_utils import OSUtils
 from app.config import Config
-from img.img_utils import ImgTools
+from img.img_tools import ImgTools
 
 class Calibration(object):
 
@@ -43,13 +42,17 @@ class Calibration(object):
 
         #trace_model : one of Chebyshev1D, Legendre1D, Polynomial1D, or Spline1D
         #peak_method : One of gaussian, centroid, or max. gaussian
-        sci_tr:FitTrace = FitTrace(master_science, bins = self.conf.get_int('processing', 'trace_x_bins'), 
-                                  trace_model=models.Chebyshev1D(degree=2), 
-                                  peak_method = 'centroid',     #'gaussian', 
-                                  window = self.conf.get_int('processing', 'trace_y_window')) #, guess=605) #, guess=407)
+        if (_guess := self.conf.get_float('processing', 'trace_y_guess')) == 0.0:
+            _guess = None
 
-        if sci_tr is None: 
-            logging.warning('unable to fit trace - retry with a guess value ?')
+        try:
+            sci_tr:FitTrace = FitTrace(master_science, bins = self.conf.get_int('processing', 'trace_x_bins'), 
+                                    trace_model=models.Chebyshev1D(degree=2), 
+                                    peak_method = 'centroid',     #'gaussian', 
+                                    window = self.conf.get_int('processing', 'trace_y_window'),
+                                    guess =  _guess)
+        except Exception as e:
+            logging.error(f"unable to fit trace : {e}")
             return False
 
         logging.info(f'trace fitted : y = {sci_tr.trace}')
@@ -57,19 +60,33 @@ class Calibration(object):
         _bg_separation = self.conf.get_int('processing', 'sky_y_offset')    #80
         _bg_width = self.conf.get_int('processing', 'sky_y_size')    #50
         _trace_width = self.conf.get_int('processing', 'trace_y_size')   #15
-        bg: Background = Background.two_sided(master_science, sci_tr, separation=_bg_separation, width=_bg_width) 
-        logging.info('background extracted')
+        try:
+            bg: Background = Background.two_sided(master_science, sci_tr, separation=_bg_separation, width=_bg_width) 
+        except Exception as e:
+            logging.error(f"unable to fit background : {e}")
+            return False
         
-        extract = BoxcarExtract(master_science - bg, sci_tr, width = _trace_width)
+        logging.info('background extracted')
+        try:
+            extract = BoxcarExtract(master_science - bg, sci_tr, width = _trace_width)
+        except Exception as e:
+            logging.error(f"unable to extract background : {e}")
+            return False
+
         logging.info('background substracted')
 
-        sci_spectrum: Spectrum1D = extract.spectrum
+        try:
+            sci_spectrum: Spectrum1D = extract.spectrum
+        except Exception as e:
+            logging.error(f"unable to extract science spectrum : {e}")
+            return False
+
         logging.info('spectrum extracted')
 
         if self.conf.get_bool('processing', 'show_trace'):
             #self.ax_img.imshow(bg.bkg_wimage, origin='lower', aspect='auto', cmap=plt.cm.gray, alpha=0.2)
             #self.ax_img.imshow(sci_tr.image.data, origin='lower', aspect='auto', cmap=plt.cm.gray, alpha=0.2)
-            self.ax_img.step(sci_spectrum.spectral_axis, sci_tr.trace , color='red')    #, linewidth = '0.3')
+            self.ax_img.step(sci_spectrum.spectral_axis, sci_tr.trace , color='red', linestyle='dashed', linewidth = '0.3')
             self.ax_img.step(sci_spectrum.spectral_axis, sci_tr.trace + extract.width , color='green', linestyle='dashed', linewidth = '0.5')  #, alpha=0.2)
             self.ax_img.step(sci_spectrum.spectral_axis, sci_tr.trace - extract.width , color='green', linestyle='dashed', linewidth = '0.5')  #, alpha=0.2)
 
@@ -225,8 +242,8 @@ class Calibration(object):
         for ii in range(len(lines_to_display)):
             lam = lines_to_display[ii]['lambda'] * 10    # nm to AA
             if (lam > xbounds[0]) & (lam < xbounds[1]):
-                ax.axvline(lam, 0.95, 1.0, color = 'grey', lw = 1.0)
-                ax.axvline(lam, color = 'grey', lw = 0.3, linestyle = ':')
+                ax.axvline(lam, 0.95, 1.0, color = 'yellow', lw = 1.0)
+                ax.axvline(lam, color = 'yellow', lw = 0.3, linestyle = ':')
                 trans = ax.get_xaxis_transform()
                 ax.annotate(lines_to_display[ii]['label'], xy = (lam, 1.05), xycoords = trans, \
-                        fontsize = 8, rotation = 90, color = 'grey')
+                        fontsize = 8, rotation = 90, color = 'yellow')

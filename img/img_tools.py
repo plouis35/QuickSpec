@@ -28,6 +28,8 @@ from ccdproc import trim_image, Combiner, ccd_process, cosmicray_median
 
 import tkinter as tk
 from tkinter import ttk
+#import customtkinter as ctk
+
 from tkinter.filedialog import askopenfilenames
 
 #from tkinter import Tk, filedialog, Frame, Button, Canvas
@@ -42,13 +44,12 @@ class ImgTools(object):
 
     def __init__(self, axe_img: Axes, axe_spc: Axes) -> None:
         ImgTools.conf: Config = Config()
+        ImgTools.img_stacked: np.ndarray = np.zeros((2, 8))
+
         ImgTools._colorbar: Colorbar = None
         ImgTools._ax_img: Axes = axe_img
         ImgTools._ax_spc: Axes = axe_spc
-        ImgTools._figure: Figure = axe_spc.get_figure()
-
-        # public variables
-        ImgTools.img_stacked: np.ndarray = np.zeros((2, 8))
+        ImgTools._figure: Figure = axe_img.get_figure()
 
         # create cuts range slider
         def format_coord(x,y) -> str:
@@ -56,7 +57,13 @@ class ImgTools(object):
 
         ImgTools._ax_img.format_coord = format_coord
         
-        ImgTools._slider_ax: Axes = ImgTools._figure.add_axes((0.082, 0.97, 0.55, 0.01))  # (left, bottom, width, height)
+        plt.subplots_adjust(bottom=0.3)
+
+#        ImgTools._slider_ax: Axes = ImgTools._figure.add_axes((0.082, 0.97, 0.55, 0.01))  # (left, bottom, width, height)
+        ImgTools._slider_ax: Axes = ImgTools._figure.add_axes((axe_img.get_position().x0, 
+                                                               0.97, 
+                                                               axe_img.get_position().width / 2, 
+                                                               0.01)) 
         ImgTools._slider: RangeSlider = RangeSlider(ImgTools._slider_ax, "Cuts: ",
                                    orientation = 'horizontal',
                                    valstep = 10,
@@ -106,8 +113,6 @@ class ImgTools(object):
             ImgTools.load_image(path)
             return
         
-
- 
     @staticmethod
     def load_image(path: tuple[str, ...]) -> None:
 
