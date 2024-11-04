@@ -4,25 +4,24 @@ import time
 import numpy as np
 
 import tkinter as tk
-from tkinter import ttk, Menu
-import tkinter.font as tkFont
-#import customtkinter as ctk
+from tkinter import ttk
 
 import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.image import AxesImage
 from matplotlib.widgets import Button
 from matplotlib.widgets import RangeSlider
-
+from matplotlib.figure import Figure
 
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.backends._backend_tk import NavigationToolbar2Tk
 
 from app.logger import LogHandler
 from app.config import Config
-from img.img_tools import ImgTools
-from spc.spc_tools import Calibration
 from app.os_utils import OSUtils
+
+from img.image import Image
+from spc.spectrum import Spectrum
 
 
 class Application(tk.Tk):
@@ -52,36 +51,81 @@ class Application(tk.Tk):
 
     def create_gui(self) -> None:
         plt.rcParams['figure.constrained_layout.use'] = True
-        default_font = tkFont.nametofont("TkDefaultFont")
-        default_font.configure(size=18)
-        self.option_add("*Font", default_font)
         plt.style.use(self.conf.get_str('window', 'theme'))        
 
         # create a single figure for both image & spectrum horizontaly packed
-        self.figure, (self.axe_img, self.axe_spc) = plt.subplots(2, 1, figsize=(12, 8)) #, num="QuickSpec")
-        #plt.subplots_adjust(left=0.1, right=0.9, bottom=0.1, top=0.50)   
+        self.figure = Figure(figsize=(5, 4)) #, dpi=200)
+        self.axe_img = self.figure.add_subplot(211)
+        self.axe_spc = self.figure.add_subplot(212)
         logging.debug('figure created')
 
         # intialize img tools
-        ImgTools(self.axe_img, self.axe_spc)
+        self._image = Image(self.axe_img, self.axe_spc)
 
         # initialize spec tools
-        _spcTools = Calibration(self.axe_img, self.axe_spc)
-        
-        # create buttons
-        self._button_frame = ttk.Frame(self)
-        self._button_frame.pack(side='top', fill='x')
+        self._spectrum = Spectrum(self.axe_img, self.axe_spc)
 
-        self.__btn_load = ttk.Button(self._button_frame, text="Load", command=ImgTools.open_image)
-        self.__btn_load.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        # callback for cuts sliders    
+        def update_sliders(slider, label):
+            label.config(text=f"[{slider.get():.0f}]")
+            if self._image.image is not None:           
+                # Update the image's colormap
+                if slider == slider_low:
+                    self._image.image.norm.vmin = slider.get()
+                    self._image.image.set_clim(vmin=slider.get())
+                    #slider.config(to = self._image.img_stacked.min())
+                elif slider == slider_high:
+                    self._image.image.norm.vmax = slider.get()
+                    self._image.image.set_clim(vmax=slider.get())
+                    #slider.config(from_ = self._image.img_stacked.max())
+                else:
+                    logging.error("internal : unknown slider event on repr({slider})")
+                
+                # uodate colorbar
+                self._image._colorbar.update_normal(self._image.image)
 
-        self.__btn_run = ttk.Button(self._button_frame, text="Run", command=_spcTools.do_calibration)
-        self.__btn_run.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
+                # Redraw the figure
+                self._image._figure.canvas.draw_idle()
 
-        self._button_frame.grid_columnconfigure(0, weight=1)
-        self._button_frame.grid_columnconfigure(1, weight=1)
+        # create button bar and sliders
+        frame = ttk.Frame(self)
+        frame.pack(side=tk.TOP, fill=tk.X)
 
-        logging.debug('buttons created')
+        bt_load = ttk.Button(frame, text="Load", command=self._image.open_image)
+        bt_load.pack(side=tk.LEFT, padx=5, pady=0)
+        bt_run = ttk.Button(frame, text="Run", command=self._spectrum.do_calibration)
+        bt_run.pack(side=tk.LEFT, padx=5, pady=0)
+
+        slider_frame = ttk.Frame(frame)
+        slider_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
+
+        # Slider high
+        slider_high_frame = ttk.Frame(slider_frame)
+        slider_high_frame.pack(side=tk.TOP, fill=tk.X, padx=50, pady=0)
+        slider_high_value = ttk.Label(slider_high_frame, text="[65535]")
+        slider_high_value.pack(side=tk.LEFT)
+        #slider_high_label = ttk.Label(slider_high_frame, text="0")
+        #slider_high_label.pack(side=tk.LEFT)
+        slider_high = ttk.Scale(slider_high_frame, from_=0, to=65535, orient=tk.HORIZONTAL) #, resolution = 100)
+        slider_high.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        slider_high.set(65535)
+        #slider_high_max_label = ttk.Label(slider_high_frame, text="100")
+        #slider_high_max_label.pack(side=tk.LEFT)
+        slider_high.bind("<Motion>", lambda event: update_sliders(slider_high, slider_high_value))
+
+        # Slider low
+        slider_low_frame = ttk.Frame(slider_frame)
+        slider_low_frame.pack(side=tk.TOP, fill=tk.X, padx=50, pady=0)
+        slider_low_value = ttk.Label(slider_low_frame, text="[0]")
+        slider_low_value.pack(side=tk.LEFT)
+        #slider_low_label = ttk.Label(slider_low_frame, text="0")
+        #slider_low_label.pack(side=tk.LEFT)
+        slider_low = ttk.Scale(slider_low_frame, from_=0, to=65535, orient=tk.HORIZONTAL)   #, resolution = 100)
+        slider_low.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        slider_low.set(0)
+        #slider_low_max_label = ttk.Label(slider_low_frame, text="100")
+        #slider_low_max_label.pack(side=tk.LEFT)
+        slider_low.bind("<Motion>", lambda event: update_sliders(slider_low, slider_low_value))
 
         # create canvas 
         canvas = FigureCanvasTkAgg(self.figure, self)
@@ -116,6 +160,5 @@ class Application(tk.Tk):
         logging.debug('toolbar updated')
 
         # pack all
-        canvas.get_tk_widget().pack(side = tk.TOP, fill = tk.BOTH, expand = True)
-        canvas.draw() #_idle()
-
+        canvas.draw()
+        canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)

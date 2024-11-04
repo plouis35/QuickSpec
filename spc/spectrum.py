@@ -24,9 +24,9 @@ from specreduce import WavelengthCalibration1D
 
 from app.os_utils import OSUtils
 from app.config import Config
-from img.img_tools import ImgTools
+from img.image import Image
 
-class Calibration(object):
+class Spectrum(object):
 
     def __init__(self, axe_img: Axes, axe_spc: Axes) -> None:
         self.conf = Config()
@@ -38,13 +38,15 @@ class Calibration(object):
         logging.info('extracting science spectra ...')
 
         self.ax_spc.clear()
-        master_science: np.ndarray = ImgTools.img_stacked
+
+        Image.reduce_images()
+        
+        master_science: np.ndarray = Image.img_stacked
+        
 
         #trace_model : one of Chebyshev1D, Legendre1D, Polynomial1D, or Spline1D
         #peak_method : One of gaussian, centroid, or max. gaussian
-        if (_guess := self.conf.get_float('processing', 'trace_y_guess')) == 0.0:
-            _guess = None
-
+        _guess: float | None = self.conf.get_float('processing', 'trace_y_guess')
         try:
             sci_tr:FitTrace = FitTrace(master_science, bins = self.conf.get_int('processing', 'trace_x_bins'), 
                                     trace_model=models.Chebyshev1D(degree=2), 
@@ -114,7 +116,7 @@ class Calibration(object):
         pixels = [float(x) for x in _pixels.replace(',', '').split()]*u.pix
         #print(wavelength, pixels)
         logging.info(f"calibrating pixels set : {pixels}")
-        logging.info(f"... with wavelengths set : {wavelength}")
+        logging.info(f"with wavelengths set : {wavelength}")
 
         #input_spectrum, matched_line_list=None, line_pixels=None, line_wavelengths=None, catalog=None, input_model=Linear1D(), fitter=None
         #fitter: ~astropy.modeling.fitting.Fitter, optional The fitter to use in optimizing the model fit. Defaults to
@@ -130,7 +132,7 @@ class Calibration(object):
             #fitter = fitting.LinearLSQFitter()
             )
         
-        print('residuals :', repr(cal.residuals) )
+        logging.info(f"residuals : {repr(cal.residuals)}")
         
         logging.info('neon spectrum calibrated')
 
@@ -156,7 +158,7 @@ class Calibration(object):
         plt.ylabel('ADU')
         #plt.ylim(-10000, 1e6)
 
-        Calibration.show_lines(ax = self.ax_spc, show_line = True)
+        Spectrum.show_lines(ax = self.ax_spc, show_line = True)
         return True
     
     @staticmethod

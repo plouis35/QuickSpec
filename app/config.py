@@ -49,36 +49,36 @@ class Config(object):
         return wrap
 
     @_check_changes
-    def get_str(self, section, key) -> str:
+    def get_str(self, section, key) -> str | None:
         try:
             return self.config.get(section, key)
         except (configparser.NoSectionError, configparser.NoOptionError, ValueError) as e:
-            logging.error(f"configuration error : key : {section}.{key} {e} in {self._config_path} file")
-            return ""
+            logging.warning(f"configuration key not found: {section}.{key} {e} in {self._config_path} file")
+            return None
 
     @_check_changes
-    def get_int(self, section, key) -> int:
+    def get_int(self, section, key) -> int | None:
         try:
             return self.config.getint(section, key)
         except (configparser.NoSectionError, configparser.NoOptionError, ValueError) as e:
-            logging.error(f"configuration error : key : {section}.{key} {e} in {self._config_path} file")
-            return 0
+            logging.warning(f"configuration key not found: {section}.{key} {e} in {self._config_path} file")
+            return None
 
     @_check_changes
-    def get_float(self, section, key) -> float:
+    def get_float(self, section, key) -> float | None:
         try:
             return self.config.getfloat(section, key)
         except (configparser.NoSectionError, configparser.NoOptionError, ValueError) as e:
-            logging.error(f"configuration error : key : {section}.{key} {e} in {self._config_path} file")
-            return 0.0
+            logging.warning(f"configuration key not found: {section}.{key} {e} in {self._config_path} file")
+            return None
 
     @_check_changes
-    def get_bool(self, section, key) -> bool:
+    def get_bool(self, section, key) -> bool | None:
         try:
             return self.config.getboolean(section, key)
         except (configparser.NoSectionError, configparser.NoOptionError, ValueError) as e:
-            logging.error(f"configuration error : key : {section}.{key} {e} in {self._config_path} file")
-            return False
+            logging.warning(f"configuration key not found: {section}.{key} {e} in {self._config_path} file")
+            return None
 
     def save(self) -> None:
         with open(self._config_path, 'w') as configfile:

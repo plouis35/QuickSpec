@@ -1,15 +1,13 @@
 import logging
 import numpy as np
-import psutil
 import warnings
+import os
 
 import matplotlib.pyplot as plt
 from matplotlib.image import AxesImage
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 from matplotlib.colorbar import Colorbar
-from matplotlib.widgets import RangeSlider
-
 
 from astropy import visualization as aviz
 from astropy.nddata.blocks import block_reduce
@@ -21,8 +19,6 @@ from astropy.stats import mad_std
 from astropy.io import fits
 from astropy.utils.exceptions import AstropyWarning
 
-
-
 from ccdproc import Combiner, combine, subtract_bias, subtract_dark, flat_correct
 from ccdproc import trim_image, Combiner, ccd_process, cosmicray_median
 
@@ -32,95 +28,75 @@ from tkinter import ttk
 
 from tkinter.filedialog import askopenfilenames
 
-#from tkinter import Tk, filedialog, Frame, Button, Canvas
-
-
 from app.config import Config
 
 warnings.simplefilter('ignore', category=AstropyWarning)
 warnings.simplefilter('ignore', UserWarning)
 
-class ImgTools(object):
+class Image(object):
+
+    img_stacked: np.ndarray = np.zeros((2, 8))
+    img_names:list[str] = None
 
     def __init__(self, axe_img: Axes, axe_spc: Axes) -> None:
-        ImgTools.conf: Config = Config()
-        ImgTools.img_stacked: np.ndarray = np.zeros((2, 8))
-
-        ImgTools._colorbar: Colorbar = None
-        ImgTools._ax_img: Axes = axe_img
-        ImgTools._ax_spc: Axes = axe_spc
-        ImgTools._figure: Figure = axe_img.get_figure()
+        self.conf: Config = Config()
+        self._colorbar: Colorbar = None
+        self._ax_img: Axes = axe_img
+        self._ax_spc: Axes = axe_spc
+        self._figure: Figure = axe_img.get_figure()
+        self.image: AxesImage = None
 
         # create cuts range slider
         def format_coord(x,y) -> str:
             return f'x={x:.0f}, y={y:.0f}'
 
-        ImgTools._ax_img.format_coord = format_coord
+        self._ax_img.format_coord = format_coord
         
         plt.subplots_adjust(bottom=0.3)
 
-#        ImgTools._slider_ax: Axes = ImgTools._figure.add_axes((0.082, 0.97, 0.55, 0.01))  # (left, bottom, width, height)
-        ImgTools._slider_ax: Axes = ImgTools._figure.add_axes((axe_img.get_position().x0, 
-                                                               0.97, 
-                                                               axe_img.get_position().width / 2, 
-                                                               0.01)) 
-        ImgTools._slider: RangeSlider = RangeSlider(ImgTools._slider_ax, "Cuts: ",
-                                   orientation = 'horizontal',
-                                   valstep = 10,
-                                   dragging = True,
-                                   valinit = (0, 65535),
-                                   valmin = 0,
-                                   valmax = 65535)
-        logging.debug('slider frame created')
-
         # show a dummy (zeros) image to start            
-        ImgTools.show_image(image = ImgTools.img_stacked,
+        self.show_image(image = Image.img_stacked,
                         #percl = 0,
                         #percu = 99.5,
-                        fig = ImgTools._figure,
-                        ax = ImgTools._ax_img,
+                        fig = self._figure,
+                        ax = self._ax_img,
                         show_colorbar=True, 
                         cmap = 'Grays')
 
-    @staticmethod
-    def update_image(val) -> None:
+    def update_image(self, val) -> None:
         # Update the image's colormap
-        ImgTools._img.norm.vmin = val[0]
-        ImgTools._img.norm.vmax = val[1]
+        self.image.norm.vmin = val[0]
+        self.image.norm.vmax = val[1]
         
         # update image cuts levels
-        ImgTools._img.set_clim(val[0], val[1])
+        self.image.set_clim(val[0], val[1])
 
         # uodate colorbar
-        ImgTools._colorbar.update_normal(ImgTools._img)
+        self._colorbar.update_normal(self.image)
 
         # Redraw the figure to ensure it updates
-        ImgTools._figure.canvas.draw_idle()
+        self._figure.canvas.draw_idle()
 
 
-    @staticmethod
-    def open_image() -> None:
+    def open_image(self) -> None:
         # create openfile dialog
-
-        path = askopenfilenames(title='Select image(s) or a directory for watch mode',
-                            initialdir = ImgTools.conf.get_str('files', 'initial_directory'),
-                            defaultextension = ImgTools.conf.get_str('files', 'file_types')
+        self.path: tuple[str, ...] | Literal[''] = askopenfilenames(title='Select image(s) or a directory for watch mode',
+                            initialdir = self.conf.get_str('files', 'initial_directory'),
+                            defaultextension = self.conf.get_str('files', 'file_types')
                             )
         #path = (['albireo-10.fit'])
-        if path == '': 
+        if self.path == '': 
             return 
         else: 
-            ImgTools.load_image(path)
+            self.load_image(self.path)
             return
         
-    @staticmethod
-    def load_image(path: tuple[str, ...]) -> None:
-
+    def load_image(self, path: tuple[str, ...]) -> None:
         # cleanup previous images
-        ImgTools._ax_img.clear()
+        self._ax_img.clear()
 
         # do not recreate colorbar
-        if (ImgTools._colorbar is None):
+        if (self._colorbar is None):
             show_colorbar = True
         else:
             show_colorbar = False
@@ -133,55 +109,39 @@ class ImgTools(object):
         for img_name in path:
             logging.info(f"loading {img_name}...")
             _img_data.append(CCDData.read(img_name, unit = 'adu').data)
-#            _img_data.append(CCDData.read(img_name).data)
             _img_name.append(img_name)
             _img_count += 1
 
+        Image.img_names = _img_name.copy()
+
         # stack images
-        ImgTools.img_stacked: np.ndarray = _img_data[0]
+        Image.img_stacked = _img_data[0]
         for i in range(1, _img_count):
-            ImgTools.img_stacked = np.add(ImgTools.img_stacked, _img_data[i])
+            Image.img_stacked = np.add(Image.img_stacked, _img_data[i])
 
         del _img_data
 
        # collect image stats
-        vstd = ImgTools.img_stacked.std()
-        vmean = ImgTools.img_stacked.mean()
-        _min = ImgTools.img_stacked.min()
-        _max = ImgTools.img_stacked.max()
+        vstd = Image.img_stacked.std()
+        vmean = Image.img_stacked.mean()
+        _min = Image.img_stacked.min()
+        _max = Image.img_stacked.max()
         vmin = vmean - vstd
         vmax = vmean + vstd
 
         # display image
         logging.info (f"image stats : min = {_min}, max = {_max}, mean = {vmean}, std = {vstd}")
-        ImgTools._img = ImgTools.show_image(image = ImgTools.img_stacked,
+        self.image = self.show_image(image = Image.img_stacked,
                         #percl = 0,
                         #percu = 99.5,
-                        fig = ImgTools._ax_img.get_figure(),
-                        ax = ImgTools._ax_img,
+                        fig = self._ax_img.get_figure(),
+                        ax = self._ax_img,
                         show_colorbar = show_colorbar, 
-                        cmap = ImgTools.conf.get_str('window', 'colormap'))
+                        cmap = self.conf.get_str('window', 'colormap'))
 
-        # update colorbar
-        ImgTools._colorbar.update_normal(ImgTools._img)
+        self._figure.canvas.draw_idle()
 
-        # update slider
-        ImgTools._img.norm.vmax = vmax
-        ImgTools._img.norm.vmin = vmin
-
-        ImgTools._slider.valmin = vmin / 2 #_min 
-        ImgTools._slider.valmax = vmax * 2
-        ImgTools._slider.valinit = (vmin, vmax)
-        ImgTools._slider_ax.set_xlim(vmin, vmax * 2)
-        ImgTools._slider.reset()
-
-        ImgTools._slider.on_changed(ImgTools.update_image)
-        ImgTools._figure.canvas.draw_idle()
-
-        logging.info(f"total memory used = {int(psutil.Process().memory_info().rss / (1024 * 1024))}MB")
-
-    @staticmethod
-    def show_image( image,
+    def show_image( self, image,
                     percl = 99.5,
                     percu = None,
                     is_mask = False,
@@ -289,7 +249,7 @@ class ImgTools(object):
             # is wider than it is tall. Sticking with this for now anyway...
             # Thanks: https://stackoverflow.com/a/26720422/3486425
     #        fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
-            ImgTools._colorbar: Colorbar = fig.colorbar(im, ax=ax, fraction=0.02, pad=0.01)
+            self._colorbar: Colorbar = fig.colorbar(im, ax=ax, fraction=0.02, pad=0.01)
             
             # In case someone in the future wants to improve this:
             # https://joseph-long.com/writing/colorbars/
@@ -300,3 +260,53 @@ class ImgTools(object):
             ax.tick_params(labelbottom=False, labelleft=False, labelright=False, labeltop=False)
 
         return im
+
+    @staticmethod
+    def reduce_images() -> None:
+        path: list[str] = Image.img_names 
+        _img_count: int = 0
+        _img_data: list[CCDData] = []
+        _img_name: list[str] = []
+        
+        # read new images into memory
+        for img_name in path:
+            logging.info(f"loading {img_name}...")
+            _img_data.append(CCDData.read(img_name, unit = 'adu'))
+            _img_name.append(img_name)
+            _img_count += 1
+
+        # read master frames
+        #capture_dir: str = os.path.basename(_img_name[0]) 
+        capture_dir = '/Users/papa/Documents/ASTRO/CAPTURES/20240826_Void'
+        logging.info(f"loading masterbias...")
+        master_bias = CCDData.read(capture_dir + '/_offset.fit', unit = u.adu)
+        logging.info(f"loading masterdark...")
+        master_dark = CCDData.read(capture_dir + '/_dark.fit', unit = u.adu)
+        logging.info(f"loading masterflat...")
+        master_flat = CCDData.read(capture_dir + '/_flat.fit', unit = u.adu)
+
+        # stack images
+        for i in range(0, _img_count):
+            logging.info(f"processing {_img_name[i]}...")
+            _img_data[i] = ccd_process(ccd = _img_data[i], 
+                oscan = None, 
+                gain_corrected = True, 
+                trim = None, 
+                error = False,
+#                gain = camera_electronic_gain*u.electron/u.adu ,
+#                readnoise = camera_readout_noise*u.electron,
+                master_bias = master_bias,
+                dark_frame = master_dark,
+                master_flat = master_flat,
+                exposure_key = 'EXPTIME',
+                exposure_unit = u.second,
+                dark_scale = True)       
+
+        logging.info(f"summing images...")
+        Image.img_stacked = _img_data[0].data
+        for i in range(1, _img_count):
+            np.add(Image.img_stacked, _img_data[i])
+
+        del _img_data
+
+
