@@ -25,6 +25,7 @@ from specreduce import WavelengthCalibration1D
 from app.os_utils import OSUtils
 from app.config import Config
 from img.image import Image
+from img.img_utils import show_image, reduce_images
 
 class Spectrum(object):
 
@@ -39,20 +40,49 @@ class Spectrum(object):
 
         self.ax_spc.clear()
 
-        Image.reduce_images()
+        _reduced_img: CCDData | None = reduce_images(images=Image.img_names, preprocess=True)
+        if Image.img_stacked is None: return False
+
+        Image.img_stacked = _reduced_img.data
         
+       # collect image stats
+        vstd = Image.img_stacked.std()
+        vmean = Image.img_stacked.mean()
+        _min = Image.img_stacked.min()
+        _max = Image.img_stacked.max()
+        vmin = vmean - vstd
+        vmax = vmean + vstd
+
+        # display image
+        logging.info (f"image stats : min = {_min}, max = {_max}, mean = {vmean}, std = {vstd}")
+        show_image(image = Image.img_stacked,
+                        fig = self.ax_img.get_figure(),
+                        ax = self.ax_img,
+                        show_colorbar = False, #show_colorbar, 
+                        cmap = self.conf.get_str('window', 'colormap'))
+
+        self.figure.canvas.draw_idle()
+
         master_science: np.ndarray = Image.img_stacked
         
-
         #trace_model : one of Chebyshev1D, Legendre1D, Polynomial1D, or Spline1D
         #peak_method : One of gaussian, centroid, or max. gaussian
+        #trace_model : one of ~astropy.modeling.polynomial.Chebyshev1D,
+        #  ~astropy.modeling.polynomial.Legendre1D, 
+        # ~astropy.modeling.polynomial.Polynomial1D,
+        #  or ~astropy.modeling.spline.Spline1D, optional The 1-D polynomial model used to fit the trace to the bins' peak pixels. S
+        # pline1D models are fit with Astropy's 'SplineSmoothingFitter', while the other models are fit with the 'LevMarLSQFitter'.
+        #  [default: models.Polynomial1D(degree=1)]
+
         _guess: float | None = self.conf.get_float('processing', 'trace_y_guess')
         try:
-            sci_tr:FitTrace = FitTrace(master_science, bins = self.conf.get_int('processing', 'trace_x_bins'), 
+            sci_tr:FitTrace = FitTrace(master_science, 
+                                    bins = self.conf.get_int('processing', 'trace_x_bins'), 
                                     trace_model=models.Chebyshev1D(degree=2), 
                                     peak_method = 'centroid',     #'gaussian', 
                                     window = self.conf.get_int('processing', 'trace_y_window'),
                                     guess =  _guess)
+            
         except Exception as e:
             logging.error(f"unable to fit trace : {e}")
             return False
@@ -144,7 +174,7 @@ class Spectrum(object):
 
         self.ax_spc.set_ylabel('Relative intensity')
         self.ax_spc.set_xlabel('Wavelength (Angstrom)')
-        self.ax_spc.grid(color = 'green', linestyle = '--', linewidth = 0.5)
+        self.ax_spc.grid(color = 'grey', linestyle = '--', linewidth = 0.5)
 
         self.ax_spc.plot(final_spec.spectral_axis, final_spec.flux, color='red', linewidth = '0.4')
         self.figure.canvas.draw_idle()
@@ -245,7 +275,7 @@ class Spectrum(object):
             lam = lines_to_display[ii]['lambda'] * 10    # nm to AA
             if (lam > xbounds[0]) & (lam < xbounds[1]):
                 ax.axvline(lam, 0.95, 1.0, color = 'yellow', lw = 1.0)
-                ax.axvline(lam, color = 'yellow', lw = 0.3, linestyle = ':')
+                ax.axvline(lam, color = 'yellow', lw = 0.8, linestyle = '--')
                 trans = ax.get_xaxis_transform()
                 ax.annotate(lines_to_display[ii]['label'], xy = (lam, 1.05), xycoords = trans, \
                         fontsize = 8, rotation = 90, color = 'yellow')

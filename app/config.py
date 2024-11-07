@@ -111,6 +111,7 @@ if __name__ == "__main__":
     from astropy import units as u
     from astropy.table import QTable
 
+    """"
     __wavelength = [6506.53, 6532.88, 6598.95, 6678.28, 6717.04]*u.AA
     __pixels = [770, 1190, 2240, 3484, 4160]*u.pix
     print(' ok -> ', __wavelength, __pixels)
@@ -129,4 +130,15 @@ if __name__ == "__main__":
     wavelength = _wavelength
     pixels = _pixels
     print('nok -> ', wavelength, pixels)
+    """
 
+    import json
+    try:
+        line_list = json.  ([conf.get_str('post_processing', 'lines_to_display')] )
+        config_js = conf.read.option("multiline", "true").json(global_config).collect()[0]
+        try:
+            log_path = config_js["log_path"]
+        except Exception ex1:
+            log_path = "/log"
+    except Exception as ex:
+        print(str(ex))      

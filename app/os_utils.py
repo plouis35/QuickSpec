@@ -1,5 +1,9 @@
 import logging
+import sys, os
+import platform
+from pathlib import Path
 import psutil
+from importlib.metadata import version  
 
 class OSUtils(object):
 
@@ -10,3 +14,21 @@ class OSUtils(object):
     @staticmethod
     def log_memory_used() -> None:
         logging.info(f"current memory used = {OSUtils.get_memory_used()}MB")
+
+    @staticmethod
+    def log_versions() -> None:
+        for md in ['numpy','astropy', 'specutils', 'specreduce', 'ccdproc']:
+            try:
+                logging.info(f"{md} = {version(md)}")
+            except Exception as e:
+                logging.info(f"{e}")
+
+    @staticmethod
+    def get_path_directory(path: str) -> str:
+        return str(Path(path).absolute().parent)
+
+    # test
+if __name__ == "__main__":
+    OSUtils.log_versions()
+    print(OSUtils.get_path_directory('/Users/papa/Documents/ASTRO/CAPTURES/202408id/_offset.fit'))
+
