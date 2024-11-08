@@ -33,7 +33,7 @@ class Application(tk.Tk):
         self.conf = Config()
         LogHandler().set()
         OSUtils.log_versions()
-        self.tk.call('tk', 'scaling', '-displayof', '.', 2)
+        #self.tk.call('tk', 'scaling', '-displayof', '.', 2)
         self.geometry(self.conf.get_str('window', 'geometry'))
         self.title(app_name)
         self.app_name = app_name
@@ -57,7 +57,7 @@ class Application(tk.Tk):
         plt.style.use(self.conf.get_str('window', 'theme'))        
 
         # create a single figure for both image & spectrum horizontaly packed
-        self.figure = Figure(figsize=(5, 4), dpi=100)
+        self.figure = Figure(figsize=(5, 4)) #, dpi=100)
 
         self.axe_img = self.figure.add_subplot(211)
         self.axe_spc = self.figure.add_subplot(212)
@@ -73,24 +73,13 @@ class Application(tk.Tk):
         def update_sliders(slider, label):
             label.config(text=f"[{slider.get():.0f}]")
             if self._image.image is not None:           
-                # Update the image's colormap
                 if slider == slider_low:
-                    self._image.image.norm.vmin = slider.get()
-                    self._image.image.set_clim(vmin=slider.get())
-                    #slider.config(to = self._image.img_stacked.min())
+                    self._image.update_image(slider.get(), None)
                 elif slider == slider_high:
-                    self._image.image.norm.vmax = slider.get()
-                    self._image.image.set_clim(vmax=slider.get())
-                    #slider.config(from_ = self._image.img_stacked.max())
+                    self._image.update_image(None, slider.get())
                 else:
                     logging.error("internal : unknown slider event on repr({slider})")
-                
-                # uodate colorbar
-                self._image._colorbar.update_normal(self._image.image)
-
-                # Redraw the figure
-                self._image._figure.canvas.draw_idle()
-
+                                
         # create button bar and sliders
         frame = ttk.Frame(self)
         frame.pack(side=tk.TOP, fill=tk.X)
@@ -100,7 +89,6 @@ class Application(tk.Tk):
         bt_run = ttk.Button(frame, text="Process", command=self._spectrum.do_calibration)
         bt_run.pack(side=tk.LEFT, padx=5, pady=0)
 
-        """"
         slider_frame = ttk.Frame(frame)
         slider_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
 
@@ -131,7 +119,6 @@ class Application(tk.Tk):
         #slider_low_max_label = ttk.Label(slider_low_frame, text="100")
         #slider_low_max_label.pack(side=tk.LEFT)
         slider_low.bind("<Motion>", lambda event: update_sliders(slider_low, slider_low_value))
-        """
         
         # create canvas 
         canvas = FigureCanvasTkAgg(self.figure, self)

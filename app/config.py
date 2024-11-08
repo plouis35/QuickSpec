@@ -131,14 +131,3 @@ if __name__ == "__main__":
     pixels = _pixels
     print('nok -> ', wavelength, pixels)
     """
-
-    import json
-    try:
-        line_list = json.  ([conf.get_str('post_processing', 'lines_to_display')] )
-        config_js = conf.read.option("multiline", "true").json(global_config).collect()[0]
-        try:
-            log_path = config_js["log_path"]
-        except Exception ex1:
-            log_path = "/log"
-    except Exception as ex:
-        print(str(ex))      

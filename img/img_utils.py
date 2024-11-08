@@ -33,8 +33,10 @@ from astropy.stats import mad_std
 from astropy.nddata.blocks import block_reduce
 from astropy import visualization as aviz
 
+from matplotlib.image import AxesImage
 
-import astroalign as aa
+
+#import astroalign as aa
 from scipy.signal import fftconvolve
 
 from app.config import Config
@@ -180,24 +182,6 @@ class ImgCombiner(object):
         return self
 
     """
-    align a set of loaded frames - specific to stars fields (astroalign based)
-    """
-    def star_align(self, ref_image_index: int = 0):
-        aligned_images = []
-        #for i, img in tqdm(iterable = zip(range(len(self._images)), self._images), total=len(self._images), desc = 'aligning : '):
-        for i, img in zip(range(len(self._images)), self._images):
-            logging.info(f'image {i}: aligning to image ref {ref_image_index} ...')
-            try: 
-                reg_img, _ = aa.register(img, self._images[ref_image_index])
-                aligned_images.append(CCDData(reg_img, unit = u.adu, header = img.header))
-
-            except Exception as err:
-                logging.error(f"Error {err} : aligning image {i}")
-                
-        logging.info('align: complete')
-        return ImgCombiner(aligned_images)
-
-    """
     align a set of loaded frames - specific to spectra fields (fft based)
     """
     def spec_align(self, ref_image_index: int = 0):    
@@ -299,7 +283,7 @@ def show_image( image,
                 clip = True,
                 show_colorbar = True,
                 show_ticks = False,
-                fig = None, ax = None, input_ratio= None) -> None:
+                fig = None, ax = None, input_ratio= None) -> AxesImage:
     """
     Show an image in matplotlib with some basic astronomically-appropriat stretching.
     from : https://github.com/astropy/ccd-reduction-and-photometry-guide/blob/main/notebooks/convenience_functions.py
@@ -407,7 +391,7 @@ def show_image( image,
     if not show_ticks:
         ax.tick_params(labelbottom=False, labelleft=False, labelright=False, labeltop=False)
 
-    #return im
+    return im
 
 @staticmethod
 def reduce_images(images: tuple[str, ...], preprocess: bool = False) -> CCDData | None:
@@ -418,19 +402,25 @@ def reduce_images(images: tuple[str, ...], preprocess: bool = False) -> CCDData 
     CAPTURE_DIR =  str(Path(images[0]).absolute().parent) + '/'
     
     # read master frames
+    master_bias = None
+    master_dark = None
+    master_flat = None
+
     if preprocess:
-        master_bias = CCDData.read(CAPTURE_DIR + ImgCombiner.conf.get_str('pre_processing', 'master_offset'), unit = u.adu)
-        logging.info(f"masterbias loaded")
-        master_dark = CCDData.read(CAPTURE_DIR + ImgCombiner.conf.get_str('pre_processing', 'master_dark'), unit = u.adu)
-        logging.info(f"masterdark loaded")
-        master_flat = CCDData.read(CAPTURE_DIR + ImgCombiner.conf.get_str('pre_processing', 'master_flat'), unit = u.adu)
-        logging.info(f"masterflat loaded")
+        try:
+            if (bias_file := ImgCombiner.conf.get_str('pre_processing', 'master_offset')) is not None:
+                master_bias = CCDData.read(CAPTURE_DIR + bias_file, unit = u.adu)
+                logging.info(f"masterbias loaded")
+            if (dark_file := ImgCombiner.conf.get_str('pre_processing', 'master_dark')) is not None:
+                master_dark = CCDData.read(CAPTURE_DIR + dark_file, unit = u.adu)
+                logging.info(f"masterdark loaded")
+            if (flat_file := ImgCombiner.conf.get_str('pre_processing', 'master_flat')) is not None:
+                master_flat = CCDData.read(CAPTURE_DIR + flat_file, unit = u.adu)
+                logging.info(f"masterflat loaded")
+        except Exception as e:
+            logging.error(f"cannot read masterfile: {e}")
     else:
         logging.info(f"no preprocessing to do")
-        master_bias = None
-        master_dark = None
-        master_flat = None
-
 
     ### reduce science frames
     try:
@@ -444,7 +434,7 @@ def reduce_images(images: tuple[str, ...], preprocess: bool = False) -> CCDData 
                                     exposure_key = EXPOSURE_KEY)
     
     except Exception as e:
-        logging.error(f"unable reduce data: {e}")
+        logging.error(f"unable to reduce data: {e}")
         return None
 
     ### combine frames (sum or median) & save master science frame

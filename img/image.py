@@ -57,26 +57,27 @@ class Image(object):
         #plt.subplots_adjust(bottom=0.3)
 
         # show a dummy (zeros) image to start            
-        show_image(image = Image.img_stacked,
+        self.image = show_image(image = Image.img_stacked,
                         fig = self._figure,
                         ax = self._ax_img,
-                        show_colorbar=False, 
+                        show_colorbar=True, 
                         cmap = 'Grays')
 
-    def update_image(self, val) -> None:
-        # Update the image's colormap
-        self.image.norm.vmin = val[0]
-        self.image.norm.vmax = val[1]
-        
-        # update image cuts levels
-        self.image.set_clim(val[0], val[1])
+    def update_image(self, low_cut: int | None, high_cut: int | None) -> None:
+        # Update the image's colormap and cuts
+        try:
+            if low_cut is not None: self.image.norm.vmin = low_cut 
+            if high_cut is not None: self.image.norm.vmax = high_cut 
+            self.image.set_clim(self.image.norm.vmin, self.image.norm.vmax)
 
-        # uodate colorbar
-        #self._colorbar.update_normal(self.image)
+            # update colorbar
+            if self.image.colorbar is not None: 
+                self.image.colorbar.update_normal(self.image)
 
-        # Redraw the figure to ensure it updates
-        self._figure.canvas.draw_idle()
-
+            # Redraw the figure to ensure it updates
+            self._figure.canvas.draw_idle()
+        except Exception as e:
+            logging.error({e})
 
     def open_image(self) -> None:
         # create openfile dialog
@@ -96,35 +97,19 @@ class Image(object):
         self._ax_img.clear()
 
         # do not recreate colorbar
-        if (self._colorbar is None):
+        if self.image.colorbar is None:
             show_colorbar = True
         else:
             show_colorbar = False
 
-        """"    
-        _img_count: int = 0
-        _img_data: list[np.ndarray] = []
-        _img_names: list[str] = []
-        
-        # read new images into memory
-        for img_name in path:
-            logging.info(f"loading {img_name}...")
-            _img_data.append(CCDData.read(img_name, unit = 'adu').data)
-            _img_names.append(img_name)
-            _img_count += 1
-
-        Image.img_names = _img_names.copy()
-
-        # stack images
-        Image.img_stacked = _img_data[0]
-        for i in range(1, _img_count):
-            Image.img_stacked = np.add(Image.img_stacked, _img_data[i])
-
-        del _img_data
-        """
-
         Image.img_names = path
-        Image.img_stacked = reduce_images(images=Image.img_names, preprocess=False).data
+        try:
+            _imgs: CCDData | None = reduce_images(images=Image.img_names, preprocess=False)
+        except Exception as e:
+            logging.error(f"{e}")
+            return 
+
+        Image.img_stacked = _imgs.data
 
        # collect image stats
         vstd = Image.img_stacked.std()
@@ -136,11 +121,10 @@ class Image(object):
 
         # display image
         logging.info (f"image stats : min = {_min}, max = {_max}, mean = {vmean}, std = {vstd}")
-        show_image(image = Image.img_stacked,
+        self.image = show_image(image = Image.img_stacked,
                         fig = self._ax_img.get_figure(),
                         ax = self._ax_img,
-                        show_colorbar = False, #show_colorbar, 
+                        show_colorbar = show_colorbar, 
                         cmap = self.conf.get_str('window', 'colormap'))
 
         self._figure.canvas.draw_idle()
-

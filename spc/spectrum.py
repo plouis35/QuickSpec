@@ -41,7 +41,7 @@ class Spectrum(object):
         self.ax_spc.clear()
 
         _reduced_img: CCDData | None = reduce_images(images=Image.img_names, preprocess=True)
-        if Image.img_stacked is None: return False
+        if _reduced_img is None: return False
 
         Image.img_stacked = _reduced_img.data
         
