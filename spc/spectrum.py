@@ -98,7 +98,10 @@ class Spectrum(object):
             logging.error(f"unable to fit background : {e}")
             return False
         
+        master_science = master_science - bg  
         logging.info('background extracted')
+        
+        
         try:
             extract = BoxcarExtract(master_science - bg, sci_tr, width = _trace_width)
         except Exception as e:

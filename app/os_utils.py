@@ -17,6 +17,7 @@ class OSUtils(object):
 
     @staticmethod
     def log_versions() -> None:
+        logging.info("Versions installed =======:")
         for md in ['numpy','astropy', 'specutils', 'specreduce', 'ccdproc']:
             try:
                 logging.info(f"{md} = {version(md)}")

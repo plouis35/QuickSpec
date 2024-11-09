@@ -38,16 +38,22 @@ class Application(tk.Tk):
         self.title(app_name)
         self.app_name = app_name
         self.wm_state(self.conf.get_str('window', 'state'))
-        #self.create_watcher()
+        self.create_watcher()
         self.create_gui()
 
     def create_watcher(self) -> None:
         def watch() -> None:
             while True:
-                self.title(f"{self.app_name} [{OSUtils.get_memory_used()}MB]")
-                time.sleep(1)
+                try:
+                    self.title(f"{self.app_name} [{OSUtils.get_memory_used()}MB]")
+                    time.sleep(1)
+                except Exception as e:
+                    #logging.warning(f"Watch thread : {e}")
+                    logging.info("Watch thread terminated")
+                    # exit thread whatever exception is (during destroy window)
+                    break
 
-        self.watch_thread = threading.Thread(target = watch, name='EASYSPEC_watch_thread')
+        self.watch_thread = threading.Thread(target = watch, name='quickspec_watch_thread')
         self.watch_thread.start()
         logging.info('watch thread started - tid = {}'.format(self.watch_thread))          
 
@@ -69,6 +75,7 @@ class Application(tk.Tk):
         # initialize spec tools
         self._spectrum = Spectrum(self.axe_img, self.axe_spc)
 
+        """"
         # callback for cuts sliders    
         def update_sliders(slider, label):
             label.config(text=f"[{slider.get():.0f}]")
@@ -119,9 +126,27 @@ class Application(tk.Tk):
         #slider_low_max_label = ttk.Label(slider_low_frame, text="100")
         #slider_low_max_label.pack(side=tk.LEFT)
         slider_low.bind("<Motion>", lambda event: update_sliders(slider_low, slider_low_value))
+        """
         
+    
         # create canvas 
         canvas = FigureCanvasTkAgg(self.figure, self)
+        canvas.draw()
+
+
+        toolbar = NavigationToolbar2Tk(canvas, self, pack_toolbar=False)
+        #toolbar.config(background='grey')
+        #toolbar.config(foreground='gray')
+
+        #print(toolbar.toolitems)
+
+        toolbar.children['!button4'].pack_forget()
+
+        bt_load = tk.Button(master=toolbar, text="Load", command=self._image.open_image)
+        bt_load.pack(side="left")
+
+        bt_run = tk.Button(master=toolbar, text="Process", command=self._spectrum.do_calibration)
+        bt_run.pack(side="left")
 
         # create customized toolbar
         class CustomToolbar(NavigationToolbar2Tk):
@@ -148,10 +173,13 @@ class Application(tk.Tk):
 
                 super().__init__(canvas = canvas, window = parent, pack_toolbar = True)
 
-        toolbar = CustomToolbar(canvas, self)
+        #toolbar = CustomToolbar(canvas, self)
         toolbar.update()
         logging.debug('toolbar updated')
 
         # pack all
-        canvas.draw()
+        #canvas.draw()
+        toolbar.pack(side=tk.TOP, fill=tk.X)
         canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+
+
