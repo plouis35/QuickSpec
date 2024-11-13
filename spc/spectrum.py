@@ -25,7 +25,7 @@ from specreduce import WavelengthCalibration1D
 from app.os_utils import OSUtils
 from app.config import Config
 from img.image import Image
-from img.img_utils import show_image, reduce_images
+from img.img_utils import reduce_images
 
 class Spectrum(object):
 
@@ -34,35 +34,41 @@ class Spectrum(object):
         self.ax_img: Axes = axe_img
         self.ax_spc: Axes = axe_spc
         self.figure: Figure = axe_spc.get_figure()
+        self.sci_spectrum: Spectrum1D = None
+        self.final_spec: Spectrum1D = None
 
-    def do_calibration (self) -> bool:
-        logging.info('extracting science spectra ...')
+    def do_run_all(self) -> bool:
+        if self.do_reduce():
+            if self.do_extract():
+                if self.do_calibrate():
+                    if self.do_response():
+                        return True
+                    else: return False
+                else: return False
+            else: return False
+        else: return False
 
-        self.ax_spc.clear()
+    def do_reduce(self) -> bool:
+        logging.info('reducing science spectra ...')
 
         _reduced_img: CCDData | None = reduce_images(images=Image.img_names, preprocess=True)
         if _reduced_img is None: return False
 
         Image.img_stacked = _reduced_img.data
         
-       # collect image stats
-        vstd = Image.img_stacked.std()
-        vmean = Image.img_stacked.mean()
-        _min = Image.img_stacked.min()
-        _max = Image.img_stacked.max()
-        vmin = vmean - vstd
-        vmax = vmean + vstd
-
-        # display image
-        logging.info (f"image stats : min = {_min}, max = {_max}, mean = {vmean}, std = {vstd}")
-        show_image(image = Image.img_stacked,
-                        fig = self.ax_img.get_figure(),
-                        ax = self.ax_img,
-                        show_colorbar = False, #show_colorbar, 
-                        cmap = self.conf.get_str('window', 'colormap'))
+        logging.info (f"image stats: min={Image.img_stacked.min()}, max={Image.img_stacked.max()}, mean={Image.img_stacked.mean()}, std={Image.img_stacked.std()}")
+        
+        #self.ax_spc.clear()
+        #Image.show_image(None, image = Image.img_stacked,
+         #               fig_img = self.ax_img.get_figure(),
+          #              ax_img = self.ax_img,
+           #             show_colorbar = False, #show_colorbar, 
+            #            cmap = self.conf.get_str('window', 'colormap'))
 
         self.figure.canvas.draw_idle()
+        return True
 
+    def do_extract(self) -> bool:
         master_science: np.ndarray = Image.img_stacked
         
         #trace_model : one of Chebyshev1D, Legendre1D, Polynomial1D, or Spline1D
@@ -74,36 +80,36 @@ class Spectrum(object):
         # pline1D models are fit with Astropy's 'SplineSmoothingFitter', while the other models are fit with the 'LevMarLSQFitter'.
         #  [default: models.Polynomial1D(degree=1)]
 
-        _guess: float | None = self.conf.get_float('processing', 'trace_y_guess')
         try:
             sci_tr:FitTrace = FitTrace(master_science, 
-                                    bins = self.conf.get_int('processing', 'trace_x_bins'), 
+                                    bins=self.conf.get_int('processing', 'trace_x_bins'), 
                                     trace_model=models.Chebyshev1D(degree=2), 
-                                    peak_method = 'centroid',     #'gaussian', 
-                                    window = self.conf.get_int('processing', 'trace_y_window'),
-                                    guess =  _guess)
+                                    peak_method='centroid',     #'gaussian', 
+                                    window=self.conf.get_int('processing', 'trace_y_window'),
+                                    guess=self.conf.get_float('processing', 'trace_y_guess')
+                                    )
             
         except Exception as e:
             logging.error(f"unable to fit trace : {e}")
             return False
 
         logging.info(f'trace fitted : y = {sci_tr.trace}')
-
-        _bg_separation = self.conf.get_int('processing', 'sky_y_offset')    #80
-        _bg_width = self.conf.get_int('processing', 'sky_y_size')    #50
-        _trace_width = self.conf.get_int('processing', 'trace_y_size')   #15
+        
         try:
-            bg: Background = Background.two_sided(master_science, sci_tr, separation=_bg_separation, width=_bg_width) 
+            bg: Background = Background.two_sided(master_science, 
+                                                  sci_tr, 
+                                                  separation=self.conf.get_int('processing', 'sky_y_offset'), 
+                                                  width=self.conf.get_int('processing', 'sky_y_size')  ) 
         except Exception as e:
             logging.error(f"unable to fit background : {e}")
             return False
         
-        master_science = master_science - bg  
         logging.info('background extracted')
-        
-        
+                
         try:
-            extract = BoxcarExtract(master_science - bg, sci_tr, width = _trace_width)
+            extract = BoxcarExtract(master_science - bg, 
+                                    sci_tr, 
+                                    width = self.conf.get_float('processing', 'trace_y_size') )
         except Exception as e:
             logging.error(f"unable to extract background : {e}")
             return False
@@ -111,7 +117,7 @@ class Spectrum(object):
         logging.info('background substracted')
 
         try:
-            sci_spectrum: Spectrum1D = extract.spectrum
+            self.sci_spectrum = extract.spectrum
         except Exception as e:
             logging.error(f"unable to extract science spectrum : {e}")
             return False
@@ -119,25 +125,33 @@ class Spectrum(object):
         logging.info('spectrum extracted')
 
         if self.conf.get_bool('processing', 'show_trace'):
-            #self.ax_img.imshow(bg.bkg_wimage, origin='lower', aspect='auto', cmap=plt.cm.gray, alpha=0.2)
-            #self.ax_img.imshow(sci_tr.image.data, origin='lower', aspect='auto', cmap=plt.cm.gray, alpha=0.2)
-            self.ax_img.step(sci_spectrum.spectral_axis, sci_tr.trace , color='red', linestyle='dashed', linewidth = '0.3')
-            self.ax_img.step(sci_spectrum.spectral_axis, sci_tr.trace + extract.width , color='green', linestyle='dashed', linewidth = '0.5')  #, alpha=0.2)
-            self.ax_img.step(sci_spectrum.spectral_axis, sci_tr.trace - extract.width , color='green', linestyle='dashed', linewidth = '0.5')  #, alpha=0.2)
+            self.ax_img.step(self.sci_spectrum.spectral_axis, sci_tr.trace , color='red', 
+                             linestyle='dashed', linewidth = '0.3')
+            self.ax_img.step(self.sci_spectrum.spectral_axis, sci_tr.trace + extract.width , color='green', 
+                             linestyle='dashed', linewidth = '0.5')  #, alpha=0.2)
+            self.ax_img.step(self.sci_spectrum.spectral_axis, sci_tr.trace - extract.width , color='green', 
+                             linestyle='dashed', linewidth = '0.5')  #, alpha=0.2)
+            self.ax_img.step(self.sci_spectrum.spectral_axis, sci_tr.trace + (self.conf.get_int('processing', 'sky_y_offset')) , 
+                             color='blue', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
+            self.ax_img.step(self.sci_spectrum.spectral_axis, 
+                             sci_tr.trace + (self.conf.get_int('processing', 'sky_y_offset') + self.conf.get_int('processing', 'sky_y_size')) , 
+                             color='blue', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
+            self.ax_img.step(self.sci_spectrum.spectral_axis, 
+                             sci_tr.trace - (self.conf.get_int('processing', 'sky_y_offset') + self.conf.get_int('processing', 'sky_y_size')) , 
+                             color='blue', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
+            self.ax_img.step(self.sci_spectrum.spectral_axis, 
+                             sci_tr.trace - (self.conf.get_int('processing', 'sky_y_offset')) , 
+                             color='blue', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
+            self.ax_spc.step(self.sci_spectrum.spectral_axis , self.sci_spectrum.flux, color='red', linewidth = '0.4')
+            self.ax_spc.set_xlabel('Pixels')
+            self.ax_spc.set_ylabel('ADU')
 
-            self.ax_img.step(sci_spectrum.spectral_axis, sci_tr.trace + (_bg_separation) , color='blue', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
-            self.ax_img.step(sci_spectrum.spectral_axis, sci_tr.trace + (_bg_separation + _bg_width) , color='blue', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
-
-            self.ax_img.step(sci_spectrum.spectral_axis, sci_tr.trace - (_bg_separation + _bg_width) , color='blue', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
-            self.ax_img.step(sci_spectrum.spectral_axis, sci_tr.trace - (_bg_separation) , color='blue', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
-            
-            #self.ax_spc.set_title('spectrum2D + background + trace fitted')
-
-            #self.ax_spc.step(sci_spectrum.spectral_axis , sci_spectrum.flux, color='red', linewidth = '0.3')
-            #self.ax_spc.set_xlabel('Pixels')
-            #self.ax_spc.set_ylabel('ADU')
-
-        logging.info('calibrating neon spectrum...')
+        return True
+    
+    def do_calibrate(self) -> bool:
+        if self.sci_spectrum is None: return False
+        
+        logging.info('calibrating spectrum...')
         
         _wavelength = self.conf.get_str('processing', 'calib_x_wavelength')     #[6506.53, 6532.88, 6598.95, 6678.28, 6717.04]*u.AA
         _pixels = self.conf.get_str('processing', 'calib_x_pixel')     #[770, 1190, 2240, 3484, 4160]*u.pix
@@ -147,7 +161,6 @@ class Spectrum(object):
 
         wavelength = [float(x) for x in _wavelength.replace(',', '').split()]*u.AA
         pixels = [float(x) for x in _pixels.replace(',', '').split()]*u.pix
-        #print(wavelength, pixels)
         logging.info(f"calibrating pixels set : {pixels}")
         logging.info(f"with wavelengths set : {wavelength}")
 
@@ -155,7 +168,7 @@ class Spectrum(object):
         #fitter: ~astropy.modeling.fitting.Fitter, optional The fitter to use in optimizing the model fit. Defaults to
         #~astropy.modeling.fitting.LinearLSQFitter if the model to fit is linear
         #or ~astropy.modeling.fitting.LMLSQFitter if the model to fit is non-linear.
-        cal = WavelengthCalibration1D(input_spectrum = sci_spectrum,
+        cal = WavelengthCalibration1D(input_spectrum = self.sci_spectrum,
             line_wavelengths = wavelength,
             line_pixels = pixels,
             #matched_line_list = line_list,
@@ -169,29 +182,32 @@ class Spectrum(object):
         
         logging.info('neon spectrum calibrated')
 
-        calibrated_spectrum: Spectrum1D = cal.apply_to_spectrum(sci_spectrum)
+        self.calibrated_spectrum: Spectrum1D = cal.apply_to_spectrum(self.sci_spectrum)
         logging.info('science spectrum calibrated')
 
-        sci_mean_norm_region = calibrated_spectrum[6500 * u.AA: 6520 * u.AA].flux.mean()       # starEx2400 : high resolution
-        final_spec = Spectrum1D(spectral_axis = calibrated_spectrum.wavelength, flux = calibrated_spectrum.flux / sci_mean_norm_region)  
+        sci_mean_norm_region = self.calibrated_spectrum[6500 * u.AA: 6520 * u.AA].flux.mean()       # starEx2400 : high resolution
+        self.final_spec = Spectrum1D(spectral_axis = self.calibrated_spectrum.wavelength, flux = self.calibrated_spectrum.flux / sci_mean_norm_region)  
 
         self.ax_spc.set_ylabel('Relative intensity')
         self.ax_spc.set_xlabel('Wavelength (Angstrom)')
         self.ax_spc.grid(color = 'grey', linestyle = '--', linewidth = 0.5)
 
-        self.ax_spc.plot(final_spec.spectral_axis, final_spec.flux, color='red', linewidth = '0.4')
+        self.ax_spc.plot(self.final_spec.spectral_axis, self.final_spec.flux, color='red', linewidth = '0.4')
         self.figure.canvas.draw_idle()
 
         logging.info('calibration complete')
 
 
         plt.figure(figsize = (10,6))
-        plt.step(final_spec.wavelength, final_spec.flux, color='black', linewidth = '0.6') #, where="mid")
+        plt.step(self.final_spec.wavelength, self.final_spec.flux, color='black', linewidth = '0.6') #, where="mid")
         plt.xlabel('Wavelength (Ang)')
         plt.ylabel('ADU')
         #plt.ylim(-10000, 1e6)
 
         Spectrum.show_lines(ax = self.ax_spc, show_line = True)
+        return True
+    
+    def do_response(self) -> bool:
         return True
     
     @staticmethod

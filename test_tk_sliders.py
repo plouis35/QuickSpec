@@ -67,7 +67,7 @@ canvas.mpl_connect(
 canvas.mpl_connect("key_press_event", key_press_handler)
 
 toolbar.pack(side=tkinter.TOP, fill=tkinter.X)
-#plt.subplots_adjust(top = 0.2, bottom=0) 
+plt.subplots_adjust(bottom=0.2, top=0.9) 
 canvas.get_tk_widget().pack(side=tkinter.BOTTOM, fill=tkinter.BOTH, expand=True)
 tkinter.mainloop()
 

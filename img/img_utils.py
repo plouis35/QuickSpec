@@ -271,9 +271,45 @@ class Images(ImgCombiner):
             images.append(CCDData.read(fp, unit = u.adu))
             logging.info(f'image : {fp} loaded')
         return cls(images)
-    
+
 @staticmethod
-def show_image( image,
+def show_image_1( image,
+                cmap = 'viridis',
+                show_colorbar = True,
+                fig_img = None, ax_img = None) -> AxesImage:
+
+    fig_img.canvas.toolbar_position = 'right'
+    fig_img.canvas.header_visible = False
+    fig_img.canvas.footer_visible = True
+    fig_img.canvas.resizable = True
+    fig_img.canvas.capture_scroll = True
+    fig_img.canvas.toolbar_visible = True
+
+    ### show image 2D
+    ax_img.axis('off')
+    ax_img.set_yscale('linear')
+    img = ax_img.imshow(
+        image, 
+        origin = 'lower', 
+        #vmin = image.min(), 
+        #vmax = image.max(), 
+        interpolation='none',
+        aspect = 'equal',
+        cmap = cmap
+    )
+
+    def format_coord(x,y):
+        return "x={:.0f}, y={:.0f} ->".format(x,y)
+                
+    ax_img.format_coord=format_coord
+
+    if show_colorbar:
+        __color_bar = fig_img.colorbar(img, ax = ax_img, location='right')
+
+    return img
+
+@staticmethod
+def show_image_ccdproc( image,
                 percl = ImgCombiner.conf.get_float('window', 'lower_pcut'),
                 percu = ImgCombiner.conf.get_float('window', 'upper_pcut'),
                 is_mask = False,
