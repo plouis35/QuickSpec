@@ -35,10 +35,10 @@ class Image(object):
 
     img_stacked: np.ndarray = None
     img_names:tuple[str, ...] = None
+    img_colorbar: Colorbar = None
 
     def __init__(self, axe_img: Axes, axe_spc: Axes, frame: ttk.Frame) -> None:
         self.conf: Config = Config()
-        self._colorbar: Colorbar = None
         self._ax_img: Axes = axe_img
         self._ax_spc: Axes = axe_spc
         self._figure: Figure = axe_img.get_figure()
@@ -93,7 +93,7 @@ class Image(object):
         #self._figure.clf()
         #self._ax_img.clear()
         self._figure.canvas.draw()
-        
+
     def update_image(self, low_cut: float | None, high_cut: float | None) -> None:
         # Update the image's colormap and cuts
         try:
@@ -165,7 +165,7 @@ class Image(object):
         self.update_image(low_cut, high_cut)
         #self._figure.canvas.draw_idle()
 
-    def show_image(self, image,
+    def show_image( self, image,
                     cmap: str,
                     show_colorbar: bool,
                     fig_img: Figure, 
@@ -196,9 +196,9 @@ class Image(object):
         ax_img.format_coord=format_coord
 
         if show_colorbar:
-            if self._colorbar is not None:
-                self._colorbar.remove()
+            if Image.img_colorbar is not None:
+                Image.img_colorbar.remove()
             
-            self._colorbar = fig_img.colorbar(img, ax = ax_img, location='right', shrink=0.6)
+            Image.img_colorbar = fig_img.colorbar(img, ax = ax_img, location='right', shrink=0.6)
 
         return img

@@ -59,13 +59,13 @@ class Spectrum(object):
         logging.info (f"image stats: min={Image.img_stacked.min()}, max={Image.img_stacked.max()}, mean={Image.img_stacked.mean()}, std={Image.img_stacked.std()}")
         
         #self.ax_spc.clear()
-        #Image.show_image(None, image = Image.img_stacked,
+        #Image.show_image(image = Image.img_stacked,
          #               fig_img = self.ax_img.get_figure(),
           #              ax_img = self.ax_img,
-           #             show_colorbar = False, #show_colorbar, 
+           #             show_colorbar = False,
             #            cmap = self.conf.get_str('window', 'colormap'))
 
-        self.figure.canvas.draw_idle()
+        #self.figure.canvas.draw_idle()
         return True
 
     def do_extract(self) -> bool:

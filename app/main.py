@@ -72,12 +72,45 @@ class Application(tk.Tk):
         # initialize spec tools
         self._spectrum = Spectrum(self.axe_img, self.axe_spc)
 
+        # define callbacks
+        def load_images() -> None:
+            self._image.open_image()
+
+        def reduce_images() -> None:
+            self._spectrum.do_reduce()
+             # collect image stats
+            vstd = Image.img_stacked.std()
+            vmean = Image.img_stacked.mean()
+            _min = Image.img_stacked.min()
+            _max = Image.img_stacked.max()
+
+            # update sliders positions
+            self._image.slider_low.config(from_=_min)
+            self._image.slider_low.config(to=_max)
+
+            self._image.slider_high.config(from_=_min)
+            self._image.slider_high.config(to=_max)
+
+            nb_sigma = 5
+            low_cut = vmean - (nb_sigma * vstd)
+            high_cut = vmean + (nb_sigma * vstd)
+            self._image.slider_low.set(low_cut)
+            self._image.slider_high.set(high_cut)
+            self._image.show_image(image = Image.img_stacked,
+                        fig_img = self.figure,
+                        ax_img = self.axe_img,
+                        show_colorbar = False, 
+                        cmap = self.conf.get_str('window', 'colormap')
+                        )
+            #self._image.update_image(low_cut, high_cut)
+
+
         # create buttons
-        bt_load = ttk.Button(frame, text="Load", command=self._image.open_image)
+        bt_load = ttk.Button(frame, text="Load", command=load_images)
         bt_load.pack(side=tk.LEFT, padx=5, pady=0)
         bt_run = ttk.Button(frame, text="Run all", command=self._spectrum.do_run_all)
         bt_run.pack(side=tk.LEFT, padx=5, pady=0)
-        bt_reduce = ttk.Button(master=frame, text="Reduce", command=self._spectrum.do_reduce)
+        bt_reduce = ttk.Button(master=frame, text="Reduce", command=reduce_images)
         bt_reduce.pack(side=tk.LEFT, padx=5, pady=0)
         bt_extract = ttk.Button(master=frame, text="Extract", command=self._spectrum.do_extract)
         bt_extract.pack(side=tk.LEFT, padx=5, pady=0)
