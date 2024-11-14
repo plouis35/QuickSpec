@@ -274,6 +274,7 @@ class Images(ImgCombiner):
 
     @classmethod
     def reduce_images(cls, images: list[str], preprocess: bool = False) -> CCDData | None:
+        conf: Config = Config()
         TRIM_REGION = None
         EXPOSURE_KEY = 'EXPTIME'
         CAMERA_ELECTRONIC_GAIN = 0.13 * u.electron/u.adu   

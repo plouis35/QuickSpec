@@ -1,6 +1,7 @@
 import logging
 import numpy as np
 import warnings
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 from matplotlib.image import AxesImage
@@ -112,10 +113,11 @@ class Image(object):
         self._figure.canvas.draw_idle()
 
     def open_image(self) -> None:
+
         # create openfile dialog
-        self.path: tuple[str, ...] | Literal[''] = askopenfilenames(title='Select image(s) or a directory for watch mode',
+        self.path = askopenfilenames(title='Select image(s) or a directory for watch mode',
                             initialdir = self.conf.get_str('files', 'initial_directory'),
-                            defaultextension = self.conf.get_str('files', 'file_types')
+                            filetypes=[("fits files", '*.fit'), ("fits files", "*.fts"), ("fits files", "*.fits")],
                             )
         #path = (['albireo-10.fit'])
         if self.path == '': 
@@ -160,7 +162,7 @@ class Image(object):
         #logging.info(f"{low_cut=}, {high_cut=}")
 
         # display image
-        logging.info (f"image stats : min = {v_min}, max = {v_max}, mean = {v_mean}, std = {v_std}")
+        logging.info (f"loaded image(s) stats : min = {v_min}, max = {v_max}, mean = {v_mean}, std = {v_std}")
         self.image = self.show_image(image = Image.img_stacked,
                         fig_img = self._figure,
                         ax_img = self._ax_img,
@@ -168,6 +170,8 @@ class Image(object):
                         cmap = self.conf.get_str('display', 'colormap'))
         
         self.update_image(low_cut, high_cut)
+        self._ax_img.set_title(f"{Path(path[0]).stem}...") 
+
 
     def show_image( self, image,
                     cmap: str,

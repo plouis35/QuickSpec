@@ -16,6 +16,8 @@ from astropy.modeling import models, fitting
 from astropy.table import QTable
 
 from specutils.spectra.spectrum1d import Spectrum1D
+from specutils.manipulation import median_smooth, gaussian_smooth
+from specutils.analysis import snr, snr_derived
 
 from specreduce.tracing import FlatTrace, FitTrace
 from specreduce.background import Background
@@ -37,17 +39,6 @@ class Spectrum(object):
         self.figure: Figure = axe_spc.get_figure()
         self.sci_spectrum: Spectrum1D = None
         self.final_spec: Spectrum1D = None
-
-    def do_run_all(self) -> bool:
-        if self.do_reduce():
-            if self.do_extract():
-                if self.do_calibrate():
-                    if self.do_response():
-                        return True
-                    else: return False
-                else: return False
-            else: return False
-        else: return False
 
     def do_reduce(self) -> bool:
         logging.info('reducing science spectra ...')
@@ -182,6 +173,15 @@ class Spectrum(object):
         sci_mean_norm_region = self.calibrated_spectrum[6500 * u.AA: 6520 * u.AA].flux.mean()       # starEx2400 : high resolution
         self.final_spec = Spectrum1D(spectral_axis = self.calibrated_spectrum.wavelength, flux = self.calibrated_spectrum.flux / sci_mean_norm_region)  
 
+        # apply median smoothing (if any defined)
+        smooth: int | None = self.conf.get_int('post_processing', 'median_smooth') 
+        if smooth is not None:
+            smooth_spec: Spectrum1D = median_smooth(self.final_spec, width = smooth) 
+            self.final_spec = smooth_spec
+            logging.info(f"median smooth applied={smooth}")
+
+        logging.info(f'snr = {snr_derived(self.final_spec)}')
+
         self.ax_spc.clear()
 
         self.ax_spc.set_ylabel('Relative intensity')
@@ -192,21 +192,12 @@ class Spectrum(object):
         self.figure.canvas.draw_idle()
 
         logging.info('calibration complete')
-
-
-        #plt.figure(figsize = (10,6))
-        #plt.step(self.final_spec.wavelength, self.final_spec.flux, color='black', linewidth = '0.6') #, where="mid")
-        #plt.xlabel('Wavelength (Ang)')
-        #plt.ylabel('ADU')
-        #plt.ylim(-10000, 1e6)
-
         self.show_lines(ax = self.ax_spc, show_line = True)
         return True
     
     def do_response(self) -> bool:
         return True
     
-    #@staticmethod
     def show_lines(self, ax = None, show_line = True):
         """
         Show lines onto a plot. 
@@ -289,8 +280,8 @@ class Spectrum(object):
         for ii in range(len(lines_to_display)):
             lam = lines_to_display[ii]['lambda'] * 10    # nm to AA
             if (lam > xbounds[0]) & (lam < xbounds[1]):
-                ax.axvline(lam, 0.95, 1.0, color = 'yellow', lw = 1.0)
-                ax.axvline(lam, color = 'yellow', lw = 0.8, linestyle = '--')
+                ax.axvline(lam, 0.95, 1.0, color = 'yellow', lw = 0.3)
+                ax.axvline(lam, color = 'yellow', lw = 0.3, linestyle = '--')
                 trans = ax.get_xaxis_transform()
                 ax.annotate(lines_to_display[ii]['label'], xy = (lam, 1.05), xycoords = trans, \
                         fontsize = 8, rotation = 90, color = 'yellow')

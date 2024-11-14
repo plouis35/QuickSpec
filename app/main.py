@@ -76,6 +76,18 @@ class Application(tk.Tk):
         def load_images() -> None:
             self._image.open_image()
 
+        def run_all() -> bool:
+            for action in ( reduce_images, 
+                            self._spectrum.do_extract, 
+                            self._spectrum.do_calibrate, 
+                            self._spectrum.do_response ):
+                if action() is False:
+                    logging.warning(f"runall aborted")
+                    return False
+
+            return True
+    
+
         def reduce_images() -> None:
             self._spectrum.do_reduce()
             self._image.image.set_data(Image.img_stacked)
@@ -96,14 +108,14 @@ class Application(tk.Tk):
             nb_sigma = 1
             low_cut = v_mean - (nb_sigma * v_std)
             high_cut = v_mean + (nb_sigma * v_std)
-            logging.info (f"image stats : min = {v_min}, max = {v_max}, mean = {v_mean}, std = {v_std}")
+            logging.info (f"reduced image stats : min = {v_min}, max = {v_max}, mean = {v_mean}, std = {v_std}")
 
             self._image.update_image(low_cut, high_cut)
 
         # create buttons
         bt_load = ttk.Button(frame, text="Load", command=load_images)
         bt_load.pack(side=tk.LEFT, padx=5, pady=0)
-        bt_run = ttk.Button(frame, text="Run all", command=self._spectrum.do_run_all)
+        bt_run = ttk.Button(frame, text="Run all", command=run_all)
         bt_run.pack(side=tk.LEFT, padx=5, pady=0)
         bt_reduce = ttk.Button(master=frame, text="Reduce", command=reduce_images)
         bt_reduce.pack(side=tk.LEFT, padx=5, pady=0)
@@ -123,8 +135,9 @@ class Application(tk.Tk):
 
         # create toolbar
         toolbar = NavigationToolbar2Tk(canvas, self, pack_toolbar=False)
-        toolbar.children['!button4'].pack_forget()
+        toolbar.children['!button4'].pack_forget()      # ugly... should use another way to remove that button
         #toolbar.config(background='grey')        
+        toolbar.config(height=100)
         toolbar.update()
 
         # pack all
