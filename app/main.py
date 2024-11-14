@@ -99,13 +99,13 @@ class Application(tk.Tk):
             v_max = Image.img_stacked.max()
 
             # update sliders positions
-            self._image.slider_low.config(from_=v_min / 2)
-            self._image.slider_low.config(to=v_max / 2)
+            nb_sigma = 5
+            self._image.slider_low.config(from_=v_min / nb_sigma)
+            self._image.slider_low.config(to=v_max / nb_sigma)
 
-            self._image.slider_high.config(from_=v_min / 2)
-            self._image.slider_high.config(to=v_max / 2)
+            self._image.slider_high.config(from_=v_min / nb_sigma)
+            self._image.slider_high.config(to=v_max / nb_sigma)
 
-            nb_sigma = 1
             low_cut = v_mean - (nb_sigma * v_std)
             high_cut = v_mean + (nb_sigma * v_std)
             logging.info (f"reduced image stats : min = {v_min}, max = {v_max}, mean = {v_mean}, std = {v_std}")

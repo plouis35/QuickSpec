@@ -107,27 +107,26 @@ class Spectrum(object):
 
         self.ax_spc.clear()
 
-        if self.conf.get_bool('processing', 'show_trace'):
-            self.ax_img.step(self.sci_spectrum.spectral_axis, sci_tr.trace , color='red', 
-                             linestyle='dashed', linewidth = '0.3')
-            self.ax_img.step(self.sci_spectrum.spectral_axis, sci_tr.trace + extract.width , color='green', 
-                             linestyle='dashed', linewidth = '0.5')  #, alpha=0.2)
-            self.ax_img.step(self.sci_spectrum.spectral_axis, sci_tr.trace - extract.width , color='green', 
-                             linestyle='dashed', linewidth = '0.5')  #, alpha=0.2)
-            self.ax_img.step(self.sci_spectrum.spectral_axis, sci_tr.trace + (self.conf.get_int('processing', 'sky_y_offset')) , 
-                             color='blue', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
-            self.ax_img.step(self.sci_spectrum.spectral_axis, 
-                             sci_tr.trace + (self.conf.get_int('processing', 'sky_y_offset') + self.conf.get_int('processing', 'sky_y_size')) , 
-                             color='blue', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
-            self.ax_img.step(self.sci_spectrum.spectral_axis, 
-                             sci_tr.trace - (self.conf.get_int('processing', 'sky_y_offset') + self.conf.get_int('processing', 'sky_y_size')) , 
-                             color='blue', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
-            self.ax_img.step(self.sci_spectrum.spectral_axis, 
-                             sci_tr.trace - (self.conf.get_int('processing', 'sky_y_offset')) , 
-                             color='blue', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
-            self.ax_spc.step(self.sci_spectrum.spectral_axis , self.sci_spectrum.flux, color='red', linewidth = '0.4')
-            self.ax_spc.set_xlabel('Pixels')
-            self.ax_spc.set_ylabel('ADU')
+        self.ax_img.step(self.sci_spectrum.spectral_axis, sci_tr.trace , color='red', 
+                            linestyle='dashed', linewidth = '0.3')
+        self.ax_img.step(self.sci_spectrum.spectral_axis, sci_tr.trace + extract.width , color='green', 
+                            linestyle='dashed', linewidth = '0.5')  #, alpha=0.2)
+        self.ax_img.step(self.sci_spectrum.spectral_axis, sci_tr.trace - extract.width , color='green', 
+                            linestyle='dashed', linewidth = '0.5')  #, alpha=0.2)
+        self.ax_img.step(self.sci_spectrum.spectral_axis, sci_tr.trace + (self.conf.get_int('processing', 'sky_y_offset')) , 
+                            color='blue', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
+        self.ax_img.step(self.sci_spectrum.spectral_axis, 
+                            sci_tr.trace + (self.conf.get_int('processing', 'sky_y_offset') + self.conf.get_int('processing', 'sky_y_size')) , 
+                            color='blue', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
+        self.ax_img.step(self.sci_spectrum.spectral_axis, 
+                            sci_tr.trace - (self.conf.get_int('processing', 'sky_y_offset') + self.conf.get_int('processing', 'sky_y_size')) , 
+                            color='blue', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
+        self.ax_img.step(self.sci_spectrum.spectral_axis, 
+                            sci_tr.trace - (self.conf.get_int('processing', 'sky_y_offset')) , 
+                            color='blue', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
+        self.ax_spc.step(self.sci_spectrum.spectral_axis , self.sci_spectrum.flux, color='red', linewidth = '0.4')
+        self.ax_spc.set_xlabel('Pixels')
+        self.ax_spc.set_ylabel('ADU')
 
         self.figure.canvas.draw_idle()
 

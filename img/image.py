@@ -150,13 +150,13 @@ class Image(object):
         v_max = Image.img_stacked.max()
 
         # update sliders positions
-        self.slider_low.config(from_=v_min / 2)
-        self.slider_low.config(to=v_max / 2)
+        nb_sigma = 5
+        self.slider_low.config(from_=v_min / nb_sigma)
+        self.slider_low.config(to=v_max / nb_sigma)
 
-        self.slider_high.config(from_=v_min / 2)
-        self.slider_high.config(to=v_max / 2)
+        self.slider_high.config(from_=v_min / nb_sigma)
+        self.slider_high.config(to=v_max / nb_sigma)
 
-        nb_sigma = 1
         low_cut = v_mean - (nb_sigma * v_std)
         high_cut = v_mean + (nb_sigma * v_std)
         #logging.info(f"{low_cut=}, {high_cut=}")
@@ -170,7 +170,7 @@ class Image(object):
                         cmap = self.conf.get_str('display', 'colormap'))
         
         self.update_image(low_cut, high_cut)
-        self._ax_img.set_title(f"{Path(path[0]).stem}...") 
+        self._ax_img.set_title(f"{Path(path[0]).stem}...", fontsize=10, loc='left') 
 
 
     def show_image( self, image,

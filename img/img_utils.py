@@ -220,8 +220,7 @@ class ImgCombiner(object):
         return ImgCombiner(realigned_images)
 
 """
-Images class implements the images loader methods
-
+Images class implements the file loader methods
 """
 class Images(ImgCombiner):
     def __init__(self, images: List[CCDData]):
