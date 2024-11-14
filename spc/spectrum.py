@@ -1,5 +1,6 @@
 import logging
 import numpy as np
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Button
@@ -25,7 +26,7 @@ from specreduce import WavelengthCalibration1D
 from app.os_utils import OSUtils
 from app.config import Config
 from img.image import Image
-from img.img_utils import reduce_images
+from img.img_utils import Images
 
 class Spectrum(object):
 
@@ -50,22 +51,11 @@ class Spectrum(object):
 
     def do_reduce(self) -> bool:
         logging.info('reducing science spectra ...')
-
-        _reduced_img: CCDData | None = reduce_images(images=Image.img_names, preprocess=True)
+        CAPTURE_DIR =  str(Path(Image.img_names[0]).absolute().parent) + '/'
+        _reduced_img: CCDData | None = Images.reduce_images(images=Image.img_names, preprocess=True)
         if _reduced_img is None: return False
 
         Image.img_stacked = _reduced_img.data
-        
-        logging.info (f"image stats: min={Image.img_stacked.min()}, max={Image.img_stacked.max()}, mean={Image.img_stacked.mean()}, std={Image.img_stacked.std()}")
-        
-        #self.ax_spc.clear()
-        #Image.show_image(image = Image.img_stacked,
-         #               fig_img = self.ax_img.get_figure(),
-          #              ax_img = self.ax_img,
-           #             show_colorbar = False,
-            #            cmap = self.conf.get_str('window', 'colormap'))
-
-        #self.figure.canvas.draw_idle()
         return True
 
     def do_extract(self) -> bool:
@@ -124,6 +114,8 @@ class Spectrum(object):
 
         logging.info('spectrum extracted')
 
+        self.ax_spc.clear()
+
         if self.conf.get_bool('processing', 'show_trace'):
             self.ax_img.step(self.sci_spectrum.spectral_axis, sci_tr.trace , color='red', 
                              linestyle='dashed', linewidth = '0.3')
@@ -145,6 +137,8 @@ class Spectrum(object):
             self.ax_spc.step(self.sci_spectrum.spectral_axis , self.sci_spectrum.flux, color='red', linewidth = '0.4')
             self.ax_spc.set_xlabel('Pixels')
             self.ax_spc.set_ylabel('ADU')
+
+        self.figure.canvas.draw_idle()
 
         return True
     
@@ -188,6 +182,8 @@ class Spectrum(object):
         sci_mean_norm_region = self.calibrated_spectrum[6500 * u.AA: 6520 * u.AA].flux.mean()       # starEx2400 : high resolution
         self.final_spec = Spectrum1D(spectral_axis = self.calibrated_spectrum.wavelength, flux = self.calibrated_spectrum.flux / sci_mean_norm_region)  
 
+        self.ax_spc.clear()
+
         self.ax_spc.set_ylabel('Relative intensity')
         self.ax_spc.set_xlabel('Wavelength (Angstrom)')
         self.ax_spc.grid(color = 'grey', linestyle = '--', linewidth = 0.5)
@@ -198,20 +194,20 @@ class Spectrum(object):
         logging.info('calibration complete')
 
 
-        plt.figure(figsize = (10,6))
-        plt.step(self.final_spec.wavelength, self.final_spec.flux, color='black', linewidth = '0.6') #, where="mid")
-        plt.xlabel('Wavelength (Ang)')
-        plt.ylabel('ADU')
+        #plt.figure(figsize = (10,6))
+        #plt.step(self.final_spec.wavelength, self.final_spec.flux, color='black', linewidth = '0.6') #, where="mid")
+        #plt.xlabel('Wavelength (Ang)')
+        #plt.ylabel('ADU')
         #plt.ylim(-10000, 1e6)
 
-        Spectrum.show_lines(ax = self.ax_spc, show_line = True)
+        self.show_lines(ax = self.ax_spc, show_line = True)
         return True
     
     def do_response(self) -> bool:
         return True
     
-    @staticmethod
-    def show_lines(ax = None, show_line = True):
+    #@staticmethod
+    def show_lines(self, ax = None, show_line = True):
         """
         Show lines onto a plot. 
             

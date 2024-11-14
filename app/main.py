@@ -27,10 +27,10 @@ class Application(tk.Tk):
         LogHandler().set()
         OSUtils.log_versions()
         #self.tk.call('tk', 'scaling', '-displayof', '.', 2)
-        self.geometry(self.conf.get_str('window', 'geometry'))
+        self.geometry(self.conf.get_str('display', 'geometry'))
         self.title(app_name)
         self.app_name = app_name
-        self.wm_state(self.conf.get_str('window', 'state'))
+        self.wm_state(self.conf.get_str('display', 'state'))
         #self.create_watcher()
         self.create_gui()
 
@@ -53,7 +53,7 @@ class Application(tk.Tk):
 
     def create_gui(self) -> None:
         plt.rcParams['figure.constrained_layout.use'] = True
-        plt.style.use(self.conf.get_str('window', 'theme'))        
+        plt.style.use(self.conf.get_str('display', 'theme'))        
 
         # create a single figure for both image & spectrum horizontaly packed
         self.figure = Figure(figsize=(5, 4)) #, dpi=100)
@@ -78,32 +78,27 @@ class Application(tk.Tk):
 
         def reduce_images() -> None:
             self._spectrum.do_reduce()
-             # collect image stats
-            vstd = Image.img_stacked.std()
-            vmean = Image.img_stacked.mean()
-            _min = Image.img_stacked.min()
-            _max = Image.img_stacked.max()
+            self._image.image.set_data(Image.img_stacked)
+
+            # collect image stats
+            v_std = Image.img_stacked.std()
+            v_mean = Image.img_stacked.mean()
+            v_min = Image.img_stacked.min()
+            v_max = Image.img_stacked.max()
 
             # update sliders positions
-            self._image.slider_low.config(from_=_min)
-            self._image.slider_low.config(to=_max)
+            self._image.slider_low.config(from_=v_min / 2)
+            self._image.slider_low.config(to=v_max / 2)
 
-            self._image.slider_high.config(from_=_min)
-            self._image.slider_high.config(to=_max)
+            self._image.slider_high.config(from_=v_min / 2)
+            self._image.slider_high.config(to=v_max / 2)
 
-            nb_sigma = 5
-            low_cut = vmean - (nb_sigma * vstd)
-            high_cut = vmean + (nb_sigma * vstd)
-            self._image.slider_low.set(low_cut)
-            self._image.slider_high.set(high_cut)
-            self._image.show_image(image = Image.img_stacked,
-                        fig_img = self.figure,
-                        ax_img = self.axe_img,
-                        show_colorbar = False, 
-                        cmap = self.conf.get_str('window', 'colormap')
-                        )
-            #self._image.update_image(low_cut, high_cut)
+            nb_sigma = 1
+            low_cut = v_mean - (nb_sigma * v_std)
+            high_cut = v_mean + (nb_sigma * v_std)
+            logging.info (f"image stats : min = {v_min}, max = {v_max}, mean = {v_mean}, std = {v_std}")
 
+            self._image.update_image(low_cut, high_cut)
 
         # create buttons
         bt_load = ttk.Button(frame, text="Load", command=load_images)
