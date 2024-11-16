@@ -1,5 +1,6 @@
 import logging
 import numpy as np
+import random
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -39,15 +40,29 @@ class Spectrum(object):
         self.figure: Figure = axe_spc.get_figure()
         self.sci_spectrum: Spectrum1D = None
         self.final_spec: Spectrum1D = None
+        self.ax_spc.grid(color = 'grey', linestyle = '--', linewidth = 0.5)
 
-    def do_reduce(self) -> bool:
-        logging.info('reducing science spectra ...')
-        CAPTURE_DIR =  str(Path(Image.img_names[0]).absolute().parent) + '/'
-        _reduced_img: CCDData | None = Images.reduce_images(images=Image.img_names, preprocess=True)
-        if _reduced_img is None: return False
 
-        Image.img_stacked = _reduced_img.data
-        return True
+    def open_spectrum( self, spc_name: str) -> None:
+        # open spectrum data
+        try:
+            _spec1d: Spectrum1D = Spectrum1D.read(spc_name)
+            self.show_spectrum(_spec1d)
+        except Exception as e:
+            logging.error(f"{e}")
+            return
+
+    def show_spectrum(self, spectrum: Spectrum1D) -> None:
+        # pick a random color 
+        color = ('blue', 'red', 'green', 'orange', 'cyan')
+        
+        # plot spectrum
+        self.ax_spc.plot(spectrum.spectral_axis , spectrum.flux, color=random.choice(color), linewidth = '0.4')
+        self.ax_spc.set_xlabel('Pixels')
+        self.ax_spc.set_ylabel('ADU')
+        self.ax_spc.grid(color = 'grey', linestyle = '--', linewidth = 0.5)
+
+        self.figure.canvas.draw_idle()
 
     def do_extract(self) -> bool:
         master_science: np.ndarray = Image.img_stacked
@@ -107,28 +122,34 @@ class Spectrum(object):
 
         self.ax_spc.clear()
 
-        self.ax_img.step(self.sci_spectrum.spectral_axis, sci_tr.trace , color='red', 
-                            linestyle='dashed', linewidth = '0.3')
-        self.ax_img.step(self.sci_spectrum.spectral_axis, sci_tr.trace + extract.width , color='green', 
+        # trace spectrum zone
+        self.ax_img.plot(self.sci_spectrum.spectral_axis, sci_tr.trace , color='red', 
+                            linestyle='dashed', linewidth = '0.5')
+        self.ax_img.plot(self.sci_spectrum.spectral_axis, sci_tr.trace + extract.width , color='green', 
                             linestyle='dashed', linewidth = '0.5')  #, alpha=0.2)
-        self.ax_img.step(self.sci_spectrum.spectral_axis, sci_tr.trace - extract.width , color='green', 
+        self.ax_img.plot(self.sci_spectrum.spectral_axis, sci_tr.trace - extract.width , color='green', 
                             linestyle='dashed', linewidth = '0.5')  #, alpha=0.2)
-        self.ax_img.step(self.sci_spectrum.spectral_axis, sci_tr.trace + (self.conf.get_int('processing', 'sky_y_offset')) , 
-                            color='blue', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
-        self.ax_img.step(self.sci_spectrum.spectral_axis, 
+        
+        # trace sky zones
+        self.ax_img.plot(self.sci_spectrum.spectral_axis, sci_tr.trace + (self.conf.get_int('processing', 'sky_y_offset')) , 
+                            color='green', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
+        self.ax_img.plot(self.sci_spectrum.spectral_axis, 
                             sci_tr.trace + (self.conf.get_int('processing', 'sky_y_offset') + self.conf.get_int('processing', 'sky_y_size')) , 
-                            color='blue', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
-        self.ax_img.step(self.sci_spectrum.spectral_axis, 
+                            color='green', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
+        self.ax_img.plot(self.sci_spectrum.spectral_axis, 
                             sci_tr.trace - (self.conf.get_int('processing', 'sky_y_offset') + self.conf.get_int('processing', 'sky_y_size')) , 
-                            color='blue', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
-        self.ax_img.step(self.sci_spectrum.spectral_axis, 
+                            color='green', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
+        self.ax_img.plot(self.sci_spectrum.spectral_axis, 
                             sci_tr.trace - (self.conf.get_int('processing', 'sky_y_offset')) , 
-                            color='blue', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
-        self.ax_spc.step(self.sci_spectrum.spectral_axis , self.sci_spectrum.flux, color='red', linewidth = '0.4')
-        self.ax_spc.set_xlabel('Pixels')
-        self.ax_spc.set_ylabel('ADU')
+                            color='green', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
+        
+        # plot spectrum
+        #self.ax_spc.plot(self.sci_spectrum.spectral_axis , self.sci_spectrum.flux, color='red', linewidth = '0.4')
+        #self.ax_spc.set_xlabel('Pixels')
+        #self.ax_spc.set_ylabel('ADU')
 
-        self.figure.canvas.draw_idle()
+        #self.figure.canvas.draw_idle()
+        self.show_spectrum(self.sci_spectrum)
 
         return True
     
@@ -183,12 +204,13 @@ class Spectrum(object):
 
         self.ax_spc.clear()
 
+        self.show_spectrum(self.final_spec)
         self.ax_spc.set_ylabel('Relative intensity')
         self.ax_spc.set_xlabel('Wavelength (Angstrom)')
-        self.ax_spc.grid(color = 'grey', linestyle = '--', linewidth = 0.5)
 
-        self.ax_spc.plot(self.final_spec.spectral_axis, self.final_spec.flux, color='red', linewidth = '0.4')
-        self.figure.canvas.draw_idle()
+
+        #self.ax_spc.plot(self.final_spec.spectral_axis, self.final_spec.flux, color='red', linewidth = '0.4')
+        #self.figure.canvas.draw_idle()
 
         logging.info('calibration complete')
         self.show_lines(ax = self.ax_spc, show_line = True)
@@ -279,8 +301,8 @@ class Spectrum(object):
         for ii in range(len(lines_to_display)):
             lam = lines_to_display[ii]['lambda'] * 10    # nm to AA
             if (lam > xbounds[0]) & (lam < xbounds[1]):
-                ax.axvline(lam, 0.95, 1.0, color = 'yellow', lw = 0.3)
-                ax.axvline(lam, color = 'yellow', lw = 0.3, linestyle = '--')
+                ax.axvline(lam, 0.95, 1.0, color = 'yellow', lw = 0.5)
+                ax.axvline(lam, color = 'yellow', lw = 0.5, linestyle = '--')
                 trans = ax.get_xaxis_transform()
                 ax.annotate(lines_to_display[ii]['label'], xy = (lam, 1.05), xycoords = trans, \
                         fontsize = 8, rotation = 90, color = 'yellow')

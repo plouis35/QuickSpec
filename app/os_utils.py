@@ -16,11 +16,11 @@ class OSUtils(object):
         logging.info(f"current memory used = {OSUtils.get_memory_used()}MB")
 
     @staticmethod
-    def log_versions() -> None:
-        logging.info("Versions installed =======:")
-        for md in ['numpy','astropy', 'specutils', 'specreduce', 'ccdproc']:
+    def show_versions() -> None:
+        logging.info("Versions installed: ")
+        for module in ['numpy','astropy', 'specutils', 'specreduce', 'ccdproc']:
             try:
-                logging.info(f"{md} = {version(md)}")
+                logging.info(f"{module} = v{version(module)}")
             except Exception as e:
                 logging.info(f"{e}")
 
@@ -30,6 +30,6 @@ class OSUtils(object):
 
     # test
 if __name__ == "__main__":
-    OSUtils.log_versions()
+    OSUtils.show_versions()
     print(OSUtils.get_path_directory('/Users/papa/Documents/ASTRO/CAPTURES/202408id/_offset.fit'))
 

@@ -272,7 +272,7 @@ class Images(ImgCombiner):
         return cls(images)
 
     @classmethod
-    def reduce_images(cls, images: list[str], preprocess: bool = False) -> CCDData | None:
+    def reduce_images_ccdproc(cls, images: list[str], preprocess: bool = False) -> CCDData | None:
         conf: Config = Config()
         TRIM_REGION = None
         EXPOSURE_KEY = 'EXPTIME'
@@ -327,3 +327,13 @@ class Images(ImgCombiner):
 
         ### combine frames (sum or median) & save master science frame
         return master_sciences.sum()
+    
+    @classmethod
+    def reduce_images_numpy(cls, img_data: List[np.ndarray] , preprocess: bool = False) -> np.ndarray:
+        logging.info('summing images data ...')
+
+        _reduced_img = img_data[0]
+        for img in img_data:
+            _reduced_img = np.add(_reduced_img, img)
+
+        return _reduced_img
