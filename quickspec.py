@@ -1,7 +1,7 @@
 """_summary_
 """
 __app__ = 'QuickSpec'
-__version__ = '0.1'
+__version__ = '0.4.3'
 
 from app.main import Application
 

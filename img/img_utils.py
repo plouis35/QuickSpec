@@ -1,4 +1,4 @@
-""" ImgCombiner operates on a set of FIT images thru single line python statements
+""" ImagesCombiner operates on a set of FIT images thru single line python statements
 
 frames are first loaded into memory using the Images class methods.
 then operations are applied in sequence on a single python line.
@@ -16,9 +16,9 @@ master_sciences = Images.from_fit(dir = "../CAPTURE/test01/", filter = "agdra-*.
                         .spec_align()
                   
 """
-from typing import List, Tuple
-import warnings, fnmatch, os
+from typing import List
 from pathlib import Path
+import warnings
 import numpy as np
 import logging
 from astropy.io import fits
@@ -33,28 +33,24 @@ from astropy.stats import mad_std
 from astropy.nddata.blocks import block_reduce
 from astropy import visualization as aviz
 
-from matplotlib.image import AxesImage
-
-
 #import astroalign as aa
 from scipy.signal import fftconvolve
 
 from app.config import Config
 
-#warnings.simplefilter('ignore', category=AstropyWarning)
-#warnings.simplefilter('ignore', UserWarning)
+warnings.simplefilter('ignore', category=AstropyWarning)
+warnings.simplefilter('ignore', UserWarning)
 
-class ImgCombiner(object):
-
-    conf: Config = Config()
+class ImagesCombiner(object):
 
     """
-    maintains images set array
+    maintains images set array and file names
     max memory is used by ccdproc routines to avoid OOM exceptions when working with large set of big images
     """
-    def __init__(self, images: List[CCDData], max_memory: float = 1e9):
-        self._images = images
-        self._memory_limit = max_memory
+    def __init__(self, images: List[CCDData], names: List[str], max_memory: float = 1e9):
+        self._images: List[CCDData] = images
+        self._image_names: List[str] = names
+        self._memory_limit: float = max_memory
     """
     returns a specific image array thru its index
     """
@@ -66,6 +62,9 @@ class ImgCombiner(object):
     """
     def __len__(self) -> int:
         return len(self._images)
+    
+    def get_image_names(self) -> List[str]:
+        return self._image_names
 
     """
     returns the sum frame of frames loaded in this set
@@ -217,14 +216,14 @@ class ImgCombiner(object):
         ### do not forget the reference image
         realigned_images.append(CCDData(self._images[ref_image_index].data.astype('float32'), unit = u.adu, header = self._images[ref_image_index].header))
         logging.info('align: complete')
-        return ImgCombiner(realigned_images)
+        return ImagesCombiner(realigned_images, [])
 
 """
 Images class implements the file loader methods
 """
-class Images(ImgCombiner):
+class Images(ImagesCombiner):
     def __init__(self, images: List[CCDData]):
-        ImgCombiner.__init__(self, images)
+        ImagesCombiner.__init__(self, images, [])
 
     """
     collect and sort (according to fit header 'date-obs') file names using a wildcard filter
@@ -245,6 +244,8 @@ class Images(ImgCombiner):
                  camera_readout_noise: float =  2.2 * u.electron):
         
         images = []
+        names: List[str] = []
+
         for fp in Images.find_files(directory = dir, files_filter = filter):
             #images.append(create_deviation(CCDData.read(fp, unit = u.adu),
              #                              gain = camera_electronic_gain,
@@ -252,15 +253,19 @@ class Images(ImgCombiner):
                #                            disregard_nan = True
                 #                          ))
             images.append(CCDData.read(fp, unit = u.adu))
+            names.append(fp)
             logging.info(f'image : {fp} loaded')
-        return cls(images)
+        
+        return ImagesCombiner(images=images, names=names)
+        #return cls(images)
 
     @classmethod
-    def from_fits(cls, imgs: list[str], 
+    def from_fits(cls, imgs: list[str],
                  camera_electronic_gain: float = 1.2 * u.electron / u.adu, 
                  camera_readout_noise: float =  2.2 * u.electron):
         
         images = []
+        names: List[str] = []
         for fp in imgs:
             #images.append(create_deviation(CCDData.read(fp, unit = u.adu),
              #                              gain = camera_electronic_gain,
@@ -268,59 +273,53 @@ class Images(ImgCombiner):
                #                            disregard_nan = True
                 #                          ))
             images.append(CCDData.read(fp, unit = u.adu))
+            names.append(fp)
             logging.info(f'image : {fp} loaded')
-        return cls(images)
+        
+        return ImagesCombiner(images=images, names=names)
+        #return cls(images)
 
-    @classmethod
-    def reduce_images_ccdproc(cls, images: list[str], preprocess: bool = False) -> CCDData | None:
+    #@classmethod
+    def reduce_images_ccdproc(self) -> CCDData | None:
         conf: Config = Config()
         TRIM_REGION = None
         EXPOSURE_KEY = 'EXPTIME'
-        CAMERA_ELECTRONIC_GAIN = 0.13 * u.electron/u.adu   
-        CAMERA_READOUT_NOISE = 3.0 * u.electron     
-        CAPTURE_DIR =  str(Path(images[0]).absolute().parent) + '/'
+        CAPTURE_DIR =  str(Path(self.get_image_names()[0]).absolute().parent) + '/'
         
         # read master frames
         master_bias = None
         master_dark = None
         master_flat = None
 
-        if preprocess:
-            try:
-                if (bias_file := ImgCombiner.conf.get_str('pre_processing', 'master_offset')) is not None:
-                    master_bias = CCDData.read(CAPTURE_DIR + bias_file, unit = u.adu)
-                    logging.info(f"masterbias loaded")
-            except Exception as e:
-                logging.error(f"cannot read masterbias: {e}")
+        try:
+            if (bias_file := conf.get_str('pre_processing', 'master_offset')) is not None:
+                master_bias = CCDData.read(CAPTURE_DIR + bias_file, unit = u.adu)
+                logging.info(f"masterbias loaded")
+        except Exception as e:
+            logging.error(f"cannot read masterbias: {e}")
 
-            try:
-                if (dark_file := ImgCombiner.conf.get_str('pre_processing', 'master_dark')) is not None:
-                    master_dark = CCDData.read(CAPTURE_DIR + dark_file, unit = u.adu)
-                    logging.info(f"masterdark loaded")
-            except Exception as e:
-                logging.error(f"cannot read masterdark: {e}")
+        try:
+            if (dark_file := conf.get_str('pre_processing', 'master_dark')) is not None:
+                master_dark = CCDData.read(CAPTURE_DIR + dark_file, unit = u.adu)
+                logging.info(f"masterdark loaded")
+        except Exception as e:
+            logging.error(f"cannot read masterdark: {e}")
 
-            try:
-                if (flat_file := ImgCombiner.conf.get_str('pre_processing', 'master_flat')) is not None:
-                    master_flat = CCDData.read(CAPTURE_DIR + flat_file, unit = u.adu)
-                    logging.info(f"masterflat loaded")
-            except Exception as e:
-                logging.error(f"cannot read masterflat: {e}")
-
-        else:
-            logging.info(f"no preprocessing to do")
+        try:
+            if (flat_file := conf.get_str('pre_processing', 'master_flat')) is not None:
+                master_flat = CCDData.read(CAPTURE_DIR + flat_file, unit = u.adu)
+                logging.info(f"masterflat loaded")
+        except Exception as e:
+            logging.error(f"cannot read masterflat: {e}")
 
         ### reduce science frames
         try:
-            master_sciences: Images = Images.from_fits(imgs=images, 
-                                        camera_electronic_gain = CAMERA_ELECTRONIC_GAIN, 
-                                        camera_readout_noise = CAMERA_READOUT_NOISE) \
-                                .trim(TRIM_REGION) \
-                                .reduce(master_bias = master_bias, 
+            master_sciences = self.reduce(
+                                        master_bias = master_bias, 
                                         master_dark = master_dark, 
                                         master_flat = master_flat, 
-                                        exposure_key = EXPOSURE_KEY)
-        
+                                        exposure_key = EXPOSURE_KEY
+                                        )        
         except Exception as e:
             logging.error(f"unable to reduce data: {e}")
             return None
@@ -328,8 +327,8 @@ class Images(ImgCombiner):
         ### combine frames (sum or median) & save master science frame
         return master_sciences.sum()
     
-    @classmethod
-    def reduce_images_numpy(cls, img_data: List[np.ndarray] , preprocess: bool = False) -> np.ndarray:
+    #@classmethod
+    def reduce_images_numpy(self, img_data: List[np.ndarray] , preprocess: bool = False) -> np.ndarray:
         logging.info('summing images data ...')
 
         _reduced_img = img_data[0]

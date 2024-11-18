@@ -27,17 +27,13 @@ from ccdproc import Combiner, combine, subtract_bias, subtract_dark, flat_correc
 from ccdproc import trim_image, Combiner, ccd_process, cosmicray_median
 
 from app.config import Config
-from img.img_utils import Images
+from img.img_utils import Images, ImagesCombiner
 
 warnings.simplefilter('ignore', category=AstropyWarning)
 warnings.simplefilter('ignore', UserWarning)
 
 class Image(object):
 
-    img_stacked: np.ndarray = None
-    img_names:list[str] = []
-    img_count = 0
-    img_colorbar: Colorbar = None
 
     def __init__(self, axe_img: Axes, axe_spc: Axes, frame: ttk.Frame) -> None:
         self.conf: Config = Config()
@@ -45,7 +41,13 @@ class Image(object):
         self._ax_spc: Axes = axe_spc
         self._figure: Figure = axe_img.get_figure()
         self.image: AxesImage = None
-        Image.img_stacked = np.zeros((2, 8))
+        self.img_stacked: CCDData = CCDData(np.zeros((2,8)), unit=u.adu)
+        #self.img_stacked.data = np.zeros((2, 8))
+
+        self.img_names:list[str] = []
+        self.img_count = 0
+        self.img_colorbar: Colorbar = None
+        self.img_combiner: ImagesCombiner = None
         
         # create sliders
         slider_frame = ttk.Frame(frame)
@@ -78,7 +80,7 @@ class Image(object):
         self.slider_low.bind("<ButtonRelease>", self.update_slider) 
         
         # show a dummy (zeros) image to start            
-        self.image = self.show_image(image = Image.img_stacked,
+        self.image = self.show_image(image = self.img_stacked,
                         fig_img = self._figure,
                         ax_img = self._ax_img,
                         show_colorbar=True, 
@@ -98,10 +100,10 @@ class Image(object):
         self._figure.canvas.draw()
 
     def stats_image(self) -> tuple[float, float, float, float]:
-        v_std = Image.img_stacked.std()
-        v_mean = Image.img_stacked.mean()
-        v_min = Image.img_stacked.min()
-        v_max = Image.img_stacked.max()
+        v_std = self.img_stacked.data.std()
+        v_mean = self.img_stacked.data.mean()
+        v_min = self.img_stacked.data.min()
+        v_max = self.img_stacked.data.max()
         return v_std, v_mean, v_min, v_max
 
     def update_image(self, low_cut: float | None = None, high_cut: float | None = None) -> None:
@@ -114,11 +116,11 @@ class Image(object):
             low_cut = v_mean - (nb_sigma * v_std)
             high_cut = v_mean + (nb_sigma * v_std)   
 
-            self.slider_low.config(from_=v_min / nb_sigma)
-            self.slider_low.config(to=v_max / nb_sigma)
+            self.slider_low.config(from_=v_min - (nb_sigma * v_std)) # / nb_sigma)
+            self.slider_low.config(to=v_max + (nb_sigma * v_std)) # / nb_sigma)
 
-            self.slider_high.config(from_=v_min / nb_sigma)
-            self.slider_high.config(to=v_max / nb_sigma)
+            self.slider_high.config(from_=v_min - (nb_sigma * v_std)) # / nb_sigma)
+            self.slider_high.config(to=v_max + (nb_sigma * v_std)) # / nb_sigma)
 
         # Update the image's colormap and cuts
         try:
@@ -134,46 +136,65 @@ class Image(object):
         except Exception as e:
             logging.error({e})
         
-
         self._figure.canvas.draw_idle()
 
 
-    def load_image(self, path: list[str]) -> None:
-        Image.img_names = path
-
-        img_count = 0
-        img_data = []
-
-        # read images into memory
-        for img_name in path:
-            fit_data: CCDData = CCDData.read(img_name, unit=u.adu)
-            if fit_data.ndim == 2:
-                # this is a fit image - load it
-                img_data.append(fit_data.data)
-                logging.info(f"{img_name} loaded")
-                img_count += 1
-            else:
-                # not supported fit format
-                logging.error(f"{img_name} is not a supported fit format (naxis := 2)")
-
-        # stack images
-        Image.img_stacked = Images.reduce_images_numpy(img_data, False)
-
-        #logging.info(f"{low_cut=}, {high_cut=}")
-
+    def load_images(self, path: list[str]) -> None:
+        _img_reduced: CCDData
+        _img_combiner: ImagesCombiner
+        
+        try:
+            _img_combiner = Images.from_fits(imgs=path)
+            _img_reduced = _img_combiner.sum()
+                        #.trim(TRIM_REGION) \
+        except Exception as e:
+            logging.error(f"{e}")
+            return
+        
+        self.img_stacked = _img_reduced.copy()    
+        self.img_combiner = _img_combiner
+    
         # display image
-        self.image = self.show_image(image = Image.img_stacked,
+        self.image = self.show_image(image = self.img_stacked.data,
+                        fig_img = self._figure,
+                        ax_img = self._ax_img,
+                        show_colorbar = True, 
+                        cmap = self.conf.get_str('display', 'colormap'))
+        
+        self._ax_img.set_title(f"{Path(path[0]).stem}...", fontsize=10, loc='left') 
+        v_std, v_mean, v_min, v_max = self.stats_image()
+        logging.info (f"image stats: min={v_min}, max={v_max}, mean={v_mean}, std={v_std}")
+
+        self.update_image()
+
+    
+    def reduce_images(self) -> None:
+        _img_reduced: CCDData
+        
+        try:
+            _img_reduced = Images.reduce_images_ccdproc(self.img_combiner)
+        except Exception as e:
+            logging.error(f"{e}")
+            return
+        
+        if _img_reduced is not None:
+            self.img_stacked = _img_reduced.copy()    
+            self.image.set_data(self.img_stacked.data)
+            self.update_image()
+        
+            v_std, v_mean, v_min, v_max = self.stats_image()
+            logging.info (f"image stats: min={v_min}, max={v_max}, mean={v_mean}, std={v_std}")
+        else:
+            logging.error("unable to reduce images")
+    
+        # display image
+        self.image = self.show_image(image = self.img_stacked,
                         fig_img = self._figure,
                         ax_img = self._ax_img,
                         show_colorbar = True, 
                         cmap = self.conf.get_str('display', 'colormap'))
         
         self.update_image()
-        self._ax_img.set_title(f"{Path(path[0]).stem}...", fontsize=10, loc='left') 
-
-        v_std, v_mean, v_min, v_max = self.stats_image()
-        logging.info (f"image stats: min={v_min}, max={v_max}, mean={v_mean}, std={v_std}")
-
 
     def show_image( self, image,
                     cmap: str,
@@ -204,25 +225,10 @@ class Image(object):
         ax_img.format_coord=format_coord
 
         if show_colorbar:
-            if Image.img_colorbar is not None:
-                Image.img_colorbar.remove()
+            if self.img_colorbar is not None:
+                self.img_colorbar.remove()
             
-            Image.img_colorbar = fig_img.colorbar(img, ax = ax_img, location='right', shrink=0.6)
+            self.img_colorbar = fig_img.colorbar(img, ax = ax_img, location='right', shrink=0.6)
 
         return img
-    
-    def reduce_images(self) -> None:
-        _img_reduced = Images.reduce_images_ccdproc(Image.img_names, preprocess=True)
-
-        if _img_reduced is not None:
-            Image.img_stacked = _img_reduced.data
-            self.image.set_data(Image.img_stacked.data)
-            self.update_image()
-        
-            v_std, v_mean, v_min, v_max = self.stats_image()
-            logging.info (f"image stats: min={v_min}, max={v_max}, mean={v_mean}, std={v_std}")
-        else:
-            logging.error("unable to reduce images")
-
-
 

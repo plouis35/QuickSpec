@@ -1,21 +1,28 @@
 import logging
 from colorlog import ColoredFormatter
+from datetime import datetime
 from app.config import Config
 
 class LogHandler(logging.Handler):
     def __init__(self) -> None:
         self.conf = Config()
         
-        LOG_LEVEL = self.conf.get_str('logger', 'level')
-        LOGFORMAT = format = "%(log_color)s%(asctime)s %(levelname)s - %(message)s%(reset)s "
+        LOG_LEVEL: str | None = self.conf.get_str('logger', 'level')
+        CONSOLE_LOGFORMAT = "%(log_color)s%(asctime)s %(levelname)s - %(message)s%(reset)s "
+        FILE_LOGFORMAT = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 
         logging.root.setLevel(LOG_LEVEL)
-        formatter = ColoredFormatter(LOGFORMAT)
+        formatter = ColoredFormatter(CONSOLE_LOGFORMAT)
         self.stream = logging.StreamHandler()
         self.stream.setLevel(LOG_LEVEL)
         self.stream.setFormatter(formatter)
         self.log = logging.getLogger()
         self.log.setLevel(LOG_LEVEL)
 
-    def set(self) -> None:
+        self.file_handler = logging.FileHandler(f"quickspec_{datetime.now().strftime("%d-%m-%Y_%H:%M:%S")}.log")
+        self.file_handler.setLevel(LOG_LEVEL)
+        self.file_handler.setFormatter(FILE_LOGFORMAT)
+
+    def initialize(self) -> None:
         self.log.addHandler(self.stream)
+        self.log.addHandler(self.file_handler)
