@@ -19,7 +19,7 @@ class LogHandler(logging.Handler):
         self.log = logging.getLogger()
         self.log.setLevel(LOG_LEVEL)
 
-        self.file_handler = logging.FileHandler(f"quickspec_{datetime.now().strftime("%d-%m-%Y_%H:%M:%S")}.log")
+        self.file_handler = logging.FileHandler(f"quickspec_{datetime.now().strftime('%d-%m-%Y_%H%M%S')}.log")
         self.file_handler.setLevel(LOG_LEVEL)
         self.file_handler.setFormatter(FILE_LOGFORMAT)
 
