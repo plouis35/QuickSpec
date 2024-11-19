@@ -35,7 +35,6 @@ class Application(tk.Tk):
         #self.create_watcher()
         self.create_panels()
 
-
     def create_panels(self) -> None:
         plt.style.use('dark_background')        
         plt.rcParams['figure.constrained_layout.use'] = True
@@ -72,11 +71,11 @@ class Application(tk.Tk):
         bt_calibrate.pack(side=tk.LEFT, padx=5, pady=0)
 
         # create canvas
-        canvas = FigureCanvasTkAgg(self.figure, self)
-        canvas.draw()
+        self.canvas = FigureCanvasTkAgg(self.figure, self)
+        self.canvas.draw()
 
         # create toolbar
-        toolbar = NavigationToolbar2Tk(canvas, self, pack_toolbar=False)
+        toolbar = NavigationToolbar2Tk(self.canvas, self, pack_toolbar=False)
         toolbar.children['!button4'].pack_forget()      # ugly... should use another method to remove the conf button.
         #toolbar.config(background='grey')        
         #toolbar.config(height=100)
@@ -84,7 +83,7 @@ class Application(tk.Tk):
 
         # pack all widgets
         toolbar.pack(side=tk.BOTTOM, fill=tk.X)
-        canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+        self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
     # local callbacks for buttons
     def run_all(self) -> None:
@@ -100,6 +99,7 @@ class Application(tk.Tk):
         self._spectrum.do_extract(self._image.img_stacked.data)
 
     def open_files(self) -> None:
+
         # get list of files to open
         path = askopenfilenames(title='Select image(s) or spectra',
                             filetypes=[("fits files", '*.fit'), 
@@ -129,7 +129,9 @@ class Application(tk.Tk):
                 # not supported fit format
                 logging.error(f"{img_name} is not a supported fit format (naxis > 2)")
 
-        self._image.load_images(img_names)
+        if len(img_names) > 0:
+            self._image.load_images(img_names)
+        
         return 
     
     def create_watcher(self) -> None:

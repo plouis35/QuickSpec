@@ -42,12 +42,15 @@ class Spectrum(object):
         self.final_spec: Spectrum1D = None
         self.ax_spc.grid(color = 'grey', linestyle = '--', linewidth = 0.5)
 
-
     def open_spectrum( self, spc_name: str) -> None:
         # open spectrum data
         try:
             _spec1d: Spectrum1D = Spectrum1D.read(spc_name)
+            self.ax_spc.set_ylabel('Relative intensity')
+            self.ax_spc.set_xlabel('Wavelength (Angstrom)')
             self.show_spectrum(_spec1d)
+            self.show_lines(ax = self.ax_spc, show_line = True)
+
         except Exception as e:
             logging.error(f"{e}")
             return
@@ -57,9 +60,9 @@ class Spectrum(object):
         color = ('blue', 'red', 'green', 'orange', 'cyan')
         
         # plot spectrum
-        self.ax_spc.plot(spectrum.spectral_axis , spectrum.flux, color=random.choice(color), linewidth = '0.4')
-        self.ax_spc.set_xlabel('Pixels')
-        self.ax_spc.set_ylabel('ADU')
+        self.ax_spc.plot(spectrum.spectral_axis , spectrum.flux, color=random.choice(color), linewidth = '1.0')
+        #self.ax_spc.set_xlabel('Pixels')
+        #self.ax_spc.set_ylabel('ADU')
         self.ax_spc.grid(color = 'grey', linestyle = '--', linewidth = 0.5)
 
         self.figure.canvas.draw_idle()
@@ -143,6 +146,8 @@ class Spectrum(object):
                             sci_tr.trace - (self.conf.get_int('processing', 'sky_y_offset')) , 
                             color='green', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
         
+        self.ax_spc.set_xlabel('Pixels')
+        self.ax_spc.set_ylabel('ADU')
         self.show_spectrum(self.sci_spectrum)
 
         return True
@@ -198,12 +203,12 @@ class Spectrum(object):
 
         self.ax_spc.clear()
 
-        self.show_spectrum(self.final_spec)
         self.ax_spc.set_ylabel('Relative intensity')
         self.ax_spc.set_xlabel('Wavelength (Angstrom)')
+        self.show_spectrum(self.final_spec)
+        self.show_lines(ax = self.ax_spc, show_line = True)
 
         logging.info('calibration complete')
-        self.show_lines(ax = self.ax_spc, show_line = True)
         return True
     
     def do_response(self) -> bool:

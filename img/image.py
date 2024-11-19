@@ -2,6 +2,7 @@ import logging
 import numpy as np
 import warnings
 from pathlib import Path
+import contextlib
 
 import numpy as np
 
@@ -116,11 +117,11 @@ class Image(object):
             low_cut = v_mean - (nb_sigma * v_std)
             high_cut = v_mean + (nb_sigma * v_std)   
 
-            self.slider_low.config(from_=v_min - (nb_sigma * v_std)) # / nb_sigma)
-            self.slider_low.config(to=v_max + (nb_sigma * v_std)) # / nb_sigma)
+            self.slider_low.config(from_=low_cut - v_std) # + (nb_sigma * v_std)) # / nb_sigma)
+            self.slider_low.config(to=high_cut + v_std) # - (nb_sigma * v_std)) # / nb_sigma)
 
-            self.slider_high.config(from_=v_min - (nb_sigma * v_std)) # / nb_sigma)
-            self.slider_high.config(to=v_max + (nb_sigma * v_std)) # / nb_sigma)
+            self.slider_high.config(from_=low_cut - v_std)# + (nb_sigma * v_std)) # / nb_sigma)
+            self.slider_high.config(to=high_cut + v_std)# - (nb_sigma * v_std)) # / nb_sigma)
 
         # Update the image's colormap and cuts
         try:
@@ -142,7 +143,7 @@ class Image(object):
     def load_images(self, path: list[str]) -> None:
         _img_reduced: CCDData
         _img_combiner: ImagesCombiner
-        
+
         try:
             _img_combiner = Images.from_fits(imgs=path)
             _img_reduced = _img_combiner.sum()
@@ -169,10 +170,12 @@ class Image(object):
 
     
     def reduce_images(self) -> None:
-        _img_reduced: CCDData
+        _img_reduced: CCDData | None
+        _img_combiner: ImagesCombiner = self.img_combiner
         
         try:
-            _img_reduced = Images.reduce_images_ccdproc(self.img_combiner)
+            _img_reduced = _img_combiner.reduce_images()
+            
         except Exception as e:
             logging.error(f"{e}")
             return

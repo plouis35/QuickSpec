@@ -73,7 +73,7 @@ class ImagesCombiner(object):
         logging.info(f'sum combine on {len(self._images)} images ...')
         return(combine(self._images,
                        method = 'sum',
-                       dtype = np.float32,
+                       #dtype = np.float32,
                        mem_limit = self._memory_limit)
               )
    
@@ -89,7 +89,7 @@ class ImagesCombiner(object):
                        sigma_clip_high_thresh = high_thresh,
                        sigma_clip_func = np.ma.median, 
                        signma_clip_dev_func = mad_std, 
-                       dtype = np.float32,
+                       #dtype = np.float32,
                        mem_limit = self._memory_limit)
               )
 
@@ -100,7 +100,7 @@ class ImagesCombiner(object):
         logging.info(f'median combine on {len(self._images)} images ...')
         return (combine(self._images, 
                         method = 'median', 
-                        dtype = np.float32, 
+                        #dtype = np.float32, 
                         mem_limit = self._memory_limit)
                )
 
@@ -183,7 +183,7 @@ class ImagesCombiner(object):
     """
     align a set of loaded frames - specific to spectra fields (fft based)
     """
-    def spec_align(self, ref_image_index: int = 0):    
+    def spec_align(self, ref_image_index: int = 0) -> "ImagesCombiner":    
         ### Collect arrays and crosscorrelate all (except the first) with the first.
         logging.info('align: fftconvolve running...')
         nX, nY = self._images[ref_image_index].shape
@@ -217,6 +217,65 @@ class ImagesCombiner(object):
         realigned_images.append(CCDData(self._images[ref_image_index].data.astype('float32'), unit = u.adu, header = self._images[ref_image_index].header))
         logging.info('align: complete')
         return ImagesCombiner(realigned_images, [])
+    
+
+    def reduce_images(self) -> CCDData | None:
+        conf: Config = Config()
+        TRIM_REGION = None
+        EXPOSURE_KEY = 'EXPTIME'
+        CAPTURE_DIR =  str(Path(self.get_image_names()[0]).absolute().parent) + '/'
+        
+        # read master frames
+        master_bias = None
+        master_dark = None
+        master_flat = None
+
+        try:
+            if (bias_file := conf.get_str('pre_processing', 'master_offset')) is not None:
+                master_bias = CCDData.read(CAPTURE_DIR + bias_file, unit = u.adu)
+                logging.info(f"masterbias loaded")
+        except Exception as e:
+            logging.error(f"cannot read masterbias: {e}")
+
+        try:
+            if (dark_file := conf.get_str('pre_processing', 'master_dark')) is not None:
+                master_dark = CCDData.read(CAPTURE_DIR + dark_file, unit = u.adu)
+                logging.info(f"masterdark loaded")
+        except Exception as e:
+            logging.error(f"cannot read masterdark: {e}")
+
+        try:
+            if (flat_file := conf.get_str('pre_processing', 'master_flat')) is not None:
+                master_flat = CCDData.read(CAPTURE_DIR + flat_file, unit = u.adu)
+                logging.info(f"masterflat loaded")
+        except Exception as e:
+            logging.error(f"cannot read masterflat: {e}")
+
+        ### reduce science frames
+        try:
+            master_sciences = self.reduce(
+                                        master_bias = master_bias, 
+                                        master_dark = master_dark, 
+                                        master_flat = master_flat, 
+                                        exposure_key = EXPOSURE_KEY
+                                        )        
+        except Exception as e:
+            logging.error(f"unable to reduce data: {e}")
+            return None
+
+        ### combine frames (sum or median) & save master science frame
+        return master_sciences.sum()
+
+    """"    
+    def reduce_images_numpy(self, img_data: List[np.ndarray] , preprocess: bool = False) -> np.ndarray:
+        logging.info('summing images data ...')
+
+        _reduced_img = img_data[0]
+        for img in img_data:
+            _reduced_img = np.add(_reduced_img, img)
+
+        return _reduced_img
+    """
 
 """
 Images class implements the file loader methods
@@ -278,61 +337,3 @@ class Images(ImagesCombiner):
         
         return ImagesCombiner(images=images, names=names)
         #return cls(images)
-
-    #@classmethod
-    def reduce_images_ccdproc(self) -> CCDData | None:
-        conf: Config = Config()
-        TRIM_REGION = None
-        EXPOSURE_KEY = 'EXPTIME'
-        CAPTURE_DIR =  str(Path(self.get_image_names()[0]).absolute().parent) + '/'
-        
-        # read master frames
-        master_bias = None
-        master_dark = None
-        master_flat = None
-
-        try:
-            if (bias_file := conf.get_str('pre_processing', 'master_offset')) is not None:
-                master_bias = CCDData.read(CAPTURE_DIR + bias_file, unit = u.adu)
-                logging.info(f"masterbias loaded")
-        except Exception as e:
-            logging.error(f"cannot read masterbias: {e}")
-
-        try:
-            if (dark_file := conf.get_str('pre_processing', 'master_dark')) is not None:
-                master_dark = CCDData.read(CAPTURE_DIR + dark_file, unit = u.adu)
-                logging.info(f"masterdark loaded")
-        except Exception as e:
-            logging.error(f"cannot read masterdark: {e}")
-
-        try:
-            if (flat_file := conf.get_str('pre_processing', 'master_flat')) is not None:
-                master_flat = CCDData.read(CAPTURE_DIR + flat_file, unit = u.adu)
-                logging.info(f"masterflat loaded")
-        except Exception as e:
-            logging.error(f"cannot read masterflat: {e}")
-
-        ### reduce science frames
-        try:
-            master_sciences = self.reduce(
-                                        master_bias = master_bias, 
-                                        master_dark = master_dark, 
-                                        master_flat = master_flat, 
-                                        exposure_key = EXPOSURE_KEY
-                                        )        
-        except Exception as e:
-            logging.error(f"unable to reduce data: {e}")
-            return None
-
-        ### combine frames (sum or median) & save master science frame
-        return master_sciences.sum()
-    
-    #@classmethod
-    def reduce_images_numpy(self, img_data: List[np.ndarray] , preprocess: bool = False) -> np.ndarray:
-        logging.info('summing images data ...')
-
-        _reduced_img = img_data[0]
-        for img in img_data:
-            _reduced_img = np.add(_reduced_img, img)
-
-        return _reduced_img
