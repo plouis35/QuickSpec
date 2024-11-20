@@ -1,6 +1,8 @@
 import logging
 import threading
 import time
+import functools
+from pathlib import Path
 
 import tkinter as tk
 from tkinter import ttk
@@ -11,6 +13,7 @@ from matplotlib.figure import Figure
 
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.backends._backend_tk import NavigationToolbar2Tk
+from matplotlib.backend_tools import Cursors
 
 from astropy import units as u
 from astropy.nddata import CCDData
@@ -29,6 +32,7 @@ class Application(tk.Tk):
         super().__init__()
         self.title(f"{app_name} - {app_version}")
         self.app_name = app_name
+        self.app_version = app_version
         LogHandler().initialize()
         self.conf: Config = Config()
         #OSUtils.show_versions()
@@ -61,14 +65,20 @@ class Application(tk.Tk):
         bt_run = ttk.Button(frame, text="Run all", command=self.run_all)
         bt_run.pack(side=tk.LEFT, padx=5, pady=0)
 
-        bt_reduce = ttk.Button(master=frame, text="Reduce", command=self._image.reduce_images)
+        bt_reduce = ttk.Button(master=frame, text="Reduce", command=self.reduce_images)
         bt_reduce.pack(side=tk.LEFT, padx=5, pady=0)
 
         bt_extract = ttk.Button(master=frame, text="Extract", command=self.extract_spectrum)
         bt_extract.pack(side=tk.LEFT, padx=5, pady=0)
 
-        bt_calibrate = ttk.Button(master=frame, text="Calibrate", command=self._spectrum.do_calibrate)
+        bt_calibrate = ttk.Button(master=frame, text="Calibrate", command=self.calibrate_spectrum)
         bt_calibrate.pack(side=tk.LEFT, padx=5, pady=0)
+
+        bt_lines = ttk.Button(master=frame, text="Show lines", command=self._spectrum.show_lines)
+        bt_lines.pack(side=tk.LEFT, padx=5, pady=0)
+
+        #bt_clear = ttk.Button(master=frame, text="Clear", command=self._spectrum.do_clear)
+        #bt_clear.pack(side=tk.LEFT, padx=5, pady=0)
 
         # create canvas
         self.canvas = FigureCanvasTkAgg(self.figure, self)
@@ -85,19 +95,38 @@ class Application(tk.Tk):
         toolbar.pack(side=tk.BOTTOM, fill=tk.X)
         self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
+
     # local callbacks for buttons
+
+    @staticmethod
+    def run_long_operation(func):
+        @functools.wraps(func)
+        def wrap(self, *args, **kwargs):
+            retcode = func(self, *args, **kwargs)
+            return retcode
+        return wrap
+
     def run_all(self) -> None:
-        for action in ( self._image.reduce_images, 
+        for action in ( self.reduce_images, 
                         self.extract_spectrum, 
-                        self._spectrum.do_calibrate, 
-                        self._spectrum.do_response ):
+                        self.calibrate_spectrum):
             if action() is False:
-                logging.warning(f"runall aborted")
+                logging.error(f"run all stopped in error")
                 return
     
+    @run_long_operation
     def extract_spectrum(self) -> None:
         self._spectrum.do_extract(self._image.img_stacked.data)
 
+    @run_long_operation
+    def reduce_images(self) -> None:
+        self._image.reduce_images()
+
+    @run_long_operation
+    def calibrate_spectrum(self) -> None:
+        self._spectrum.do_calibrate()
+
+    @run_long_operation
     def open_files(self) -> None:
 
         # get list of files to open
@@ -132,6 +161,8 @@ class Application(tk.Tk):
         if len(img_names) > 0:
             self._image.load_images(img_names)
         
+        self.title(f"{self.app_name} - {self.app_version} [{Path(path[0]).stem}...]")
+
         return 
     
     def create_watcher(self) -> None:

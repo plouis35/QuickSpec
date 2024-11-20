@@ -43,8 +43,6 @@ class Image(object):
         self._figure: Figure = axe_img.get_figure()
         self.image: AxesImage = None
         self.img_stacked: CCDData = CCDData(np.zeros((2,8)), unit=u.adu)
-        #self.img_stacked.data = np.zeros((2, 8))
-
         self.img_names:list[str] = []
         self.img_count = 0
         self.img_colorbar: Colorbar = None
@@ -162,7 +160,7 @@ class Image(object):
                         show_colorbar = True, 
                         cmap = self.conf.get_str('display', 'colormap'))
         
-        self._ax_img.set_title(f"{Path(path[0]).stem}...", fontsize=10, loc='left') 
+        #self._ax_img.set_title(f"{Path(path[0]).stem}...", fontsize=10, loc='left') 
         v_std, v_mean, v_min, v_max = self.stats_image()
         logging.info (f"image stats: min={v_min}, max={v_max}, mean={v_mean}, std={v_std}")
 

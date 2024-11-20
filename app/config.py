@@ -39,8 +39,11 @@ class Config(object):
         Config._configDir = new_dir
         self._initialize()
 
+    def get_conf_directory(self) -> str:
+        return Config._configDir
+
     @staticmethod
-    def _check_changes(func):
+    def check_changes(func):
 
         @functools.wraps(func)
         def wrap(self, *args, **kwargs):
@@ -53,7 +56,7 @@ class Config(object):
             return func(self, *args, **kwargs)
         return wrap
 
-    @_check_changes
+    @check_changes
     def get_str(self, section, key) -> str | None:
         try:
             return self.config.get(section, key)
@@ -61,7 +64,7 @@ class Config(object):
             logging.warning(f"configuration key not found: {section}.{key} {e} in {self._config_path} file")
             return None
 
-    @_check_changes
+    @check_changes
     def get_int(self, section, key) -> int | None:
         try:
             return self.config.getint(section, key)
@@ -69,7 +72,7 @@ class Config(object):
             logging.warning(f"configuration key not found: {section}.{key} {e} in {self._config_path} file")
             return None
 
-    @_check_changes
+    @check_changes
     def get_float(self, section, key) -> float | None:
         try:
             return self.config.getfloat(section, key)
@@ -77,7 +80,7 @@ class Config(object):
             logging.warning(f"configuration key not found: {section}.{key} {e} in {self._config_path} file")
             return None
 
-    @_check_changes
+    @check_changes
     def get_bool(self, section, key) -> bool | None:
         try:
             return self.config.getboolean(section, key)
@@ -125,7 +128,7 @@ calib_poly_order = 2
 #calib_x_pixel = 770, 1190, 2240, 3520, 4160
 #calib_x_wavelength = 6506.53, 6532.88, 6598.95, 6678.28, 6717.04
 #calib_poly_order = 2
-reponse_file = masterresponse.fits
+response_file = masterresponse.fits
 
 [post_processing]
 #median_smooth = 7
@@ -189,8 +192,11 @@ reponse_file = masterresponse.fits
 if __name__ == "__main__":
     conf = Config()
 
-    for key, value in conf.config.items('lines'):
-        print(f"\tfor key {key} -> {value} (value)")
+    #for key, value in conf.config.items('lines'):
+       # print(f"\tfor key {key} -> {value} (value)")
+
+    if (respFile := conf.get_str('processing', 'response_file')) is not None:
+        print(f"opening {respFile}...")
 
     """"
     from astropy import units as u
