@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 from matplotlib.widgets import Button
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
+import matplotlib.colors as mpl_colors
+import matplotlib.colorbar as cb
 
 from astropy.utils.exceptions import AstropyWarning
 from astropy import units as u
@@ -15,10 +17,12 @@ from astropy.stats import mad_std
 from astropy.io import fits
 from astropy.modeling import models, fitting
 from astropy.table import QTable
+from astropy.nddata import NDDataRef
 
 from specutils.spectra.spectrum1d import Spectrum1D
 from specutils.manipulation import median_smooth, gaussian_smooth
 from specutils.analysis import snr, snr_derived
+from specutils.manipulation import FluxConservingResampler, LinearInterpolatedResampler, SplineInterpolatedResampler
 
 from specreduce.tracing import FlatTrace, FitTrace
 from specreduce.background import Background
@@ -30,6 +34,7 @@ from app.os_utils import OSUtils
 from app.config import Config
 from img.image import Image
 from img.img_utils import Images
+from spc.spc_utils import rgb
 
 class Spectrum(object):
 
@@ -57,6 +62,7 @@ class Spectrum(object):
         # pick a random color (TODO: check of not already displayed !)
         color = ('blue', 'red', 'green', 'orange', 'cyan')
 
+        # select proper axes legend
         if calibrated:
             self.ax_spc.set_ylabel('Relative intensity')
             self.ax_spc.set_xlabel('Wavelength (Angstrom)')
@@ -68,6 +74,35 @@ class Spectrum(object):
         self.ax_spc.plot(spectrum.spectral_axis , spectrum.flux, color=random.choice(color), linewidth = '0.8')
         self.ax_spc.grid(color = 'grey', linestyle = '--', linewidth = 0.5)
 
+        # display waverange colormap (TODO)
+        """"
+        if calibrated:
+            ax_wave = self.figure.add_axes([.1, .8, .8, .1])
+
+            def update_colorwave(ax = self.ax_spc, ax_wave = ax_wave):
+                wmin, wmax = ax.get_xlim()
+                l1,b1,w1,h1 = ax.get_position().bounds
+                ax2box = ax_wave.get_position()
+                [[x1,y1],[x2,y2]] = ax2box.get_points()
+                ax2bottom = y1
+                ax2width  = x2-x1
+                ax2height = y2-y1
+
+                ax_wave.set_position(
+                    [ l1+w1*( spectrum.spectral_axis[0]-wmin) /(wmax-wmin), ax2bottom,
+                        w1*(spectrum.spectral_axis[-1]-spectrum.spectral_axis[0])/(wmax-wmin), ax2height])
+                ax_wave.figure.canvas.draw()
+
+            self.ax_spc.callbacks.connect("xlim_changed", update_colorwave)
+            cmap = mpl_colors.ListedColormap(rgb(spectrum.wavelength ))
+            norm = mpl_colors.Normalize(vmin=380., vmax=780.)
+            cb2 = cb.ColorbarBase(ax_wave, cmap=cmap,
+                                                norm=norm,
+                                                orientation='horizontal')
+
+            ax_wave.get_xaxis().set_ticks_position('top')
+        """
+        
         self.figure.canvas.draw_idle()
 
     def do_extract(self, img_stacked:np.ndarray) -> bool:
@@ -196,13 +231,18 @@ class Spectrum(object):
         # aply response file if any defined
         #sci_spectrum = FluxCalibration(normalized_spec, 1.0) #, airmass = airmass) 
         final_spec = normalized_spec
+
         try:
             if (respFile := self.conf.get_str('processing', 'response_file')) is not None:
                 respFile = f"{self.conf.get_conf_directory()}/{respFile}"
                 logging.info(f"opening {respFile}...")
                 resp1d: Spectrum1D = Spectrum1D.read(respFile)
-                #self.show_spectrum(resp1d, True)
-                final_spec = normalized_spec / resp1d
+                _factor = round(resp1d.shape[0] / normalized_spec.shape[0])
+                logging.info(f"{normalized_spec.shape[0]=}, {resp1d.shape[0]=}, {_factor=}")
+                _resp1d_ndd = NDDataRef(resp1d)
+                _resp1d_ndd.wcs = None
+                _resp1d = _resp1d_ndd[::_factor].data
+                final_spec = normalized_spec / _resp1d
                 logging.info('response applied')
             else:
                 logging.warning("no response file to apply")

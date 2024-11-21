@@ -33,8 +33,8 @@ class Application(tk.Tk):
         self.title(f"{app_name} - {app_version}")
         self.app_name = app_name
         self.app_version = app_version
-        LogHandler().initialize()
         self.conf: Config = Config()
+        LogHandler().initialize()
         #OSUtils.show_versions()
         #self.create_watcher()
         self.create_panels()

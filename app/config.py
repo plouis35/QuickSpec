@@ -26,7 +26,7 @@ class Config(object):
             cls._instance._initialize()
         return cls._instance
 
-    def _initialize(self) -> None:        
+    def _initialize(self) -> None:     
         self._config_path: str = os.path.join(Config._configDir, Config._configFile)
         self.config = configparser.ConfigParser(inline_comment_prefixes=('#', ';')) 
 
@@ -44,12 +44,11 @@ class Config(object):
 
     @staticmethod
     def check_changes(func):
-
         @functools.wraps(func)
         def wrap(self, *args, **kwargs):
             # check if config file has been modified - if so re-read it
             if Config._last_time_check <= os.path.getmtime(self._config_path): 
-                logging.warning("config has changed - reloading it...")
+                logging.info("config has changed - reloading it...")
                 self.config.read(self._config_path)
                 Config._last_time_check = time.time()
 
@@ -89,7 +88,7 @@ class Config(object):
             return None
 
     def save(self) -> None:
-        with open(self._config_path, 'w') as configfile:
+        with open(self._config_path, 'w', encoding='cp850', errors='replace') as configfile:
             self.config.write(configfile)
 
     def check_section(self, section: str) -> None:
@@ -135,14 +134,14 @@ response_file = masterresponse.fits
 
 [lines]
 0.00 = Zero
-656.2852 = Hα 
-486.133 = Hβ 
-434.047 = Hγ 
-410.174 = Hδ 
-397.007 = Hε 
-388.9049 = Hζ 
-383.5384 = Hη 
-379.75 = Hθ 
+656.2852 = Halp 
+486.133 = Hbet
+434.047 = Hgam 
+410.174 = Hdel 
+397.007 = Heps 
+388.9049 = Hzet 
+383.5384 = Heta
+379.75 = Htet
 527.04 = Fe 
 516.89 = Fe 
 495.76 = Fe 
@@ -163,7 +162,7 @@ response_file = masterresponse.fits
 718.6 = O2 
 760.5 = O2 
 898.77 = O2 
-495.9 = OIII,
+495.9 = OIII
 500.69 = OIII
 651.65 = H2O
 694.07 = H2O
@@ -184,7 +183,7 @@ response_file = masterresponse.fits
 336.11 = Ti+
 
 """
-        logging.warning(f"creating a new config file: {self._config_path}")
+        logging.info(f"creating a new config file: {self._config_path}")
         with open(self._config_path, 'w') as configfile:
             configfile.write(contents + '\n')
 
