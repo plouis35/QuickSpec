@@ -44,6 +44,9 @@ class Spectrum(object):
         self.ax_spc: Axes = axe_spc
         self.figure: Figure = axe_spc.get_figure()
         self.sci_spectrum: Spectrum1D = None
+        self.showed_lines: bool = False
+        self.colors = ('blue', 'red', 'green', 'orange', 'cyan')
+
         self.ax_spc.grid(color = 'grey', linestyle = '--', linewidth = 0.5)
 
     def open_spectrum( self, spc_name: str) -> None:
@@ -59,8 +62,6 @@ class Spectrum(object):
         self.sci_spectrum = spec1d
 
     def show_spectrum(self, spectrum: Spectrum1D, calibrated: bool = False) -> None:
-        # pick a random color (TODO: check of not already displayed !)
-        color = ('blue', 'red', 'green', 'orange', 'cyan')
 
         # select proper axes legend
         if calibrated:
@@ -71,7 +72,9 @@ class Spectrum(object):
             self.ax_spc.set_ylabel('ADU')
         
         # plot spectrum
-        self.ax_spc.plot(spectrum.spectral_axis , spectrum.flux, color=random.choice(color), linewidth = '0.8')
+        self.colors = np.roll(self.colors, 1) # rotate colors
+        _color = self.colors[0]
+        self.ax_spc.plot(spectrum.spectral_axis , spectrum.flux, color=_color, linewidth = '0.8')
         self.ax_spc.grid(color = 'grey', linestyle = '--', linewidth = 0.5)
 
         # display waverange colormap (TODO)
@@ -237,7 +240,7 @@ class Spectrum(object):
                 respFile = f"{self.conf.get_conf_directory()}/{respFile}"
                 logging.info(f"opening {respFile}...")
                 resp1d: Spectrum1D = Spectrum1D.read(respFile)
-                _factor = round(resp1d.shape[0] / normalized_spec.shape[0])
+                _factor = int(resp1d.shape[0] / normalized_spec.shape[0])
                 logging.info(f"{normalized_spec.shape[0]=}, {resp1d.shape[0]=}, {_factor=}")
                 _resp1d_ndd = NDDataRef(resp1d)
                 _resp1d_ndd.wcs = None
@@ -279,15 +282,21 @@ class Spectrum(object):
                         
         xbounds = ax.get_xbound()   
 
-        for wave, elm in self.conf.config.items('lines'):
-            lam = (float(wave) * 10)   # nm to AA
-            if (lam > xbounds[0]) & (lam < xbounds[1]):
-                ax.axvline(lam, 0.95, 1.0, color = 'yellow', lw = 0.5)
-                ax.axvline(lam, color = 'yellow', lw = 0.5, linestyle = '--')
-                trans = ax.get_xaxis_transform()
-                ax.annotate(elm, xy = (lam, 1.05), xycoords = trans, \
-                        fontsize = 8, rotation = 90, color = 'yellow')
-                
+        if self.showed_lines is False:
+            for wave, elm in self.conf.config.items('lines'):
+                lam = (float(wave) * 10)   # nm to AA
+                if (lam > xbounds[0]) & (lam < xbounds[1]):
+                        ax.axvline(lam, 0.95, 1.0, color = 'yellow', lw = 0.5)
+                        ax.axvline(lam, color = 'yellow', lw = 0.5, linestyle = '--')
+                        trans = ax.get_xaxis_transform()
+                        ax.annotate(elm, xy = (lam, 1.05), xycoords = trans, \
+                                fontsize = 8, rotation = 90, color = 'yellow')
+            self.showed_lines = True
+        else:
+            for line in ax.lines: line.remove() 
+            self.show_spectrum(self.sci_spectrum, True)
+            self.showed_lines = False
+                    
         self.figure.canvas.draw_idle()
 
                 

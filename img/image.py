@@ -115,11 +115,11 @@ class Image(object):
             low_cut = v_mean - (nb_sigma * v_std)
             high_cut = v_mean + (nb_sigma * v_std)   
 
-            self.slider_low.config(from_=low_cut - v_std) # + (nb_sigma * v_std)) # / nb_sigma)
-            self.slider_low.config(to=high_cut + v_std) # - (nb_sigma * v_std)) # / nb_sigma)
+            self.slider_low.config(from_=low_cut / 2) # - v_std) # + (nb_sigma * v_std)) # / nb_sigma)
+            self.slider_low.config(to=high_cut * 2)# + v_std) # - (nb_sigma * v_std)) # / nb_sigma)
 
-            self.slider_high.config(from_=low_cut - v_std)# + (nb_sigma * v_std)) # / nb_sigma)
-            self.slider_high.config(to=high_cut + v_std)# - (nb_sigma * v_std)) # / nb_sigma)
+            self.slider_high.config(from_=low_cut / 2) # - v_std)# + (nb_sigma * v_std)) # / nb_sigma)
+            self.slider_high.config(to=high_cut * 2) # + v_std)# - (nb_sigma * v_std)) # / nb_sigma)
 
         # Update the image's colormap and cuts
         try:
