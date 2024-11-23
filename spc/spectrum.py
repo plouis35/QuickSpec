@@ -242,6 +242,7 @@ class Spectrum(object):
                 resp1d: Spectrum1D = Spectrum1D.read(respFile)
                 _factor = int(resp1d.shape[0] / normalized_spec.shape[0])
                 logging.info(f"{normalized_spec.shape[0]=}, {resp1d.shape[0]=}, {_factor=}")
+                
                 _resp1d_ndd = NDDataRef(resp1d)
                 _resp1d_ndd.wcs = None
                 _resp1d = _resp1d_ndd[::_factor].data
@@ -293,7 +294,8 @@ class Spectrum(object):
                                 fontsize = 8, rotation = 90, color = 'yellow')
             self.showed_lines = True
         else:
-            for line in ax.lines: line.remove() 
+            self.ax_spc.clear()
+            #for line in ax.lines: line.remove() 
             self.show_spectrum(self.sci_spectrum, True)
             self.showed_lines = False
                     
