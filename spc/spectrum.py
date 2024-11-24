@@ -9,6 +9,7 @@ from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 import matplotlib.colors as mpl_colors
 import matplotlib.colorbar as cb
+from matplotlib.text import Annotation
 
 from astropy.utils.exceptions import AstropyWarning
 from astropy import units as u
@@ -294,8 +295,14 @@ class Spectrum(object):
                                 fontsize = 8, rotation = 90, color = 'yellow')
             self.showed_lines = True
         else:
-            self.ax_spc.clear()
-            #for line in ax.lines: line.remove() 
+            # clear lines
+            for line in ax.lines: line.remove() 
+
+            # clear elements
+            for elm in ax.get_children():
+                if isinstance(elm, Annotation): elm.remove()
+            
+            # redraw spectrum
             self.show_spectrum(self.sci_spectrum, True)
             self.showed_lines = False
                     
