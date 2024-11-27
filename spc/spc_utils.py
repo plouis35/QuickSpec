@@ -63,3 +63,8 @@ def correct_b(wl):
 
 def rgb(wavelength):
     return np.transpose([correct_r(wavelength),correct_g(wavelength),correct_b(wavelength)])
+
+if __name__ == "__main__":
+  ww=np.arange(380.,781.)
+  print(f"{rgb(456.63)=}")
+

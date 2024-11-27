@@ -1,6 +1,7 @@
 import logging
 import numpy as np
-import random
+#import random
+import math
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -10,6 +11,7 @@ from matplotlib.axes import Axes
 import matplotlib.colors as mpl_colors
 import matplotlib.colorbar as cb
 from matplotlib.text import Annotation
+import matplotlib.gridspec as gridspec
 
 from astropy.utils.exceptions import AstropyWarning
 from astropy import units as u
@@ -47,7 +49,7 @@ class Spectrum(object):
         self.sci_spectrum: Spectrum1D = None
         self.showed_lines: bool = False
         self.colors = ('blue', 'red', 'green', 'orange', 'cyan')
-
+        self.lines_color = 'yellow'    
         self.ax_spc.grid(color = 'grey', linestyle = '--', linewidth = 0.5)
 
     def open_spectrum( self, spc_name: str) -> None:
@@ -63,8 +65,7 @@ class Spectrum(object):
         self.sci_spectrum = spec1d
 
     def show_spectrum(self, spectrum: Spectrum1D, calibrated: bool = False) -> None:
-
-        # select proper axes legend
+        # show axes legend
         if calibrated:
             self.ax_spc.set_ylabel('Relative intensity')
             self.ax_spc.set_xlabel('Wavelength (Angstrom)')
@@ -73,40 +74,25 @@ class Spectrum(object):
             self.ax_spc.set_ylabel('ADU')
         
         # plot spectrum
-        self.colors = np.roll(self.colors, 1) # rotate colors
+        self.colors = np.roll(self.colors, 1) # pick a new color every call 
         _color = self.colors[0]
         self.ax_spc.plot(spectrum.spectral_axis , spectrum.flux, color=_color, linewidth = '0.8')
         self.ax_spc.grid(color = 'grey', linestyle = '--', linewidth = 0.5)
 
-        # display waverange colormap (TODO)
+        # show spectrum colorband
         """"
         if calibrated:
-            ax_wave = self.figure.add_axes([.1, .8, .8, .1])
-
-            def update_colorwave(ax = self.ax_spc, ax_wave = ax_wave):
-                wmin, wmax = ax.get_xlim()
-                l1,b1,w1,h1 = ax.get_position().bounds
-                ax2box = ax_wave.get_position()
-                [[x1,y1],[x2,y2]] = ax2box.get_points()
-                ax2bottom = y1
-                ax2width  = x2-x1
-                ax2height = y2-y1
-
-                ax_wave.set_position(
-                    [ l1+w1*( spectrum.spectral_axis[0]-wmin) /(wmax-wmin), ax2bottom,
-                        w1*(spectrum.spectral_axis[-1]-spectrum.spectral_axis[0])/(wmax-wmin), ax2height])
-                ax_wave.figure.canvas.draw()
-
-            self.ax_spc.callbacks.connect("xlim_changed", update_colorwave)
-            cmap = mpl_colors.ListedColormap(rgb(spectrum.wavelength ))
-            norm = mpl_colors.Normalize(vmin=380., vmax=780.)
-            cb2 = cb.ColorbarBase(ax_wave, cmap=cmap,
-                                                norm=norm,
-                                                orientation='horizontal')
-
-            ax_wave.get_xaxis().set_ticks_position('top')
+            _min_flux = np.min(spectrum.flux.value)
+            _max_flux = np.max(spectrum.flux.value)
+            for i, _wave in zip(range(0, len(spectrum.wavelength)), spectrum.spectral_axis):
+                _lambda = _wave.value
+                _flux = ((spectrum.flux.value[i]) / (_max_flux - _min_flux))   # to 0..1 range
+                if (_flux < 0) or (math.isnan(_flux)):
+                    _flux = 0
+                #print(f"{_lambda=}, {_flux=}")
+                self.ax_spc.axvline(_lambda, 0.95, 1.0, color = rgb(_lambda / 10.0), lw = 1, alpha=_flux)
         """
-        
+
         self.figure.canvas.draw_idle()
 
     def do_extract(self, img_stacked:np.ndarray) -> bool:
@@ -208,20 +194,24 @@ class Spectrum(object):
         logging.info(f"calibrating pixels set : {pixels}")
         logging.info(f"with wavelengths set : {wavelength}")
 
-        #input_spectrum, matched_line_list=None, line_pixels=None, line_wavelengths=None, catalog=None, input_model=Linear1D(), fitter=None
-        #fitter: ~astropy.modeling.fitting.Fitter, optional The fitter to use in optimizing the model fit. Defaults to
-        #~astropy.modeling.fitting.LinearLSQFitter if the model to fit is linear
-        #or ~astropy.modeling.fitting.LMLSQFitter if the model to fit is non-linear.
-        cal = WavelengthCalibration1D(input_spectrum = self.sci_spectrum,
-            line_wavelengths = wavelength,
-            line_pixels = pixels,
-            #matched_line_list = line_list,
-            #input_model = models.Polynomial1D(degree=2), # .Linear1D(),
-            #input_model = models.Polynomial1D(degree = 2),
-            #fitter = fitting.LMLSQFitter()
-            #fitter = fitting.LinearLSQFitter()
-            )
-        
+        try:
+            #input_spectrum, matched_line_list=None, line_pixels=None, line_wavelengths=None, catalog=None, input_model=Linear1D(), fitter=None
+            #fitter: ~astropy.modeling.fitting.Fitter, optional The fitter to use in optimizing the model fit. Defaults to
+            #~astropy.modeling.fitting.LinearLSQFitter if the model to fit is linear
+            #or ~astropy.modeling.fitting.LMLSQFitter if the model to fit is non-linear.
+            cal = WavelengthCalibration1D(input_spectrum = self.sci_spectrum,
+                line_wavelengths = wavelength,
+                line_pixels = pixels,
+                #matched_line_list = line_list,
+                #input_model = models.Polynomial1D(degree=2), # .Linear1D(),
+                #input_model = models.Polynomial1D(degree = 2),
+                #fitter = fitting.LMLSQFitter()
+                #fitter = fitting.LinearLSQFitter()
+                )
+        except Exception as e:
+            logging.error(f"unable to calibraet spectrum : {e}")
+            return False
+
         logging.info(f"residuals : {repr(cal.residuals)}")
         
         # calibrate science spectrum
@@ -229,8 +219,11 @@ class Spectrum(object):
         logging.info('spectrum calibrated')
 
         # normalize to 1 arround 6500 - 6520 Ang
-        sci_mean_norm_region = calibrated_spectrum[6500 * u.AA: 6520 * u.AA].flux.mean()       # starEx2400 : high resolution
+        #sci_mean_norm_region = calibrated_spectrum[6500 * u.AA: 6520 * u.AA].flux.mean()       # starEx2400 : high resolution
+        sci_mean_norm_region = calibrated_spectrum[6000 * u.AA: 6020 * u.AA].flux.mean()       # starEx2400 : high resolution
         normalized_spec = Spectrum1D(spectral_axis = calibrated_spectrum.wavelength, flux = calibrated_spectrum.flux / sci_mean_norm_region)  
+
+        logging.info('spectrum normalized')
 
         # aply response file if any defined
         #sci_spectrum = FluxCalibration(normalized_spec, 1.0) #, airmass = airmass) 
@@ -254,6 +247,7 @@ class Spectrum(object):
 
         except Exception as e:
             logging.error(f"{e}")
+            logging.error("no response file applied")
 
         # apply median smoothing (if any defined)
         smooth: int | None = self.conf.get_int('post_processing', 'median_smooth') 
@@ -264,7 +258,7 @@ class Spectrum(object):
         else:
             self.sci_spectrum = final_spec
 
-        logging.info(f'snr = {snr_derived(self.sci_spectrum)}')
+        logging.info(f'snr = {snr_derived(self.sci_spectrum):.1f}')
 
         self.ax_spc.clear()
 
@@ -286,26 +280,27 @@ class Spectrum(object):
 
         if self.showed_lines is False:
             for wave, elm in self.conf.config.items('lines'):
-                lam = (float(wave) * 10)   # nm to AA
+                lam = (float(wave) * 10)   # convert nm to ang
                 if (lam > xbounds[0]) & (lam < xbounds[1]):
-                        ax.axvline(lam, 0.95, 1.0, color = 'yellow', lw = 0.5)
-                        ax.axvline(lam, color = 'yellow', lw = 0.5, linestyle = '--')
+                        #ax.axvline(lam, 0.95, 1.0, color = self.lines_color, lw = 0.5)
+                        ax.axvline(lam, color = self.lines_color, lw = 0.5, linestyle = '--')
                         trans = ax.get_xaxis_transform()
                         ax.annotate(elm, xy = (lam, 1.05), xycoords = trans, \
-                                fontsize = 8, rotation = 90, color = 'yellow')
+                                fontsize = 8, rotation = 90, color = self.lines_color)
             self.showed_lines = True
         else:
             # clear lines
-            for line in ax.lines: line.remove() 
+            for line in ax.lines: 
+                if line.get_color() == self.lines_color: line.remove() 
 
             # clear elements
             for elm in ax.get_children():
                 if isinstance(elm, Annotation): elm.remove()
             
             # redraw spectrum
-            self.show_spectrum(self.sci_spectrum, True)
+            #self.show_spectrum(self.sci_spectrum, True)
             self.showed_lines = False
                     
-        self.figure.canvas.draw_idle()
+        self.figure.canvas.draw() #_idle()
 
                 

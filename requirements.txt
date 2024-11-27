@@ -7,6 +7,7 @@ numpy>=1.26
 scipy>=1.11
 scikit-image>=0.22
 matplotlib>=3.8
+mpl_interactions
 pandas>=2.1
 ccdproc>=2.4
 pytest

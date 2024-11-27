@@ -115,8 +115,8 @@ class Image(object):
             low_cut = v_mean - (nb_sigma * v_std)
             high_cut = v_mean + (nb_sigma * v_std)   
 
-            min_cut = low_cut - (2*nb_sigma)
-            max_cut = high_cut + (2*nb_sigma)
+            min_cut = v_min + (nb_sigma * v_std) #low_cut - (nb_sigma * v_std)
+            max_cut = v_max - (nb_sigma * v_std) #high_cut + (nb_sigma * v_std)
             
             self.slider_low.config(from_=min_cut)
             self.slider_low.config(to=max_cut)
@@ -163,7 +163,6 @@ class Image(object):
                         show_colorbar = True, 
                         cmap = self.conf.get_str('display', 'colormap'))
         
-        #self._ax_img.set_title(f"{Path(path[0]).stem}...", fontsize=10, loc='left') 
         v_std, v_mean, v_min, v_max = self.stats_image()
         logging.info (f"image stats: min={v_min}, max={v_max}, mean={v_mean}, std={v_std}")
 
@@ -222,11 +221,6 @@ class Image(object):
             cmap = cmap,
             #**scale_args
         )
-
-        def format_coord(x,y):
-            return "x={:.0f}, y={:.0f} ->".format(x,y)
-                    
-        ax_img.format_coord=format_coord
 
         if show_colorbar:
             if self.img_colorbar is not None:

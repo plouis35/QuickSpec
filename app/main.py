@@ -15,6 +15,8 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.backends._backend_tk import NavigationToolbar2Tk
 from matplotlib.backend_tools import Cursors
 
+from mpl_interactions import zoom_factory, panhandler
+
 from astropy import units as u
 from astropy.nddata import CCDData
 
@@ -42,20 +44,24 @@ class Application(tk.Tk):
     def create_panels(self) -> None:
         plt.style.use('dark_background')        
         plt.rcParams['figure.constrained_layout.use'] = True
+        #plt.rcParams['toolbar'] = 'None'
 
         # create a unique figure with 2 axes to hold image & spectrum horizontaly stacked
         self.figure = Figure(figsize=(10, 6))
         self.axe_img = self.figure.add_subplot(211)
         self.axe_spc = self.figure.add_subplot(212)
+        #self.ph = panhandler(self.figure, button=1)
+        #zoom_factory(self.axe_img)
+        #zoom_factory(self.axe_spc)
 
         # create top frame to hold buttons and sliders
         frame = ttk.Frame(self)
         frame.pack(side=tk.TOP, fill=tk.X)
 
-        # intialize img axe
+        # intialize image axe
         self._image = Image(self.axe_img, self.axe_spc, frame)
 
-        # initialize spec axe
+        # initialize spectrum axe
         self._spectrum = Spectrum(self.axe_img, self.axe_spc)
 
         # create buttons
@@ -87,8 +93,6 @@ class Application(tk.Tk):
         # create toolbar
         toolbar = NavigationToolbar2Tk(self.canvas, self, pack_toolbar=False)
         toolbar.children['!button4'].pack_forget()      # ugly... should use another method to remove the conf button.
-        #toolbar.config(background='grey')        
-        #toolbar.config(height=100)
         toolbar.update()
 
         # pack all widgets
