@@ -64,6 +64,12 @@ class Spectrum(object):
         
         self.sci_spectrum = spec1d
 
+    def clear_spectrum(self) -> None:
+        #self._figure.clear()
+        #self._figure.clf()
+        self.ax_spc.clear()
+        self.figure.canvas.draw()
+
     def show_spectrum(self, spectrum: Spectrum1D, calibrated: bool = False) -> None:
         # show axes legend
         if calibrated:
@@ -78,20 +84,6 @@ class Spectrum(object):
         _color = self.colors[0]
         self.ax_spc.plot(spectrum.spectral_axis , spectrum.flux, color=_color, linewidth = '0.8')
         self.ax_spc.grid(color = 'grey', linestyle = '--', linewidth = 0.5)
-
-        # show spectrum colorband
-        """"
-        if calibrated:
-            _min_flux = np.min(spectrum.flux.value)
-            _max_flux = np.max(spectrum.flux.value)
-            for i, _wave in zip(range(0, len(spectrum.wavelength)), spectrum.spectral_axis):
-                _lambda = _wave.value
-                _flux = ((spectrum.flux.value[i]) / (_max_flux - _min_flux))   # to 0..1 range
-                if (_flux < 0) or (math.isnan(_flux)):
-                    _flux = 0
-                #print(f"{_lambda=}, {_flux=}")
-                self.ax_spc.axvline(_lambda, 0.95, 1.0, color = rgb(_lambda / 10.0), lw = 1, alpha=_flux)
-        """
 
         self.figure.canvas.draw_idle()
 
@@ -110,7 +102,8 @@ class Spectrum(object):
         try:
             sci_trace:FitTrace = FitTrace(master_science, 
                                     bins=self.conf.get_int('processing', 'trace_x_bins'), 
-                                    trace_model=models.Chebyshev1D(degree=2), 
+                                    #trace_model=models.Chebyshev1D(degree=2), 
+                                    trace_model=models.Polynomial1D(degree=2),
                                     peak_method='centroid',     #'gaussian', 
                                     window=self.conf.get_int('processing', 'trace_y_window'),
                                     guess=self.conf.get_float('processing', 'trace_y_guess')
@@ -203,9 +196,9 @@ class Spectrum(object):
                 line_wavelengths = wavelength,
                 line_pixels = pixels,
                 #matched_line_list = line_list,
-                #input_model = models.Polynomial1D(degree=2), # .Linear1D(),
-                #input_model = models.Polynomial1D(degree = 2),
-                #fitter = fitting.LMLSQFitter()
+                #input_model = models.Linear1D(),
+                input_model = models.Polynomial1D(degree = 2),
+                fitter = fitting.LMLSQFitter()
                 #fitter = fitting.LinearLSQFitter()
                 )
         except Exception as e:
@@ -220,7 +213,7 @@ class Spectrum(object):
 
         # normalize to 1 arround 6500 - 6520 Ang
         #sci_mean_norm_region = calibrated_spectrum[6500 * u.AA: 6520 * u.AA].flux.mean()       # starEx2400 : high resolution
-        sci_mean_norm_region = calibrated_spectrum[6000 * u.AA: 6020 * u.AA].flux.mean()       # starEx2400 : high resolution
+        sci_mean_norm_region = calibrated_spectrum[6500 * u.AA: 6520 * u.AA].flux.mean()       # starEx2400 : high resolution
         normalized_spec = Spectrum1D(spectral_axis = calibrated_spectrum.wavelength, flux = calibrated_spectrum.flux / sci_mean_norm_region)  
 
         logging.info('spectrum normalized')
@@ -283,19 +276,39 @@ class Spectrum(object):
                 lam = (float(wave) * 10)   # convert nm to ang
                 if (lam > xbounds[0]) & (lam < xbounds[1]):
                         #ax.axvline(lam, 0.95, 1.0, color = self.lines_color, lw = 0.5)
-                        ax.axvline(lam, color = self.lines_color, lw = 0.5, linestyle = '--')
+                        ax.axvline(lam, color = self.lines_color, lw = 0.5, linestyle = '--', alpha=0.8)
                         trans = ax.get_xaxis_transform()
                         ax.annotate(elm, xy = (lam, 1.05), xycoords = trans, \
                                 fontsize = 8, rotation = 90, color = self.lines_color)
+                        
+            # show colorband
+            """"
+            _band_size = int(self.sci_spectrum.wavelength[1].value - self.sci_spectrum.wavelength[0].value)
+            if _band_size <= 1:
+                _band_size = 1
+            _min_flux = np.min(self.sci_spectrum.flux.value)
+            _max_flux = np.max(self.sci_spectrum.flux.value)
+            for i, _wave in zip(range(0, len(self.sci_spectrum.wavelength)), self.sci_spectrum.spectral_axis):
+                if (i+1) % _band_size == 0:
+                    _lambda = _wave.value
+                    _flux = ((self.sci_spectrum.flux.value[i]) / (_max_flux - _min_flux))   # convert to 0..1 range
+                    if (_flux < 0) or (math.isnan(_flux)):
+                        _flux = 0
+                    elif (_flux > 1):
+                        _flux = 1
+                    self.ax_spc.axvline(_lambda, 0.95, 1.0, color = rgb(_lambda / 10.0), lw = _band_size, alpha=_flux)
+            """
             self.showed_lines = True
         else:
             # clear lines
             for line in ax.lines: 
-                if line.get_color() == self.lines_color: line.remove() 
+                if line.get_color() == self.lines_color:
+                    line.remove() 
 
             # clear elements
             for elm in ax.get_children():
-                if isinstance(elm, Annotation): elm.remove()
+                if isinstance(elm, Annotation): 
+                    elm.remove()
             
             # redraw spectrum
             #self.show_spectrum(self.sci_spectrum, True)

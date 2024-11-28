@@ -120,14 +120,17 @@ class Application(tk.Tk):
     
     @run_long_operation
     def extract_spectrum(self) -> None:
+        self._spectrum.clear_spectrum()
         self._spectrum.do_extract(self._image.img_stacked.data)
 
     @run_long_operation
     def reduce_images(self) -> None:
+        #self._image.clear_image()
         self._image.reduce_images()
 
     @run_long_operation
     def calibrate_spectrum(self) -> None:
+        self._spectrum.clear_spectrum()
         self._spectrum.do_calibrate()
 
     @run_long_operation

@@ -266,16 +266,46 @@ class ImagesCombiner(object):
         ### combine frames (sum or median) & save master science frame
         return master_sciences.sum()
 
-    """"    
-    def reduce_images_numpy(self, img_data: List[np.ndarray] , preprocess: bool = False) -> np.ndarray:
-        logging.info('summing images data ...')
+    def reduce_images_numpy(self, preprocess: bool = False) -> CCDData:
+        conf: Config = Config()
+        TRIM_REGION = None
+        EXPOSURE_KEY = 'EXPTIME'
+        CAPTURE_DIR =  str(Path(self.get_image_names()[0]).absolute().parent) + '/'
+        
+        # read master frames
+        master_bias = None
+        master_dark = None
+        master_flat = None
 
-        _reduced_img = img_data[0]
-        for img in img_data:
+        if preprocess:
+            try:
+                if (bias_file := conf.get_str('pre_processing', 'master_offset')) is not None:
+                    master_bias = CCDData.read(CAPTURE_DIR + bias_file, unit = u.adu)
+                    logging.info(f"masterbias loaded")
+            except Exception as e:
+                logging.error(f"cannot read masterbias: {e}")
+
+            try:
+                if (dark_file := conf.get_str('pre_processing', 'master_dark')) is not None:
+                    master_dark = CCDData.read(CAPTURE_DIR + dark_file, unit = u.adu)
+                    logging.info(f"masterdark loaded")
+            except Exception as e:
+                logging.error(f"cannot read masterdark: {e}")
+
+            try:
+                if (flat_file := conf.get_str('pre_processing', 'master_flat')) is not None:
+                    master_flat = CCDData.read(CAPTURE_DIR + flat_file, unit = u.adu)
+                    logging.info(f"masterflat loaded")
+            except Exception as e:
+                logging.error(f"cannot read masterflat: {e}")
+
+            logging.info('summing images data ...')
+
+        _reduced_img = self._images[0]
+        for img in self._images:
             _reduced_img = np.add(_reduced_img, img)
 
         return _reduced_img
-    """
 
 """
 Images class implements the file loader methods

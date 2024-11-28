@@ -93,9 +93,9 @@ class Image(object):
             self.update_image(slider.get() , None)
 
     def clear_image(self) -> None:
-        self._figure.clear()
+        #self._figure.clear()
         #self._figure.clf()
-        #self._ax_img.clear()
+        self._ax_img.clear()
         self._figure.canvas.draw()
 
     def stats_image(self) -> tuple[float, float, float, float]:
@@ -115,8 +115,8 @@ class Image(object):
             low_cut = v_mean - (nb_sigma * v_std)
             high_cut = v_mean + (nb_sigma * v_std)   
 
-            min_cut = v_min + (nb_sigma * v_std) #low_cut - (nb_sigma * v_std)
-            max_cut = v_max - (nb_sigma * v_std) #high_cut + (nb_sigma * v_std)
+            min_cut = low_cut - (nb_sigma * v_std)
+            max_cut = high_cut + (nb_sigma * v_std)
             
             self.slider_low.config(from_=min_cut)
             self.slider_low.config(to=max_cut)
@@ -174,6 +174,7 @@ class Image(object):
         _img_combiner: ImagesCombiner = self.img_combiner
         
         try:
+            #_img_reduced = _img_combiner.reduce_images_numpy()
             _img_reduced = _img_combiner.reduce_images()
             
         except Exception as e:
