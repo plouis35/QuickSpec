@@ -115,8 +115,8 @@ class Image(object):
             low_cut = v_mean - (nb_sigma * v_std)
             high_cut = v_mean + (nb_sigma * v_std)   
 
-            min_cut = low_cut - (nb_sigma * v_std)
-            max_cut = high_cut + (nb_sigma * v_std)
+            min_cut = low_cut - (2 * nb_sigma * v_std)
+            max_cut = high_cut + (8 * nb_sigma * v_std)
             
             self.slider_low.config(from_=min_cut)
             self.slider_low.config(to=max_cut)

@@ -270,19 +270,19 @@ class Spectrum(object):
         if ax is None: ax = self.ax_spc
                         
         xbounds = ax.get_xbound()   
+        trans = ax.get_xaxis_transform()
 
         if self.showed_lines is False:
             for wave, elm in self.conf.config.items('lines'):
-                lam = (float(wave) * 10)   # convert nm to ang
-                if (lam > xbounds[0]) & (lam < xbounds[1]):
+                _lambda = (float(wave) * 10)   # convert nm to ang
+                if (_lambda > xbounds[0]) & (_lambda < xbounds[1]):
                         #ax.axvline(lam, 0.95, 1.0, color = self.lines_color, lw = 0.5)
-                        ax.axvline(lam, color = self.lines_color, lw = 0.5, linestyle = '--', alpha=0.8)
-                        trans = ax.get_xaxis_transform()
-                        ax.annotate(elm, xy = (lam, 1.05), xycoords = trans, \
-                                fontsize = 8, rotation = 90, color = self.lines_color)
+                        ax.axvline(_lambda, color = self.lines_color, lw = 0.5, linestyle = '--', alpha=0.8)
+                        #trans = ax.get_xaxis_transform()
+                        ax.annotate(elm, xy=(_lambda, 1.05), xycoords=trans, fontsize=8, rotation=90, color=self.lines_color)
                         
             # show colorband
-            """"
+            #""""
             _band_size = int(self.sci_spectrum.wavelength[1].value - self.sci_spectrum.wavelength[0].value)
             if _band_size <= 1:
                 _band_size = 1
@@ -296,8 +296,12 @@ class Spectrum(object):
                         _flux = 0
                     elif (_flux > 1):
                         _flux = 1
-                    self.ax_spc.axvline(_lambda, 0.95, 1.0, color = rgb(_lambda / 10.0), lw = _band_size, alpha=_flux)
-            """
+                    #self.ax_spc.axvline(_lambda, 0.95, 1.0, color = rgb(_lambda / 10.0), lw = _band_size, alpha=_flux)
+                    if (_lambda > xbounds[0]) & (_lambda < xbounds[1]):
+                        ax.annotate('||', xy=(_lambda - _band_size, 0.90), xycoords=trans, 
+                                    fontsize=14, weight='bold', color=rgb(_lambda / 10.0), alpha=_flux)
+
+            #"""
             self.showed_lines = True
         else:
             # clear lines
@@ -314,6 +318,6 @@ class Spectrum(object):
             #self.show_spectrum(self.sci_spectrum, True)
             self.showed_lines = False
                     
-        self.figure.canvas.draw() #_idle()
+        self.figure.canvas.draw_idle()
 
                 
