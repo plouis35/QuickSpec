@@ -54,7 +54,7 @@ class ImagesCombiner(object):
     """
     returns a specific image array thru its index
     """
-    def __getitem__(self, i:int) -> np.ndarray:
+    def __getitem__(self, i:int) -> CCDData:
         return self._images[i]
 
     """
@@ -111,7 +111,8 @@ class ImagesCombiner(object):
     def trim(self, trim_region: str | None):
         if trim_region is not None:
             for i in range(0, len(self._images)):
-                self._images[i] = trim_image(self._images[i][eval(trim_region)[1]:eval(trim_region)[3], eval(trim_region)[0]:eval(trim_region)[2]])
+                self._images[i] = trim_image(self._images[i][eval(trim_region)[1]:eval(trim_region)[3],
+                                                              eval(trim_region)[0]:eval(trim_region)[2]])
 
             logging.info(f'{len(self._images)} images trimmed to ({trim_region})')
         else:
@@ -119,13 +120,35 @@ class ImagesCombiner(object):
         return self
 
     """
+    trim all frames loaded in this set
+    trim_region is the rectangle : x1, y1, x2, y2 
+    """
+    def y_crop(self, y_ratio: float | None):
+        if y_ratio is not None:
+            #crop_region = 0, 1000, 5496, 2500  # x1, y1, x2, y2 
+            x1 = 0
+            y1 = round(self._images[0].shape[0] * y_ratio)
+            x2 = self._images[0].shape[1]
+            y2 = round(self._images[0].shape[0] - (self._images[0].shape[0] * y_ratio))
+
+            for i in range(0, len(self._images)):
+                self._images[i] = trim_image(self._images[i][y1:y2, x1:x2])
+
+            logging.info(f"{len(self._images)} images y-cropped to {y_ratio}x: {x1=},{x2=},{y1=},{y2=}")
+        else:
+            logging.info('no y-cropping to do')
+        return self
+
+
+    """
     add a scalar to all frames loaded in this set
     """
     def offset(self, scalar):
         for i in range(0, len(self._images)):
-            self._images[i] = CCDData(CCDData.add(self._images[i], scalar), header = self._images[i].header) #, unit = self._images[i].unit
+            self._images[i] = CCDData(CCDData.add(self._images[i], scalar), 
+                                      header = self._images[i].header) #, unit = self._images[i].unit
             
-        logging.info(f'{len(self._images)} images added by ({operand})')
+        logging.info(f'{len(self._images)} images added by ({scalar})')
         return self
     """
     substract a master bias frame to all frames loaded in this set

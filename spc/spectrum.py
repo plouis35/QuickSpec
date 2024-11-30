@@ -282,7 +282,7 @@ class Spectrum(object):
                         ax.annotate(elm, xy=(_lambda, 1.05), xycoords=trans, fontsize=8, rotation=90, color=self.lines_color)
                         
             # show colorband
-            #""""
+            """"
             _band_size = int(self.sci_spectrum.wavelength[1].value - self.sci_spectrum.wavelength[0].value)
             if _band_size <= 1:
                 _band_size = 1
@@ -301,7 +301,7 @@ class Spectrum(object):
                         ax.annotate('||', xy=(_lambda - _band_size, 0.90), xycoords=trans, 
                                     fontsize=14, weight='bold', color=rgb(_lambda / 10.0), alpha=_flux)
 
-            #"""
+            """
             self.showed_lines = True
         else:
             # clear lines

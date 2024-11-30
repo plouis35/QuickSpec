@@ -106,6 +106,7 @@ contrast_level = 6                  # contrast 'magic' level (high=1 ... low=10)
 
 [pre_processing]
 #crop_region = 0, 1000, 5496, 2500  # x1, y1, x2, y2 
+crop_auto = 0.3
 master_offset = masterbias.fit      #_offset.fit
 master_dark = masterdark.fit        #_dark.fit
 master_flat = masterflat.fit        #_flat.fit
@@ -123,17 +124,14 @@ sky_y_offset = 120
 # HR (starex2400)
 calib_x_pixel = 770, 1190, 2240, 3520, 4160
 calib_x_wavelength = 6506.53, 6532.88, 6598.95, 6678.28, 6717.04
-calib_poly_order = 2
 
 # LR (alpy600)
 #calib_x_pixel = 770, 1190, 2240, 3520, 4160
 #calib_x_wavelength = 6506.53, 6532.88, 6598.95, 6678.28, 6717.04
-#calib_poly_order = 2
 
 # LR (dados200)
 #calib_x_pixel: 61, 683, 940, 1400, 1540
 #calib_x_wavelength: 4333.56, 5400.56, 5852.49, 6678.28, 6929.47
-#calib_poly_order = 2
 
 response_file = masterresponse.fits
 

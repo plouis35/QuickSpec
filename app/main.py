@@ -46,23 +46,50 @@ class Application(tk.Tk):
         plt.rcParams['figure.constrained_layout.use'] = True
         #plt.rcParams['toolbar'] = 'None'
 
-        # create a unique figure with 2 axes to hold image & spectrum horizontaly stacked
-        self.figure = Figure(figsize=(10, 6))
-        self.axe_img = self.figure.add_subplot(211)
-        self.axe_spc = self.figure.add_subplot(212)
-        #self.ph = panhandler(self.figure, button=1)
-        #zoom_factory(self.axe_img)
-        #zoom_factory(self.axe_spc)
-
         # create top frame to hold buttons and sliders
         frame = ttk.Frame(self)
         frame.pack(side=tk.TOP, fill=tk.X)
+
+        # create two frames to hold image and spectrum
+        paned_window = ttk.PanedWindow(self, orient=tk.VERTICAL) #, showhandle=True)
+        paned_window.pack(fill=tk.BOTH, expand=True)
+        img_frame = ttk.Frame(paned_window)
+        spc_frame = ttk.Frame(paned_window)
+        paned_window.add(child=img_frame) #, weight=1)
+        paned_window.add(child=spc_frame) #, weight=1)
+
+        self.img_figure = Figure(figsize=(5, 3))
+        self.axe_img = self.img_figure.add_subplot(111)
+        self.spc_figure = Figure(figsize=(5, 3))
+        self.axe_spc = self.spc_figure.add_subplot(111)
 
         # intialize image axe
         self._image = Image(self.axe_img, self.axe_spc, frame)
 
         # initialize spectrum axe
         self._spectrum = Spectrum(self.axe_img, self.axe_spc)
+
+        # create image canvas
+        self.img_canvas = FigureCanvasTkAgg(self.img_figure, img_frame) #img_frame)
+        self.img_canvas.draw()
+
+        # create toolbar
+        img_toolbar = NavigationToolbar2Tk(self.img_canvas, img_frame, pack_toolbar=False)
+        img_toolbar.children['!button4'].pack_forget()      # ugly... should use another method to remove the conf button.
+        img_toolbar.update()
+        img_toolbar.pack(side=tk.TOP, fill=tk.X)
+        self.img_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True) #side=tk.TOP, 
+
+        # create spectrum canvas
+        self.spc_canvas = FigureCanvasTkAgg(self.spc_figure, spc_frame)
+        self.spc_canvas.draw()
+
+        # create toolbar
+        spc_toolbar = NavigationToolbar2Tk(self.spc_canvas, spc_frame, pack_toolbar=False)
+        spc_toolbar.children['!button4'].pack_forget()      # ugly... should use another method to remove the conf button.
+        spc_toolbar.update()
+        spc_toolbar.pack(side=tk.TOP, fill=tk.X)
+        self.spc_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)#side=tk.TOP, 
 
         # create buttons
         bt_load = ttk.Button(frame, text="Load", command=self.open_files)
@@ -85,20 +112,6 @@ class Application(tk.Tk):
 
         #bt_clear = ttk.Button(master=frame, text="Clear", command=self._spectrum.do_clear)
         #bt_clear.pack(side=tk.LEFT, padx=5, pady=0)
-
-        # create canvas
-        self.canvas = FigureCanvasTkAgg(self.figure, self)
-        self.canvas.draw()
-
-        # create toolbar
-        toolbar = NavigationToolbar2Tk(self.canvas, self, pack_toolbar=False)
-        toolbar.children['!button4'].pack_forget()      # ugly... should use another method to remove the conf button.
-        toolbar.update()
-
-        # pack all widgets
-        toolbar.pack(side=tk.BOTTOM, fill=tk.X)
-        self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
-
 
     # local callbacks for buttons
 

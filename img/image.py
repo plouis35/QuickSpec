@@ -146,9 +146,9 @@ class Image(object):
         _img_combiner: ImagesCombiner
 
         try:
-            _img_combiner = Images.from_fits(imgs=path)
+            _img_combiner = Images.from_fits(imgs=path).y_crop(y_ratio=self.conf.get_float('pre_processing','crop_auto'))
             _img_reduced = _img_combiner.sum()
-                        #.trim(TRIM_REGION) \
+
         except Exception as e:
             logging.error(f"{e}")
             return
@@ -183,8 +183,8 @@ class Image(object):
         
         if _img_reduced is not None:
             self.img_stacked = _img_reduced.copy()    
-            self.image.set_data(self.img_stacked.data)
-            self.update_image()
+            #self.image.set_data(self.img_stacked.data)
+            #self.update_image()
         
             v_std, v_mean, v_min, v_max = self.stats_image()
             logging.info (f"image stats: min={v_min}, max={v_max}, mean={v_mean}, std={v_std}")
