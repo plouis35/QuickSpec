@@ -204,18 +204,18 @@ class ImagesCombiner(object):
         return self
 
     """
-    align a set of loaded frames - specific to spectra fields (fft based)
+    align a set of loaded frames - specific to spectra 2D images (fft based)
     """
     def spec_align(self, ref_image_index: int = 0) -> "ImagesCombiner":    
-        ### Collect arrays and crosscorrelate all (except the first) with the first.
+        ### crosscorrelate all images (except the first) with the first
         logging.info('align: fftconvolve running...')
         nX, nY = self._images[ref_image_index].shape
         correlations = [fftconvolve(self._images[ref_image_index].data.astype('float32'),
                                     image[::-1, ::-1].data.astype('float32'),
                                     mode='same') 
-                        for image in self._images[1:]]
+                                    for image in self._images[1:]]
     
-        ### For each image determine the coordinate of maximum cross-correlation.
+        ### find the coordinate of maximum cross-correlation.
         logging.info('align: get max cross-correlation for every image...')
         shift_indices = [np.unravel_index(np.argmax(corr_array, axis=None), corr_array.shape) 
                          for corr_array in correlations]
@@ -223,21 +223,20 @@ class ImagesCombiner(object):
         deltas = [(ind[0] - int(nX / 2), ind[1] - int(nY / 2)) for ind in shift_indices]
         logging.info('align: images deltas = ' + repr(deltas))
     
-        ### Warn for ghost images if realignment requires shifting by more than
-        ### 15% of the field size.
+        ### alerts images for whichrealignment requires shifting by more than 15% of the field size.
         x_frac = abs(max(deltas, key=lambda x: abs(x[0]))[0]) / nX
         y_frac = abs(max(deltas, key=lambda x: abs(x[1]))[1]) / nY
         t_frac = max(x_frac, y_frac)
         if t_frac > 0.15:
             logging.warning('align: shifting by {}% of the field size'.format(int(100 * t_frac)))
     
-        ### Roll the images to realign them and return their median.
+        ### roll images to realign them
         logging.info('align: images realignement ...')
-        realigned_images = [CCDData(np.roll(image, deltas[i], axis=(0, 1)).data.astype('float32'), unit = u.adu, header = image.header) 
+        realigned_images = [CCDData(np.roll(image, deltas[i], axis=(0, 1)).data, unit = u.adu, header = image.header) 
                             for (i, image) in enumerate(self._images[1:])]
 
         ### do not forget the reference image
-        realigned_images.append(CCDData(self._images[ref_image_index].data.astype('float32'), unit = u.adu, header = self._images[ref_image_index].header))
+        realigned_images.append(CCDData(self._images[ref_image_index].data, unit = u.adu, header = self._images[ref_image_index].header))
         logging.info('align: complete')
         return ImagesCombiner(realigned_images, [])
     
@@ -253,9 +252,18 @@ class ImagesCombiner(object):
         master_dark = None
         master_flat = None
 
+        y_ratio=conf.get_float('pre_processing','crop_auto')
+
         try:
             if (bias_file := conf.get_str('pre_processing', 'master_offset')) is not None:
                 master_bias = CCDData.read(CAPTURE_DIR + bias_file, unit = u.adu)
+                if y_ratio is not None:
+                    x1 = 0
+                    y1 = round(master_bias.shape[0] * y_ratio)
+                    x2 = master_bias.shape[1]
+                    y2 = round(master_bias.shape[0] - (master_bias.shape[0] * y_ratio))
+                    master_bias = trim_image(master_bias[y1:y2, x1:x2])
+
                 logging.info(f"masterbias loaded")
         except Exception as e:
             logging.error(f"cannot read masterbias: {e}")
@@ -263,6 +271,13 @@ class ImagesCombiner(object):
         try:
             if (dark_file := conf.get_str('pre_processing', 'master_dark')) is not None:
                 master_dark = CCDData.read(CAPTURE_DIR + dark_file, unit = u.adu)
+                if y_ratio is not None:
+                    x1 = 0
+                    y1 = round(master_dark.shape[0] * y_ratio)
+                    x2 = master_dark.shape[1]
+                    y2 = round(master_dark.shape[0] - (master_dark.shape[0] * y_ratio))
+                    master_dark = trim_image(master_dark[y1:y2, x1:x2])
+
                 logging.info(f"masterdark loaded")
         except Exception as e:
             logging.error(f"cannot read masterdark: {e}")
@@ -270,6 +285,13 @@ class ImagesCombiner(object):
         try:
             if (flat_file := conf.get_str('pre_processing', 'master_flat')) is not None:
                 master_flat = CCDData.read(CAPTURE_DIR + flat_file, unit = u.adu)
+                if y_ratio is not None:
+                    x1 = 0
+                    y1 = round(master_flat.shape[0] * y_ratio)
+                    x2 = master_flat.shape[1]
+                    y2 = round(master_flat.shape[0] - (master_flat.shape[0] * y_ratio))
+                    master_flat = trim_image(master_flat[y1:y2, x1:x2])
+
                 logging.info(f"masterflat loaded")
         except Exception as e:
             logging.error(f"cannot read masterflat: {e}")
