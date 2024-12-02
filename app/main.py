@@ -1,7 +1,5 @@
 import logging
-import threading
 import time
-import functools
 from pathlib import Path
 
 import tkinter as tk
@@ -13,9 +11,6 @@ from matplotlib.figure import Figure
 
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.backends._backend_tk import NavigationToolbar2Tk
-from matplotlib.backend_tools import Cursors
-
-from mpl_interactions import zoom_factory, panhandler
 
 from astropy import units as u
 from astropy.nddata import CCDData
@@ -37,118 +32,75 @@ class Application(tk.Tk):
         self.app_version = app_version
         self.conf: Config = Config()
         LogHandler().initialize()
-        #OSUtils.show_versions()
-        #self.create_watcher()
         self.create_panels()
+        self.create_buttons()
+
+        # create a timer to capture new files created
+        self.after_idle(self.watch_files)
 
     def create_panels(self) -> None:
         plt.style.use('dark_background')        
         plt.rcParams['figure.constrained_layout.use'] = True
-        #plt.rcParams['toolbar'] = 'None'
 
         # create top frame to hold buttons and sliders
-        frame = ttk.Frame(self)
-        frame.pack(side=tk.TOP, fill=tk.X)
+        self.bt_frame = ttk.Frame(self)
+        self.bt_frame.pack(side=tk.TOP, fill=tk.X)
 
         # create two frames to hold image and spectrum
-        paned_window = ttk.PanedWindow(self, orient=tk.VERTICAL) #, showhandle=True)
+        paned_window = ttk.PanedWindow(self, orient=tk.VERTICAL)
         paned_window.pack(fill=tk.BOTH, expand=True)
         img_frame = ttk.Frame(paned_window)
         spc_frame = ttk.Frame(paned_window)
         paned_window.add(child=img_frame) #, weight=1)
         paned_window.add(child=spc_frame) #, weight=1)
 
-        self.img_figure = Figure(figsize=(5, 3))
-        self.axe_img = self.img_figure.add_subplot(111)
-        self.spc_figure = Figure(figsize=(5, 3))
-        self.axe_spc = self.spc_figure.add_subplot(111)
-
         # intialize image axe
-        self._image = Image(self.axe_img, self.axe_spc, frame)
+        self._image = Image(img_frame, self.bt_frame)
 
         # initialize spectrum axe
-        self._spectrum = Spectrum(self.axe_img, self.axe_spc)
+        self._spectrum = Spectrum(spc_frame, self._image.img_axe)
 
-        # create image canvas
-        self.img_canvas = FigureCanvasTkAgg(self.img_figure, img_frame) #img_frame)
-        self.img_canvas.draw()
-
-        # create toolbar
-        img_toolbar = NavigationToolbar2Tk(self.img_canvas, img_frame, pack_toolbar=False)
-        img_toolbar.children['!button4'].pack_forget()      # ugly... should use another method to remove the conf button.
-        img_toolbar.update()
-        img_toolbar.pack(side=tk.TOP, fill=tk.X)
-        self.img_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True) #side=tk.TOP, 
-
-        # create spectrum canvas
-        self.spc_canvas = FigureCanvasTkAgg(self.spc_figure, spc_frame)
-        self.spc_canvas.draw()
-
-        # create toolbar
-        spc_toolbar = NavigationToolbar2Tk(self.spc_canvas, spc_frame, pack_toolbar=False)
-        spc_toolbar.children['!button4'].pack_forget()      # ugly... should use another method to remove the conf button.
-        spc_toolbar.update()
-        spc_toolbar.pack(side=tk.TOP, fill=tk.X)
-        self.spc_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)#side=tk.TOP, 
-
-        # create buttons
-        bt_load = ttk.Button(frame, text="Load", command=self.open_files)
+    def create_buttons(self) -> None:
+        bt_load = ttk.Button(self.bt_frame, text="Load", command=self.open_files)
         bt_load.pack(side=tk.LEFT, padx=5, pady=0)
 
-        bt_run = ttk.Button(frame, text="Run all", command=self.run_all)
+        bt_run = ttk.Button(self.bt_frame, text="Run all", command=self.run_all)
         bt_run.pack(side=tk.LEFT, padx=5, pady=0)
 
-        bt_reduce = ttk.Button(master=frame, text="Reduce", command=self.reduce_images)
+        bt_reduce = ttk.Button(master=self.bt_frame, text="Reduce", command=self.reduce_images)
         bt_reduce.pack(side=tk.LEFT, padx=5, pady=0)
 
-        bt_extract = ttk.Button(master=frame, text="Extract", command=self.extract_spectrum)
+        bt_extract = ttk.Button(master=self.bt_frame, text="Extract", command=self.extract_spectrum)
         bt_extract.pack(side=tk.LEFT, padx=5, pady=0)
 
-        bt_calibrate = ttk.Button(master=frame, text="Calibrate", command=self.calibrate_spectrum)
+        bt_calibrate = ttk.Button(master=self.bt_frame, text="Calibrate", command=self.calibrate_spectrum)
         bt_calibrate.pack(side=tk.LEFT, padx=5, pady=0)
 
-        bt_lines = ttk.Button(master=frame, text="Show lines", command=self._spectrum.show_lines)
+        bt_lines = ttk.Button(master=self.bt_frame, text="Show lines", command=self._spectrum.show_lines)
         bt_lines.pack(side=tk.LEFT, padx=5, pady=0)
 
         #bt_clear = ttk.Button(master=frame, text="Clear", command=self._spectrum.do_clear)
         #bt_clear.pack(side=tk.LEFT, padx=5, pady=0)
 
     # local callbacks for buttons
-
-    @staticmethod
-    def run_long_operation(func):
-        @functools.wraps(func)
-        def wrap(self, *args, **kwargs):
-            retcode = func(self, *args, **kwargs)
-            return retcode
-        return wrap
-
     def run_all(self) -> None:
         for action in ( self.reduce_images, 
                         self.extract_spectrum, 
-                        self.calibrate_spectrum):
-            if action() is False:
-                logging.error(f"run all stopped in error")
-                return
+                        self.calibrate_spectrum): action()
     
-    @run_long_operation
     def extract_spectrum(self) -> None:
         self._spectrum.clear_spectrum()
         self._spectrum.do_extract(self._image.img_stacked.data)
 
-    @run_long_operation
     def reduce_images(self) -> None:
         #self._image.clear_image()
         self._image.reduce_images()
 
-    @run_long_operation
     def calibrate_spectrum(self) -> None:
         self._spectrum.clear_spectrum()
         self._spectrum.do_calibrate()
 
-    @run_long_operation
     def open_files(self) -> None:
-
         # get list of files to open
         path = askopenfilenames(title='Select image(s) or spectra',
                             filetypes=[("fits files", '*.fit'), 
@@ -184,20 +136,7 @@ class Application(tk.Tk):
         self.title(f"{self.app_name} - {self.app_version} [{Path(path[0]).stem}...]")
 
         return 
-    
-    def create_watcher(self) -> None:
-        def watch() -> None:
-            while True:
-                try:
-                    self.title(f"{self.app_name} [{OSUtils.get_memory_used()}MB]")
-                    time.sleep(1)
-                except Exception as e:
-                    #logging.warning(f"Watch thread : {e}")
-                    logging.info("Watch thread terminated")
-                    # exit thread whatever exception is (during destroy window)
-                    break
 
-        self.watch_thread = threading.Thread(target = watch, name='quickspec_watch_thread')
-        self.watch_thread.start()
-        logging.info('watch thread started - tid = {}'.format(self.watch_thread))          
-
+    def watch_files(self):
+        #logging.info(f"watcher time is : {time.strftime("%H:%M:%S", time.localtime())}")
+        self.after(1000, self.watch_files) 

@@ -14,7 +14,8 @@ from matplotlib.image import AxesImage
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 from matplotlib.colorbar import Colorbar
-
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.backends._backend_tk import NavigationToolbar2Tk
 
 from astropy import units as u
 from astropy.nddata import CCDData, NDData, StdDevUncertainty
@@ -34,13 +35,24 @@ warnings.simplefilter('ignore', category=AstropyWarning)
 warnings.simplefilter('ignore', UserWarning)
 
 class Image(object):
-
-
-    def __init__(self, axe_img: Axes, axe_spc: Axes, frame: ttk.Frame) -> None:
+    def __init__(self, img_frame: ttk.Frame, bt_frame: ttk.Frame) -> None: #, axe_img: Axes, axe_spc: Axes, frame: ttk.Frame) -> None:
         self.conf: Config = Config()
-        self._ax_img: Axes = axe_img
-        self._ax_spc: Axes = axe_spc
-        self._figure: Figure = axe_img.get_figure()
+
+        self.img_figure = Figure(figsize=(5, 3))
+        self.img_axe = self.img_figure.add_subplot(111)
+
+        # create image canvas
+        self.img_canvas = FigureCanvasTkAgg(self.img_figure, img_frame) #img_frame)
+        self.img_canvas.draw()
+
+        # create toolbar
+        img_toolbar = NavigationToolbar2Tk(self.img_canvas, img_frame, pack_toolbar=False)
+        img_toolbar.children['!button4'].pack_forget()      # ugly... should use another method to remove the conf button.
+        img_toolbar.update()
+        img_toolbar.pack(side=tk.TOP, fill=tk.X)
+        self.img_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True) #side=tk.TOP, 
+
+
         self.image: AxesImage = None
         self.img_stacked: CCDData = CCDData(np.zeros((2,8)), unit=u.adu)
         self.img_names:list[str] = []
@@ -49,7 +61,7 @@ class Image(object):
         self.img_combiner: ImagesCombiner = None
         
         # create sliders
-        slider_frame = ttk.Frame(frame)
+        slider_frame = ttk.Frame(bt_frame)
         slider_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
 
         slider_high_frame = ttk.Frame(slider_frame)
@@ -80,8 +92,8 @@ class Image(object):
         
         # show a dummy (zeros) image to start            
         self.image = self.show_image(image = self.img_stacked,
-                        fig_img = self._figure,
-                        ax_img = self._ax_img,
+                        fig_img = self.img_figure,
+                        ax_img = self.img_axe,
                         show_colorbar=True, 
                         cmap = 'grey')  # #self.conf.get_str('display', 'colormap')) # type: ignore
 
@@ -95,8 +107,8 @@ class Image(object):
     def clear_image(self) -> None:
         #self._figure.clear()
         #self._figure.clf()
-        self._ax_img.clear()
-        self._figure.canvas.draw()
+        self.img_axe.clear()
+        self.img_figure.canvas.draw()
 
     def stats_image(self) -> tuple[float, float, float, float]:
         v_std = self.img_stacked.data.std()
@@ -111,7 +123,7 @@ class Image(object):
             v_std, v_mean, v_min, v_max = self.stats_image()
 
             # update sliders positions
-            nb_sigma = self.conf.get_int('display', 'contrast_level')
+            nb_sigma = 6 #self.conf.get_int('display', 'contrast_level')
             low_cut = v_mean - (nb_sigma * v_std)
             high_cut = v_mean + (nb_sigma * v_std)   
 
@@ -138,7 +150,7 @@ class Image(object):
         except Exception as e:
             logging.error({e})
         
-        self._figure.canvas.draw_idle()
+        self.img_figure.canvas.draw_idle()
 
 
     def load_images(self, path: list[str]) -> None:
@@ -158,8 +170,8 @@ class Image(object):
     
         # display image
         self.image = self.show_image(image = self.img_stacked.data,
-                        fig_img = self._figure,
-                        ax_img = self._ax_img,
+                        fig_img = self.img_figure,
+                        ax_img = self.img_axe,
                         show_colorbar = True, 
                         cmap = self.conf.get_str('display', 'colormap'))
         
@@ -193,8 +205,8 @@ class Image(object):
     
         # display image
         self.image = self.show_image(image = self.img_stacked,
-                        fig_img = self._figure,
-                        ax_img = self._ax_img,
+                        fig_img = self.img_figure,
+                        ax_img = self.img_axe,
                         show_colorbar = True, 
                         cmap = self.conf.get_str('display', 'colormap'))
         

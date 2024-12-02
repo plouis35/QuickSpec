@@ -88,7 +88,7 @@ class Config(object):
             return None
 
     def save(self) -> None:
-        with open(self._config_path, 'w', encoding='cp850', errors='replace') as configfile:
+        with open(self._config_path, 'w', encoding="utf-8") as configfile:
             self.config.write(configfile)
 
     def check_section(self, section: str) -> None:
@@ -101,17 +101,13 @@ class Config(object):
 level = INFO
 
 [display]
-colormap = inferno                  # magma
-contrast_level = 6                  # contrast 'magic' level (high=1 ... low=10)
+colormap = inferno                  # magma, grey
 
 [pre_processing]
-#crop_region = 0, 1000, 5496, 2500  # x1, y1, x2, y2 
-crop_auto = 0.3
-master_offset = masterbias.fit      #_offset.fit
-master_dark = masterdark.fit        #_dark.fit
-master_flat = masterflat.fit        #_flat.fit
-master_science = masterscience.fit
-cosmics_cleanup = no
+crop_auto = 0.4
+master_offset = _offset.fit
+master_dark = _dark.fit
+master_flat = _flat.fit
 
 [processing]
 #trace_y_guess = 1695
@@ -133,14 +129,14 @@ calib_x_wavelength = 6506.53, 6532.88, 6598.95, 6678.28, 6717.04
 #calib_x_pixel: 61, 683, 940, 1400, 1540
 #calib_x_wavelength: 4333.56, 5400.56, 5852.49, 6678.28, 6929.47
 
-response_file = masterresponse.fits
+response_file = _rep.fits
 
 [post_processing]
 #median_smooth = 7
 
 [lines]
 0.00 = Zero
-656.2852 = Halp 
+656.2852 = Halp
 486.133 = Hbet
 434.047 = Hgam 
 410.174 = Hdel 
@@ -190,7 +186,7 @@ response_file = masterresponse.fits
 
 """
         logging.info(f"creating a new config file: {self._config_path}")
-        with open(self._config_path, 'w') as configfile:
+        with open(self._config_path, 'w', encoding="utf-8") as configfile:
             configfile.write(contents + '\n')
 
 # test

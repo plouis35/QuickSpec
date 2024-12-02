@@ -1,8 +1,10 @@
 import logging
 import numpy as np
-#import random
 import math
 from pathlib import Path
+
+import tkinter as tk
+from tkinter import ttk
 
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Button
@@ -12,6 +14,9 @@ import matplotlib.colors as mpl_colors
 import matplotlib.colorbar as cb
 from matplotlib.text import Annotation
 import matplotlib.gridspec as gridspec
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.backends._backend_tk import NavigationToolbar2Tk
+
 
 from astropy.utils.exceptions import AstropyWarning
 from astropy import units as u
@@ -41,16 +46,28 @@ from spc.spc_utils import rgb
 
 class Spectrum(object):
 
-    def __init__(self, axe_img: Axes, axe_spc: Axes) -> None:
+    def __init__(self, spc_frame: ttk.Frame, img_axe: Axes) -> None: #, axe_img: Axes, axe_spc: Axes) -> None:
         self.conf = Config()
-        self.ax_img: Axes = axe_img
-        self.ax_spc: Axes = axe_spc
-        self.figure: Figure = axe_spc.get_figure()
+        self.spc_figure = Figure(figsize=(5, 3))
+        self.spc_axe = self.spc_figure.add_subplot(111)
+        self.img_axe = img_axe
+
+        # create spectrum canvas
+        self.spc_canvas = FigureCanvasTkAgg(self.spc_figure, spc_frame)
+        self.spc_canvas.draw()
+
+        # create toolbar
+        spc_toolbar = NavigationToolbar2Tk(self.spc_canvas, spc_frame, pack_toolbar=False)
+        spc_toolbar.children['!button4'].pack_forget()      # ugly... should use another method to remove the conf button.
+        spc_toolbar.update()
+        spc_toolbar.pack(side=tk.TOP, fill=tk.X)
+        self.spc_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)#side=tk.TOP, 
+
         self.sci_spectrum: Spectrum1D = None
         self.showed_lines: bool = False
         self.colors = ('blue', 'red', 'green', 'orange', 'cyan')
         self.lines_color = 'yellow'    
-        self.ax_spc.grid(color = 'grey', linestyle = '--', linewidth = 0.5)
+        self.spc_axe.grid(color = 'grey', linestyle = '--', linewidth = 0.5)
 
     def open_spectrum( self, spc_name: str) -> None:
         # open spectrum data
@@ -67,25 +84,25 @@ class Spectrum(object):
     def clear_spectrum(self) -> None:
         #self._figure.clear()
         #self._figure.clf()
-        self.ax_spc.clear()
-        self.figure.canvas.draw()
+        self.spc_axe.clear()
+        self.spc_figure.canvas.draw()
 
     def show_spectrum(self, spectrum: Spectrum1D, calibrated: bool = False) -> None:
         # show axes legend
         if calibrated:
-            self.ax_spc.set_ylabel('Relative intensity')
-            self.ax_spc.set_xlabel('Wavelength (Angstrom)')
+            self.spc_axe.set_ylabel('Relative intensity')
+            self.spc_axe.set_xlabel('Wavelength (Angstrom)')
         else:
-            self.ax_spc.set_xlabel('Pixels')
-            self.ax_spc.set_ylabel('ADU')
+            self.spc_axe.set_xlabel('Pixels')
+            self.spc_axe.set_ylabel('ADU')
         
         # plot spectrum
         self.colors = np.roll(self.colors, 1) # pick a new color every call 
         _color = self.colors[0]
-        self.ax_spc.plot(spectrum.spectral_axis , spectrum.flux, color=_color, linewidth = '0.8')
-        self.ax_spc.grid(color = 'grey', linestyle = '--', linewidth = 0.5)
+        self.spc_axe.plot(spectrum.spectral_axis , spectrum.flux, color=_color, linewidth = '0.8')
+        self.spc_axe.grid(color = 'grey', linestyle = '--', linewidth = 0.5)
 
-        self.figure.canvas.draw_idle()
+        self.spc_figure.canvas.draw_idle()
 
     def do_extract(self, img_stacked:np.ndarray) -> bool:
         master_science: np.ndarray = img_stacked
@@ -145,30 +162,31 @@ class Spectrum(object):
         self.sci_spectrum = sci_spectrum
         logging.info('spectrum extracted')
 
-        self.ax_spc.clear()
+        self.spc_axe.clear()
 
         # trace spectrum zone
-        self.ax_img.plot(self.sci_spectrum.spectral_axis, sci_trace.trace , color='red', 
+        self.img_axe.plot(self.sci_spectrum.spectral_axis, sci_trace.trace , color='red', 
                             linestyle='dashed', linewidth = '0.5')
-        self.ax_img.plot(self.sci_spectrum.spectral_axis, sci_trace.trace + extract.width , color='green', 
+        self.img_axe.plot(self.sci_spectrum.spectral_axis, sci_trace.trace + extract.width , color='green', 
                             linestyle='dashed', linewidth = '0.5')  #, alpha=0.2)
-        self.ax_img.plot(self.sci_spectrum.spectral_axis, sci_trace.trace - extract.width , color='green', 
+        self.img_axe.plot(self.sci_spectrum.spectral_axis, sci_trace.trace - extract.width , color='green', 
                             linestyle='dashed', linewidth = '0.5')  #, alpha=0.2)
         
         # trace sky zones
-        self.ax_img.plot(self.sci_spectrum.spectral_axis, sci_trace.trace + (self.conf.get_int('processing', 'sky_y_offset')) , 
+        self.img_axe.plot(self.sci_spectrum.spectral_axis, sci_trace.trace + (self.conf.get_int('processing', 'sky_y_offset')) , 
                             color='green', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
-        self.ax_img.plot(self.sci_spectrum.spectral_axis, 
+        self.img_axe.plot(self.sci_spectrum.spectral_axis, 
                             sci_trace.trace + (self.conf.get_int('processing', 'sky_y_offset') + self.conf.get_int('processing', 'sky_y_size')) , 
                             color='green', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
-        self.ax_img.plot(self.sci_spectrum.spectral_axis, 
+        self.img_axe.plot(self.sci_spectrum.spectral_axis, 
                             sci_trace.trace - (self.conf.get_int('processing', 'sky_y_offset') + self.conf.get_int('processing', 'sky_y_size')) , 
                             color='green', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
-        self.ax_img.plot(self.sci_spectrum.spectral_axis, 
+        self.img_axe.plot(self.sci_spectrum.spectral_axis, 
                             sci_trace.trace - (self.conf.get_int('processing', 'sky_y_offset')) , 
                             color='green', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
         
         self.show_spectrum(self.sci_spectrum, False)
+        self.img_axe.get_figure().canvas.draw_idle()
 
         return True
     
@@ -197,8 +215,9 @@ class Spectrum(object):
                 line_pixels = pixels,
                 #matched_line_list = line_list,
                 #input_model = models.Linear1D(),
+                #fitter = fitting.LMLSQFitter(),
                 input_model = models.Polynomial1D(degree = 2),
-                fitter = fitting.LMLSQFitter()
+                #fitter = fitting.LMLSQFitter()
                 #fitter = fitting.LinearLSQFitter()
                 )
         except Exception as e:
@@ -253,7 +272,7 @@ class Spectrum(object):
 
         logging.info(f'snr = {snr_derived(self.sci_spectrum):.1f}')
 
-        self.ax_spc.clear()
+        self.spc_axe.clear()
 
         self.show_spectrum(self.sci_spectrum, True)
 
@@ -262,12 +281,12 @@ class Spectrum(object):
     
     
     def do_clear(self) -> None:
-        self.ax_spc.clear()
+        self.spc_axe.clear()
         #self.ax_img.clear()
-        self.figure.canvas.draw_idle()
+        self.spc_figure.canvas.draw_idle()
 
     def show_lines(self, ax = None, show_line = True):
-        if ax is None: ax = self.ax_spc
+        if ax is None: ax = self.spc_axe
                         
         xbounds = ax.get_xbound()   
         trans = ax.get_xaxis_transform()
@@ -282,26 +301,6 @@ class Spectrum(object):
                         ax.annotate(elm, xy=(_lambda, 1.05), xycoords=trans, fontsize=8, rotation=90, color=self.lines_color)
                         
             # show colorband
-            """"
-            _band_size = int(self.sci_spectrum.wavelength[1].value - self.sci_spectrum.wavelength[0].value)
-            if _band_size <= 1:
-                _band_size = 1
-            _min_flux = np.min(self.sci_spectrum.flux.value)
-            _max_flux = np.max(self.sci_spectrum.flux.value)
-            for i, _wave in zip(range(0, len(self.sci_spectrum.wavelength)), self.sci_spectrum.spectral_axis):
-                if (i+1) % _band_size == 0:
-                    _lambda = _wave.value
-                    _flux = ((self.sci_spectrum.flux.value[i]) / (_max_flux - _min_flux))   # convert to 0..1 range
-                    if (_flux < 0) or (math.isnan(_flux)):
-                        _flux = 0
-                    elif (_flux > 1):
-                        _flux = 1
-                    #self.ax_spc.axvline(_lambda, 0.95, 1.0, color = rgb(_lambda / 10.0), lw = _band_size, alpha=_flux)
-                    if (_lambda > xbounds[0]) & (_lambda < xbounds[1]):
-                        ax.annotate('||', xy=(_lambda - _band_size, 0.90), xycoords=trans, 
-                                    fontsize=14, weight='bold', color=rgb(_lambda / 10.0), alpha=_flux)
-
-            """
             self.showed_lines = True
         else:
             # clear lines
@@ -318,6 +317,6 @@ class Spectrum(object):
             #self.show_spectrum(self.sci_spectrum, True)
             self.showed_lines = False
                     
-        self.figure.canvas.draw_idle()
+        self.spc_figure.canvas.draw_idle()
 
                 
