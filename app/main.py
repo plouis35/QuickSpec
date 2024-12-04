@@ -1,6 +1,7 @@
 import logging
 import time
 from pathlib import Path
+import functools
 
 import tkinter as tk
 from tkinter import ttk
@@ -27,6 +28,7 @@ class Application(tk.Tk):
 
     def __init__(self, app_name: str, app_version: str) -> None:
         super().__init__()
+        self.iconbitmap(r'./quickspec.ico')
         self.title(f"{app_name} - {app_version}")
         self.app_name = app_name
         self.app_version = app_version
@@ -61,48 +63,88 @@ class Application(tk.Tk):
         self._spectrum = Spectrum(spc_frame, self._image.img_axe)
 
     def create_buttons(self) -> None:
-        bt_load = ttk.Button(self.bt_frame, text="Load", command=self.open_files)
+        bt_load = ttk.Button(self.bt_frame, text="Load", command=self.cb_open_files)
         bt_load.pack(side=tk.LEFT, padx=5, pady=0)
 
-        bt_run = ttk.Button(self.bt_frame, text="Run all", command=self.run_all)
+        bt_run = ttk.Button(self.bt_frame, text="Run all", command=self.cb_run_all)
         bt_run.pack(side=tk.LEFT, padx=5, pady=0)
 
-        bt_reduce = ttk.Button(master=self.bt_frame, text="Reduce", command=self.reduce_images)
+        """"
+        bt_reduce = ttk.Button(master=self.bt_frame, text="Reduce", command=self.cb_reduce_images)
         bt_reduce.pack(side=tk.LEFT, padx=5, pady=0)
 
-        bt_extract = ttk.Button(master=self.bt_frame, text="Extract", command=self.extract_spectrum)
+        bt_extract = ttk.Button(master=self.bt_frame, text="Extract", command=self.cb_extract_spectrum)
         bt_extract.pack(side=tk.LEFT, padx=5, pady=0)
 
-        bt_calibrate = ttk.Button(master=self.bt_frame, text="Calibrate", command=self.calibrate_spectrum)
+        bt_calibrate = ttk.Button(master=self.bt_frame, text="Calibrate", command=self.cb_calibrate_spectrum)
         bt_calibrate.pack(side=tk.LEFT, padx=5, pady=0)
+
+        """
+
+        _step_options = ["Reduce", "Trace", "Extract", "Calibrate"]
+        bt_step_default = "Run step"
+        _var = tk.StringVar(value=bt_step_default)
+
+        def cb_run_step(step: tk.StringVar) -> None:
+            logging.info(f"step {step} started...")
+            match step:
+                case "Reduce": self.cb_reduce_images()
+                case "Trace": self.cb_trace_spectrum()
+                case "Extract": self.cb_extract_spectrum()
+                case "Calibrate": self.cb_calibrate_spectrum()
+                case _: pass
+
+            _var.set(bt_step_default)
+
+        bt_steps = ttk.OptionMenu(self.bt_frame, _var, bt_step_default, *(_step_options), command = cb_run_step)
+        bt_steps.pack(side=tk.LEFT, padx=5, pady=0)
 
         bt_lines = ttk.Button(master=self.bt_frame, text="Show lines", command=self._spectrum.show_lines)
         bt_lines.pack(side=tk.LEFT, padx=5, pady=0)
 
-        #bt_clear = ttk.Button(master=frame, text="Clear", command=self._spectrum.do_clear)
-        #bt_clear.pack(side=tk.LEFT, padx=5, pady=0)
-
     # local callbacks for buttons
-    def run_all(self) -> None:
-        for action in ( self.reduce_images, 
-                        self.extract_spectrum, 
-                        self.calibrate_spectrum): action()
-    
-    def extract_spectrum(self) -> None:
-        self._spectrum.clear_spectrum()
-        self._spectrum.do_extract(self._image.img_stacked.data)
+    @staticmethod
+    def run_long_operation(func):
+        @functools.wraps(func)
+        def wrap(self, *args, **kwargs):
+            self.config(cursor="watch")
+            self.update()
+            retcode = func(self, *args, **kwargs)
+            self.config(cursor="")    
+            self.update()
+            return retcode
+        return wrap
 
-    def reduce_images(self) -> None:
+    @run_long_operation
+    def cb_run_all(self) -> None:
+        for action in ( self.cb_reduce_images, 
+                        self.cb_trace_spectrum, 
+                        self.cb_extract_spectrum, 
+                        self.cb_calibrate_spectrum): action()
+    
+    @run_long_operation
+    def cb_reduce_images(self) -> None:
         #self._image.clear_image()
         self._image.reduce_images()
 
-    def calibrate_spectrum(self) -> None:
+    @run_long_operation
+    def cb_trace_spectrum(self) -> None:
+        #self._spectrum.clear_spectrum()
+        self._spectrum.do_trace(self._image.img_stacked.data)
+
+    @run_long_operation
+    def cb_extract_spectrum(self) -> None:
+        self._spectrum.clear_spectrum()
+        self._spectrum.do_extract(self._image.img_stacked.data)
+
+    @run_long_operation
+    def cb_calibrate_spectrum(self) -> None:
         self._spectrum.clear_spectrum()
         self._spectrum.do_calibrate()
 
-    def open_files(self) -> None:
+    def cb_open_files(self) -> None:
         # get list of files to open
-        path = askopenfilenames(title='Select image(s) or spectra',
+        path = askopenfilenames(title='Select image(s) or spectrum(s)',
                             filetypes=[("fits files", '*.fit'), 
                                        ("fits files", "*.fts"), 
                                        ("fits files", "*.fits")
@@ -131,7 +173,10 @@ class Application(tk.Tk):
                 logging.error(f"{img_name} is not a supported fit format (naxis > 2)")
 
         if len(img_names) > 0:
+            self.config(cursor="watch")
+            self.update()
             self._image.load_images(img_names)
+            self.config(cursor="")    
         
         self.title(f"{self.app_name} - {self.app_version} [{Path(path[0]).stem}...]")
 

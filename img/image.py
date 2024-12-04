@@ -38,7 +38,7 @@ class Image(object):
     def __init__(self, img_frame: ttk.Frame, bt_frame: ttk.Frame) -> None: #, axe_img: Axes, axe_spc: Axes, frame: ttk.Frame) -> None:
         self.conf: Config = Config()
 
-        self.img_figure = Figure(figsize=(5, 3))
+        self.img_figure = Figure(figsize=(10, 3))
         self.img_axe = self.img_figure.add_subplot(111)
 
         # create image canvas
@@ -46,12 +46,27 @@ class Image(object):
         self.img_canvas.draw()
 
         # create toolbar
-        img_toolbar = NavigationToolbar2Tk(self.img_canvas, img_frame, pack_toolbar=False)
-        img_toolbar.children['!button4'].pack_forget()      # ugly... should use another method to remove the conf button.
+        img_toolbar = CustomImgToolbar(self.img_canvas, img_frame)
+        self.clear_button = ttk.Button(img_toolbar, text="Clear", command=self.clear_image)
+        self.clear_button.pack(side=tk.LEFT, padx=20, pady=0)
+
+        _cmap_options = ["grey", "inferno", "magma", "plasma"]
+        bt_cmap_default = "inferno"
+        _var = tk.StringVar(value=bt_cmap_default)
+
+        def cb_cmap_option(cmap: tk.StringVar) -> None:
+            self.image.set_cmap(str(cmap))
+            self.img_figure.canvas.draw()
+            logging.info(f"colormap changed to {cmap}")
+            
+        bt_cmap = ttk.OptionMenu(img_toolbar, _var, bt_cmap_default, *(_cmap_options), command = cb_cmap_option)
+        bt_cmap.pack(side=tk.LEFT, padx=0, pady=0)
+
+        #img_toolbar = NavigationToolbar2Tk(self.img_canvas, img_frame, pack_toolbar=False)
+        #img_toolbar.children['!button4'].pack_forget()      # ugly... should use another method to remove the conf button.
         img_toolbar.update()
         img_toolbar.pack(side=tk.TOP, fill=tk.X)
         self.img_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True) #side=tk.TOP, 
-
 
         self.image: AxesImage = None
         self.img_stacked: CCDData = CCDData(np.zeros((2,8)), unit=u.adu)
@@ -90,6 +105,8 @@ class Image(object):
         #slider_low_max_label.pack(side=tk.LEFT)
         self.slider_low.bind("<ButtonRelease>", self.update_slider) 
         
+        #self.clear_image()
+
         # show a dummy (zeros) image to start            
         self.image = self.show_image(image = self.img_stacked,
                         fig_img = self.img_figure,
@@ -105,9 +122,11 @@ class Image(object):
             self.update_image(slider.get() , None)
 
     def clear_image(self) -> None:
-        #self._figure.clear()
-        #self._figure.clf()
-        self.img_axe.clear()
+        self.img_stacked: CCDData = CCDData(np.zeros((2,8)), unit=u.adu)
+        self.img_names:list[str] = []
+        self.img_count = 0
+        self.img_combiner: ImagesCombiner = None
+        self.image.set_data(self.img_stacked)
         self.img_figure.canvas.draw()
 
     def stats_image(self) -> tuple[float, float, float, float]:
@@ -243,3 +262,26 @@ class Image(object):
 
         return img
 
+
+class CustomImgToolbar(NavigationToolbar2Tk):
+    def __init__(self, canvas, parent) -> None:
+        # list of toolitems to add/modify to the toolbar, format is:
+        # (
+        #   text, # the text of the button (often not visible to users)
+        #   tooltip_text, # the tooltip shown on hover (where possible)
+        #   image_file, # name of the image for the button (without the extension)
+        #   name_of_method, # name of the method in NavigationToolbar2 to call
+        # )
+        # this is enforced by MPL lib - sould use a DICT otherwize...
+        self.toolitems = (
+            ('Home', 'Reset zoom to original view', 'home', 'home'),
+            ('Back', 'Back to previous view', 'back', 'back'),
+            ('Forward', 'Forward to next view', 'forward', 'forward'),
+            (None, None, None, None),
+            ('Pan', 'Pan axes with left mouse, zoom with right', 'move', 'pan'),
+            ('Zoom', 'Zoom to rectangle', 'zoom_to_rect', 'zoom'),
+            (None, None, None, None),
+            ('Save', 'Save the figure', 'filesave', 'save_figure'), 
+        )
+
+        super().__init__(canvas = canvas, window = parent, pack_toolbar = True)

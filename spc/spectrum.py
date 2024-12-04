@@ -16,7 +16,7 @@ from matplotlib.text import Annotation
 import matplotlib.gridspec as gridspec
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.backends._backend_tk import NavigationToolbar2Tk
-
+from matplotlib.colors import LinearSegmentedColormap
 
 from astropy.utils.exceptions import AstropyWarning
 from astropy import units as u
@@ -48,7 +48,7 @@ class Spectrum(object):
 
     def __init__(self, spc_frame: ttk.Frame, img_axe: Axes) -> None: #, axe_img: Axes, axe_spc: Axes) -> None:
         self.conf = Config()
-        self.spc_figure = Figure(figsize=(5, 3))
+        self.spc_figure = Figure(figsize=(10, 3))
         self.spc_axe = self.spc_figure.add_subplot(111)
         self.img_axe = img_axe
 
@@ -63,7 +63,7 @@ class Spectrum(object):
         spc_toolbar.pack(side=tk.TOP, fill=tk.X)
         self.spc_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)#side=tk.TOP, 
 
-        self.sci_spectrum: Spectrum1D = None
+        self.science_spectrum: Spectrum1D = None
         self.showed_lines: bool = False
         self.colors = ('blue', 'red', 'green', 'orange', 'cyan')
         self.lines_color = 'yellow'    
@@ -79,7 +79,7 @@ class Spectrum(object):
             logging.error(f"{e}")
             return
         
-        self.sci_spectrum = spec1d
+        self.science_spectrum = spec1d
 
     def clear_spectrum(self) -> None:
         #self._figure.clear()
@@ -92,9 +92,26 @@ class Spectrum(object):
         if calibrated:
             self.spc_axe.set_ylabel('Relative intensity')
             self.spc_axe.set_xlabel('Wavelength (Angstrom)')
+            def format_coord(x,y):
+                return "Lambda: ({:.2f}, Intensity: {:.2f})".format(x,y)
+            self.spc_axe.format_coord=format_coord
+            """"
+            #x = np.linspace(0, 10, 100)
+            #y = np.sin(x)
+            colors = [(1, 0, 0), (0, 1, 0), (0, 0, 1)]  # R -> G -> B
+            n_bins = 100  # Increase this for smoother color transitions
+            cm = LinearSegmentedColormap.from_list('custom', colors, N=n_bins)
+            z = np.linspace(0, 1, len(spectrum.wavelength.value))
+            self.spc_axe.fill_between(spectrum.wavelength.value, 0, spectrum.flux.value, color='white', where=spectrum.flux.value > 0, zorder=3)
+            for i in range(1, len(spectrum.wavelength.value)):
+                self.spc_axe.fill_between(spectrum.wavelength.value[i-1:i+1], spectrum.flux.value[i-1:i+1], color=cm(z[i-1]), step='pre', zorder=2)
+            """
         else:
             self.spc_axe.set_xlabel('Pixels')
             self.spc_axe.set_ylabel('ADU')
+            def format_coord(x,y):
+                return "Pixel: ({:.2f}, ADU: {:.2f})".format(x,y)
+            self.spc_axe.format_coord=format_coord
         
         # plot spectrum
         self.colors = np.roll(self.colors, 1) # pick a new color every call 
@@ -104,7 +121,7 @@ class Spectrum(object):
 
         self.spc_figure.canvas.draw_idle()
 
-    def do_extract(self, img_stacked:np.ndarray) -> bool:
+    def do_trace(self, img_stacked:np.ndarray) -> bool:
         master_science: np.ndarray = img_stacked
         
         #trace_model : one of Chebyshev1D, Legendre1D, Polynomial1D, or Spline1D
@@ -117,7 +134,7 @@ class Spectrum(object):
         #  [default: models.Polynomial1D(degree=1)]
 
         try:
-            sci_trace:FitTrace = FitTrace(master_science, 
+            science_trace:FitTrace = FitTrace(master_science, 
                                     bins=self.conf.get_int('processing', 'trace_x_bins'), 
                                     #trace_model=models.Chebyshev1D(degree=2), 
                                     trace_model=models.Polynomial1D(degree=2),
@@ -130,11 +147,11 @@ class Spectrum(object):
             logging.error(f"unable to fit trace : {e}")
             return False
 
-        logging.info(f'trace fitted : y = {sci_trace.trace}')
+        logging.info(f'trace fitted : y = {science_trace.trace}')
         
         try:
-            bg: Background = Background.two_sided(master_science, 
-                                                  sci_trace, 
+            bg_trace: Background = Background.two_sided(master_science, 
+                                                  science_trace, 
                                                   separation=self.conf.get_int('processing', 'sky_y_offset'), 
                                                   width=self.conf.get_int('processing', 'sky_y_size')  ) 
         except Exception as e:
@@ -144,8 +161,8 @@ class Spectrum(object):
         logging.info('background extracted')
                 
         try:
-            extract = BoxcarExtract(master_science - bg, 
-                                    sci_trace, 
+            extract = BoxcarExtract(master_science - bg_trace, 
+                                    science_trace, 
                                     width = self.conf.get_float('processing', 'trace_y_size') )
         except Exception as e:
             logging.error(f"unable to extract background : {e}")
@@ -154,44 +171,51 @@ class Spectrum(object):
         logging.info('background substracted')
 
         try:
-            sci_spectrum = extract.spectrum
+            science_spectrum = extract.spectrum
         except Exception as e:
             logging.error(f"unable to extract science spectrum : {e}")
             return False
 
-        self.sci_spectrum = sci_spectrum
+        self.science_spectrum = science_spectrum
         logging.info('spectrum extracted')
 
         self.spc_axe.clear()
 
         # trace spectrum zone
-        self.img_axe.plot(self.sci_spectrum.spectral_axis, sci_trace.trace , color='red', 
+        self.img_axe.plot(self.science_spectrum.spectral_axis, science_trace.trace , color='red', 
                             linestyle='dashed', linewidth = '0.5')
-        self.img_axe.plot(self.sci_spectrum.spectral_axis, sci_trace.trace + extract.width , color='green', 
+        self.img_axe.plot(self.science_spectrum.spectral_axis, science_trace.trace + extract.width , color='green', 
                             linestyle='dashed', linewidth = '0.5')  #, alpha=0.2)
-        self.img_axe.plot(self.sci_spectrum.spectral_axis, sci_trace.trace - extract.width , color='green', 
+        self.img_axe.plot(self.science_spectrum.spectral_axis, science_trace.trace - extract.width , color='green', 
                             linestyle='dashed', linewidth = '0.5')  #, alpha=0.2)
         
         # trace sky zones
-        self.img_axe.plot(self.sci_spectrum.spectral_axis, sci_trace.trace + (self.conf.get_int('processing', 'sky_y_offset')) , 
+        self.img_axe.plot(self.science_spectrum.spectral_axis, science_trace.trace + (self.conf.get_int('processing', 'sky_y_offset')) , 
                             color='green', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
-        self.img_axe.plot(self.sci_spectrum.spectral_axis, 
-                            sci_trace.trace + (self.conf.get_int('processing', 'sky_y_offset') + self.conf.get_int('processing', 'sky_y_size')) , 
+        self.img_axe.plot(self.science_spectrum.spectral_axis, 
+                            science_trace.trace + (self.conf.get_int('processing', 'sky_y_offset') + self.conf.get_int('processing', 'sky_y_size')) , 
                             color='green', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
-        self.img_axe.plot(self.sci_spectrum.spectral_axis, 
-                            sci_trace.trace - (self.conf.get_int('processing', 'sky_y_offset') + self.conf.get_int('processing', 'sky_y_size')) , 
+        self.img_axe.plot(self.science_spectrum.spectral_axis, 
+                            science_trace.trace - (self.conf.get_int('processing', 'sky_y_offset') + self.conf.get_int('processing', 'sky_y_size')) , 
                             color='green', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
-        self.img_axe.plot(self.sci_spectrum.spectral_axis, 
-                            sci_trace.trace - (self.conf.get_int('processing', 'sky_y_offset')) , 
+        self.img_axe.plot(self.science_spectrum.spectral_axis, 
+                            science_trace.trace - (self.conf.get_int('processing', 'sky_y_offset')) , 
                             color='green', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
         
-        self.show_spectrum(self.sci_spectrum, False)
+        self.img_axe.get_figure().canvas.draw_idle()
+        return True
+
+
+    def do_extract(self, img_stacked:np.ndarray) -> bool:
+        master_science: np.ndarray = img_stacked
+        
+        self.show_spectrum(self.science_spectrum, False)
         self.img_axe.get_figure().canvas.draw_idle()
 
         return True
     
     def do_calibrate(self) -> bool:
-        if self.sci_spectrum is None: 
+        if self.science_spectrum is None: 
             logging.error(f'please extract spectrum trace before calibrating')
             return False
         
@@ -210,7 +234,7 @@ class Spectrum(object):
             #fitter: ~astropy.modeling.fitting.Fitter, optional The fitter to use in optimizing the model fit. Defaults to
             #~astropy.modeling.fitting.LinearLSQFitter if the model to fit is linear
             #or ~astropy.modeling.fitting.LMLSQFitter if the model to fit is non-linear.
-            cal = WavelengthCalibration1D(input_spectrum = self.sci_spectrum,
+            cal = WavelengthCalibration1D(input_spectrum = self.science_spectrum,
                 line_wavelengths = wavelength,
                 line_pixels = pixels,
                 #matched_line_list = line_list,
@@ -227,7 +251,7 @@ class Spectrum(object):
         logging.info(f"residuals : {repr(cal.residuals)}")
         
         # calibrate science spectrum
-        calibrated_spectrum: Spectrum1D = cal.apply_to_spectrum(self.sci_spectrum)
+        calibrated_spectrum: Spectrum1D = cal.apply_to_spectrum(self.science_spectrum)
         logging.info('spectrum calibrated')
 
         # normalize to 1 arround 6500 - 6520 Ang
@@ -265,16 +289,16 @@ class Spectrum(object):
         smooth: int | None = self.conf.get_int('post_processing', 'median_smooth') 
         if smooth is not None:
             smooth_spec: Spectrum1D = median_smooth(final_spec, width = smooth) 
-            self.sci_spectrum = smooth_spec
+            self.science_spectrum = smooth_spec
             logging.info(f"median smooth applied={smooth}")
         else:
-            self.sci_spectrum = final_spec
+            self.science_spectrum = final_spec
 
-        logging.info(f'snr = {snr_derived(self.sci_spectrum):.1f}')
+        logging.info(f'snr = {snr_derived(self.science_spectrum):.1f}')
 
         self.spc_axe.clear()
 
-        self.show_spectrum(self.sci_spectrum, True)
+        self.show_spectrum(self.science_spectrum, True)
 
         logging.info('calibration complete')
         return True
