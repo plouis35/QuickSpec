@@ -69,18 +69,6 @@ class Application(tk.Tk):
         bt_run = ttk.Button(self.bt_frame, text="Run all", command=self.cb_run_all)
         bt_run.pack(side=tk.LEFT, padx=5, pady=0)
 
-        """"
-        bt_reduce = ttk.Button(master=self.bt_frame, text="Reduce", command=self.cb_reduce_images)
-        bt_reduce.pack(side=tk.LEFT, padx=5, pady=0)
-
-        bt_extract = ttk.Button(master=self.bt_frame, text="Extract", command=self.cb_extract_spectrum)
-        bt_extract.pack(side=tk.LEFT, padx=5, pady=0)
-
-        bt_calibrate = ttk.Button(master=self.bt_frame, text="Calibrate", command=self.cb_calibrate_spectrum)
-        bt_calibrate.pack(side=tk.LEFT, padx=5, pady=0)
-
-        """
-
         _step_options = ["Reduce", "Trace", "Extract", "Calibrate"]
         bt_step_default = "Run step"
         _var = tk.StringVar(value=bt_step_default)
@@ -99,9 +87,6 @@ class Application(tk.Tk):
         bt_steps = ttk.OptionMenu(self.bt_frame, _var, bt_step_default, *(_step_options), command = cb_run_step)
         bt_steps.pack(side=tk.LEFT, padx=5, pady=0)
 
-        bt_lines = ttk.Button(master=self.bt_frame, text="Show lines", command=self._spectrum.show_lines)
-        bt_lines.pack(side=tk.LEFT, padx=5, pady=0)
-
     # local callbacks for buttons
     @staticmethod
     def run_long_operation(func):
@@ -116,33 +101,37 @@ class Application(tk.Tk):
         return wrap
 
     @run_long_operation
-    def cb_run_all(self) -> None:
+    def cb_run_all(self) -> bool:
         for action in ( self.cb_reduce_images, 
                         self.cb_trace_spectrum, 
                         self.cb_extract_spectrum, 
-                        self.cb_calibrate_spectrum): action()
+                        self.cb_calibrate_spectrum): 
+             if action() is not True:
+                 logging.error('run all aborted')
+                 return False
+        return True
     
     @run_long_operation
-    def cb_reduce_images(self) -> None:
+    def cb_reduce_images(self) -> bool:
         #self._image.clear_image()
-        self._image.reduce_images()
+        return self._image.reduce_images()
 
     @run_long_operation
-    def cb_trace_spectrum(self) -> None:
-        #self._spectrum.clear_spectrum()
-        self._spectrum.do_trace(self._image.img_stacked.data)
+    def cb_trace_spectrum(self) -> bool:
+        self._spectrum.clear_spectra()
+        return self._spectrum.do_trace(self._image.img_stacked.data)
 
     @run_long_operation
-    def cb_extract_spectrum(self) -> None:
-        self._spectrum.clear_spectrum()
-        self._spectrum.do_extract(self._image.img_stacked.data)
+    def cb_extract_spectrum(self) -> bool:
+        self._spectrum.clear_spectra()
+        return self._spectrum.do_extract(self._image.img_stacked.data)
 
     @run_long_operation
-    def cb_calibrate_spectrum(self) -> None:
-        self._spectrum.clear_spectrum()
-        self._spectrum.do_calibrate()
+    def cb_calibrate_spectrum(self) -> bool:
+        self._spectrum.clear_spectra()
+        return self._spectrum.do_calibrate()
 
-    def cb_open_files(self) -> None:
+    def cb_open_files(self) -> bool:
         # get list of files to open
         path = askopenfilenames(title='Select image(s) or spectrum(s)',
                             filetypes=[("fits files", '*.fit'), 
@@ -150,7 +139,7 @@ class Application(tk.Tk):
                                        ("fits files", "*.fits")
                                        ],
                             )
-        if path == '': return 
+        if path == '': return False
 
         # create new config file if not existing
         self.conf.set_conf_directory(OSUtils.get_path_directory(path=path[0]))
@@ -180,7 +169,7 @@ class Application(tk.Tk):
         
         self.title(f"{self.app_name} - {self.app_version} [{Path(path[0]).stem}...]")
 
-        return 
+        return True
 
     def watch_files(self):
         #logging.info(f"watcher time is : {time.strftime("%H:%M:%S", time.localtime())}")

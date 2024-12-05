@@ -48,28 +48,42 @@ class Spectrum(object):
 
     def __init__(self, spc_frame: ttk.Frame, img_axe: Axes) -> None: #, axe_img: Axes, axe_spc: Axes) -> None:
         self.conf = Config()
+
+        # assign spectrum instance variables
+        self.science_spectrum: Spectrum1D = None
+        self.science_trace: FitTrace = None
+        self.showed_lines: bool = False
+        self.colors = ('blue', 'red', 'green', 'orange', 'cyan')
+        self.lines_color = 'yellow'    
+
+        # create figure and axe
         self.spc_figure = Figure(figsize=(10, 3))
         self.spc_axe = self.spc_figure.add_subplot(111)
         self.img_axe = img_axe
+        self.spc_axe.grid(color = 'grey', linestyle = '--', linewidth = 0.5)
 
-        # create spectrum canvas
+        # create spectrum canvas to draw to
         self.spc_canvas = FigureCanvasTkAgg(self.spc_figure, spc_frame)
         self.spc_canvas.draw()
 
-        # create toolbar
-        spc_toolbar = NavigationToolbar2Tk(self.spc_canvas, spc_frame, pack_toolbar=False)
-        spc_toolbar.children['!button4'].pack_forget()      # ugly... should use another method to remove the conf button.
+        # create customized toolbar
+        spc_toolbar = CustomSpcToolbar(self.spc_canvas, spc_frame)
+
+        # add new buttons
+        self.clear_button = ttk.Button(spc_toolbar, text="Clear", command=self.clear_spectra)
+        self.clear_button.pack(side=tk.LEFT, padx=20, pady=0)
+
+        self.lines_button = ttk.Button(spc_toolbar, text="Show lines", command=self.show_lines)
+        self.lines_button.pack(side=tk.LEFT, padx=0, pady=0)
+
+        #spc_toolbar = NavigationToolbar2Tk(self.spc_canvas, spc_frame, pack_toolbar=False)
+        #spc_toolbar.children['!button4'].pack_forget()      # ugly... should use another method to remove the conf button.
         spc_toolbar.update()
         spc_toolbar.pack(side=tk.TOP, fill=tk.X)
         self.spc_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)#side=tk.TOP, 
 
-        self.science_spectrum: Spectrum1D = None
-        self.showed_lines: bool = False
-        self.colors = ('blue', 'red', 'green', 'orange', 'cyan')
-        self.lines_color = 'yellow'    
-        self.spc_axe.grid(color = 'grey', linestyle = '--', linewidth = 0.5)
 
-    def open_spectrum( self, spc_name: str) -> None:
+    def open_spectrum( self, spc_name: str) -> bool:
         # open spectrum data
         try:
             spec1d: Spectrum1D = Spectrum1D.read(spc_name)
@@ -77,18 +91,19 @@ class Spectrum(object):
 
         except Exception as e:
             logging.error(f"{e}")
-            return
+            return False
         
         self.science_spectrum = spec1d
+        return True
 
-    def clear_spectrum(self) -> None:
-        #self._figure.clear()
-        #self._figure.clf()
+    def clear_spectra(self) -> None:
         self.spc_axe.clear()
-        self.spc_figure.canvas.draw()
+        self.spc_axe.grid(color = 'grey', linestyle = '--', linewidth = 0.5)
+        self.showed_lines: bool = False
+        self.spc_figure.canvas.draw_idle()
 
     def show_spectrum(self, spectrum: Spectrum1D, calibrated: bool = False) -> None:
-        # show axes legend
+
         if calibrated:
             self.spc_axe.set_ylabel('Relative intensity')
             self.spc_axe.set_xlabel('Wavelength (Angstrom)')
@@ -110,7 +125,7 @@ class Spectrum(object):
             self.spc_axe.set_xlabel('Pixels')
             self.spc_axe.set_ylabel('ADU')
             def format_coord(x,y):
-                return "Pixel: ({:.2f}, ADU: {:.2f})".format(x,y)
+                return "Pixel: ({:.0f}, ADU: {:.0f})".format(x,y)
             self.spc_axe.format_coord=format_coord
         
         # plot spectrum
@@ -122,6 +137,10 @@ class Spectrum(object):
         self.spc_figure.canvas.draw_idle()
 
     def do_trace(self, img_stacked:np.ndarray) -> bool:
+        if img_stacked is None: 
+            logging.error("please reduce image(s) before tracing")
+            return False
+
         master_science: np.ndarray = img_stacked
         
         #trace_model : one of Chebyshev1D, Legendre1D, Polynomial1D, or Spline1D
@@ -134,11 +153,11 @@ class Spectrum(object):
         #  [default: models.Polynomial1D(degree=1)]
 
         try:
-            science_trace:FitTrace = FitTrace(master_science, 
+            self.science_trace:FitTrace = FitTrace(master_science, 
                                     bins=self.conf.get_int('processing', 'trace_x_bins'), 
                                     #trace_model=models.Chebyshev1D(degree=2), 
                                     trace_model=models.Polynomial1D(degree=2),
-                                    peak_method='centroid',     #'gaussian', 
+                                    peak_method='gaussian' , #centroid',     #'gaussian', 
                                     window=self.conf.get_int('processing', 'trace_y_window'),
                                     guess=self.conf.get_float('processing', 'trace_y_guess')
                                     )
@@ -147,11 +166,27 @@ class Spectrum(object):
             logging.error(f"unable to fit trace : {e}")
             return False
 
-        logging.info(f'trace fitted : y = {science_trace.trace}')
+        # trace spectrum fitted
+        self.science_trace.shape
+        self.img_axe.plot(self.science_trace.trace , color='red', linestyle='dashed', linewidth = '0.5')
+        self.img_axe.get_figure().canvas.draw_idle()
+
+        logging.info(f'trace fitted : y = {self.science_trace.trace}')
+
+        return True
+
+
+    def do_extract(self, img_stacked:np.ndarray) -> bool:
+
+        if (img_stacked is None) or (self.science_trace is None): 
+            logging.error("please fit trace before extracting spectrum")
+            return False
+
+        master_science: np.ndarray = img_stacked
         
         try:
             bg_trace: Background = Background.two_sided(master_science, 
-                                                  science_trace, 
+                                                  self.science_trace, 
                                                   separation=self.conf.get_int('processing', 'sky_y_offset'), 
                                                   width=self.conf.get_int('processing', 'sky_y_size')  ) 
         except Exception as e:
@@ -161,8 +196,8 @@ class Spectrum(object):
         logging.info('background extracted')
                 
         try:
-            extract = BoxcarExtract(master_science - bg_trace, 
-                                    science_trace, 
+            extracted_spectrum = BoxcarExtract(master_science - bg_trace, 
+                                    self.science_trace, 
                                     width = self.conf.get_float('processing', 'trace_y_size') )
         except Exception as e:
             logging.error(f"unable to extract background : {e}")
@@ -171,7 +206,7 @@ class Spectrum(object):
         logging.info('background substracted')
 
         try:
-            science_spectrum = extract.spectrum
+            science_spectrum = extracted_spectrum.spectrum
         except Exception as e:
             logging.error(f"unable to extract science spectrum : {e}")
             return False
@@ -179,38 +214,29 @@ class Spectrum(object):
         self.science_spectrum = science_spectrum
         logging.info('spectrum extracted')
 
-        self.spc_axe.clear()
+        self.clear_spectra()
 
-        # trace spectrum zone
-        self.img_axe.plot(self.science_spectrum.spectral_axis, science_trace.trace , color='red', 
-                            linestyle='dashed', linewidth = '0.5')
-        self.img_axe.plot(self.science_spectrum.spectral_axis, science_trace.trace + extract.width , color='green', 
-                            linestyle='dashed', linewidth = '0.5')  #, alpha=0.2)
-        self.img_axe.plot(self.science_spectrum.spectral_axis, science_trace.trace - extract.width , color='green', 
-                            linestyle='dashed', linewidth = '0.5')  #, alpha=0.2)
-        
         # trace sky zones
-        self.img_axe.plot(self.science_spectrum.spectral_axis, science_trace.trace + (self.conf.get_int('processing', 'sky_y_offset')) , 
+        self.img_axe.plot(self.science_spectrum.spectral_axis, self.science_trace.trace + extracted_spectrum.width , color='blue', 
+                            linestyle='dashed', linewidth = '0.5')  #, alpha=0.2)
+        self.img_axe.plot(self.science_spectrum.spectral_axis, self.science_trace.trace - extracted_spectrum.width , color='blue', 
+                            linestyle='dashed', linewidth = '0.5')  #, alpha=0.2)
+
+        self.img_axe.plot(self.science_spectrum.spectral_axis, self.science_trace.trace + (self.conf.get_int('processing', 'sky_y_offset')) , 
                             color='green', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
         self.img_axe.plot(self.science_spectrum.spectral_axis, 
-                            science_trace.trace + (self.conf.get_int('processing', 'sky_y_offset') + self.conf.get_int('processing', 'sky_y_size')) , 
+                            self.science_trace.trace + (self.conf.get_int('processing', 'sky_y_offset') + self.conf.get_int('processing', 'sky_y_size')) , 
                             color='green', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
         self.img_axe.plot(self.science_spectrum.spectral_axis, 
-                            science_trace.trace - (self.conf.get_int('processing', 'sky_y_offset') + self.conf.get_int('processing', 'sky_y_size')) , 
+                            self.science_trace.trace - (self.conf.get_int('processing', 'sky_y_offset') + self.conf.get_int('processing', 'sky_y_size')) , 
                             color='green', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
         self.img_axe.plot(self.science_spectrum.spectral_axis, 
-                            science_trace.trace - (self.conf.get_int('processing', 'sky_y_offset')) , 
+                            self.science_trace.trace - (self.conf.get_int('processing', 'sky_y_offset')) , 
                             color='green', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
         
         self.img_axe.get_figure().canvas.draw_idle()
-        return True
 
-
-    def do_extract(self, img_stacked:np.ndarray) -> bool:
-        master_science: np.ndarray = img_stacked
-        
         self.show_spectrum(self.science_spectrum, False)
-        self.img_axe.get_figure().canvas.draw_idle()
 
         return True
     
@@ -296,20 +322,14 @@ class Spectrum(object):
 
         logging.info(f'snr = {snr_derived(self.science_spectrum):.1f}')
 
-        self.spc_axe.clear()
-
+        #self.spc_axe.clear()
+        self.clear_spectra()
         self.show_spectrum(self.science_spectrum, True)
 
         logging.info('calibration complete')
         return True
     
-    
-    def do_clear(self) -> None:
-        self.spc_axe.clear()
-        #self.ax_img.clear()
-        self.spc_figure.canvas.draw_idle()
-
-    def show_lines(self, ax = None, show_line = True):
+    def show_lines(self, ax = None, show_line = True) -> None:
         if ax is None: ax = self.spc_axe
                         
         xbounds = ax.get_xbound()   
@@ -342,5 +362,28 @@ class Spectrum(object):
             self.showed_lines = False
                     
         self.spc_figure.canvas.draw_idle()
+
+class CustomSpcToolbar(NavigationToolbar2Tk):
+    def __init__(self, canvas, parent) -> None:
+        # list of toolitems to add/modify to the toolbar, format is:
+        # (
+        #   text, # the text of the button (often not visible to users)
+        #   tooltip_text, # the tooltip shown on hover (where possible)
+        #   image_file, # name of the image for the button (without the extension)
+        #   name_of_method, # name of the method in NavigationToolbar2 to call
+        # )
+        # this is enforced by MPL lib - sould use a DICT otherwize...
+        self.toolitems = (
+            ('Home', 'Reset zoom to original view', 'home', 'home'),
+            ('Back', 'Back to previous view', 'back', 'back'),
+            ('Forward', 'Forward to next view', 'forward', 'forward'),
+            (None, None, None, None),
+            ('Pan', 'Pan axes with left mouse, zoom with right', 'move', 'pan'),
+            ('Zoom', 'Zoom to rectangle', 'zoom_to_rect', 'zoom'),
+            (None, None, None, None),
+            ('Save', 'Save the figure', 'filesave', 'save_figure'), 
+        )
+
+        super().__init__(canvas = canvas, window = parent, pack_toolbar = True)
 
                 

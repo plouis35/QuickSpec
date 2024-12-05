@@ -100,9 +100,6 @@ class Config(object):
         contents: LiteralString = f"""[logger]
 level = INFO
 
-[display]
-colormap = inferno                  # magma, grey, plasma
-
 [pre_processing]
 crop_auto = 0.4
 master_offset = _offset.fit
@@ -112,8 +109,8 @@ master_flat = _flat.fit
 [processing]
 #trace_y_guess = 1695
 trace_y_size = 15
-trace_y_window = 50
-trace_x_bins = 64
+#trace_y_window = 50
+trace_x_bins = 12
 sky_y_size = 140
 sky_y_offset = 120
 

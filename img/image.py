@@ -38,46 +38,51 @@ class Image(object):
     def __init__(self, img_frame: ttk.Frame, bt_frame: ttk.Frame) -> None: #, axe_img: Axes, axe_spc: Axes, frame: ttk.Frame) -> None:
         self.conf: Config = Config()
 
-        self.img_figure = Figure(figsize=(10, 3))
-        self.img_axe = self.img_figure.add_subplot(111)
-
-        # create image canvas
-        self.img_canvas = FigureCanvasTkAgg(self.img_figure, img_frame) #img_frame)
-        self.img_canvas.draw()
-
-        # create toolbar
-        img_toolbar = CustomImgToolbar(self.img_canvas, img_frame)
-        self.clear_button = ttk.Button(img_toolbar, text="Clear", command=self.clear_image)
-        self.clear_button.pack(side=tk.LEFT, padx=20, pady=0)
-
-        _cmap_options = ["grey", "inferno", "magma", "plasma"]
-        bt_cmap_default = "inferno"
-        _var = tk.StringVar(value=bt_cmap_default)
-
-        def cb_cmap_option(cmap: tk.StringVar) -> None:
-            self.image.set_cmap(str(cmap))
-            self.img_figure.canvas.draw()
-            logging.info(f"colormap changed to {cmap}")
-            
-        bt_cmap = ttk.OptionMenu(img_toolbar, _var, bt_cmap_default, *(_cmap_options), command = cb_cmap_option)
-        bt_cmap.pack(side=tk.LEFT, padx=0, pady=0)
-
-        #img_toolbar = NavigationToolbar2Tk(self.img_canvas, img_frame, pack_toolbar=False)
-        #img_toolbar.children['!button4'].pack_forget()      # ugly... should use another method to remove the conf button.
-        img_toolbar.update()
-        img_toolbar.pack(side=tk.TOP, fill=tk.X)
-        self.img_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True) #side=tk.TOP, 
-
+        # assign image instance variables
         self.image: AxesImage = None
         self.img_stacked: CCDData = CCDData(np.zeros((2,8)), unit=u.adu)
         self.img_names:list[str] = []
         self.img_count = 0
         self.img_colorbar: Colorbar = None
         self.img_combiner: ImagesCombiner = None
-        
-        # create sliders
+        self.img_cmap: str = 'grey'
+
+        # create figure and axe for image
+        self.img_figure = Figure(figsize=(10, 3))
+        self.img_axe = self.img_figure.add_subplot(111)
+
+        # create canvas to draw to
+        self.img_canvas = FigureCanvasTkAgg(self.img_figure, img_frame) #img_frame)
+        self.img_canvas.draw()
+
+        # create customized toolbar
+        img_toolbar = CustomImgToolbar(self.img_canvas, img_frame)
+
+        # add new buttons
+        self.clear_button = ttk.Button(img_toolbar, text="Clear", command=self.clear_image)
+        self.clear_button.pack(side=tk.LEFT, padx=20, pady=0)
+
+        _cmap_options = ["grey", "inferno", "magma", "plasma"]
+        bt_cmap_default = "grey"
+        _var = tk.StringVar(value=bt_cmap_default)
+
+        def cb_cmap_option(cmap: tk.StringVar) -> None:
+            self.image.set_cmap(str(cmap))
+            self.img_figure.canvas.draw()
+            self.img_cmap = str(cmap)
+            logging.info(f"colormap changed to {cmap}")
+            
+        bt_cmap = ttk.OptionMenu(img_toolbar, _var, bt_cmap_default, *(_cmap_options), command = cb_cmap_option)
+        bt_cmap.pack(side=tk.LEFT, padx=0, pady=0)
+
+        # pack buttons
+        img_toolbar.update()
+        img_toolbar.pack(side=tk.TOP, fill=tk.X)
+        self.img_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True) #side=tk.TOP, 
+
+        # now create sliders
         slider_frame = ttk.Frame(bt_frame)
-        slider_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
+        slider_frame.pack(side=tk.RIGHT, fill=tk.BOTH, padx=50, pady=0, expand=True)
 
         slider_high_frame = ttk.Frame(slider_frame)
         slider_high_frame.pack(side=tk.TOP, fill=tk.X, padx=50, pady=0)
@@ -105,14 +110,13 @@ class Image(object):
         #slider_low_max_label.pack(side=tk.LEFT)
         self.slider_low.bind("<ButtonRelease>", self.update_slider) 
         
-        #self.clear_image()
-
-        # show a dummy (zeros) image to start            
+        # and finally show a dummy (zeros) image         
         self.image = self.show_image(image = self.img_stacked,
                         fig_img = self.img_figure,
                         ax_img = self.img_axe,
                         show_colorbar=True, 
-                        cmap = 'grey')  # #self.conf.get_str('display', 'colormap')) # type: ignore
+                        #cmap = 'grey'
+                        )
 
     def update_slider(self, event) -> None:
         slider: ttk.Scale = event.widget
@@ -127,7 +131,15 @@ class Image(object):
         self.img_count = 0
         self.img_combiner: ImagesCombiner = None
         self.image.set_data(self.img_stacked)
-        self.img_figure.canvas.draw()
+        self.img_axe.clear()
+        self.image = self.show_image(image = self.img_stacked,
+                fig_img = self.img_figure,
+                ax_img = self.img_axe,
+                show_colorbar=False, 
+                #cmap = 'grey'
+                )
+
+        self.img_figure.canvas.draw_idle()
 
     def stats_image(self) -> tuple[float, float, float, float]:
         v_std = self.img_stacked.data.std()
@@ -172,7 +184,7 @@ class Image(object):
         self.img_figure.canvas.draw_idle()
 
 
-    def load_images(self, path: list[str]) -> None:
+    def load_images(self, path: list[str]) -> bool:
         _img_reduced: CCDData
         _img_combiner: ImagesCombiner
 
@@ -182,7 +194,7 @@ class Image(object):
 
         except Exception as e:
             logging.error(f"{e}")
-            return
+            return False
         
         self.img_stacked = _img_reduced.copy()    
         self.img_combiner = _img_combiner
@@ -192,25 +204,31 @@ class Image(object):
                         fig_img = self.img_figure,
                         ax_img = self.img_axe,
                         show_colorbar = True, 
-                        cmap = self.conf.get_str('display', 'colormap'))
+                        #cmap = self.conf.get_str('display', 'colormap')
+                        )
         
         v_std, v_mean, v_min, v_max = self.stats_image()
         logging.info (f"image stats: min={v_min}, max={v_max}, mean={v_mean}, std={v_std}")
 
         self.update_image()
 
+        return True
+
     
-    def reduce_images(self) -> None:
+    def reduce_images(self) -> bool:
         _img_reduced: CCDData | None
         _img_combiner: ImagesCombiner = self.img_combiner
+
+        if self.img_combiner is None:
+            logging.error('please load some images before reducing')
+            return False
         
         try:
-            #_img_reduced = _img_combiner.reduce_images_numpy()
             _img_reduced = _img_combiner.reduce_images()
             
         except Exception as e:
             logging.error(f"{e}")
-            return
+            return False
         
         if _img_reduced is not None:
             self.img_stacked = _img_reduced.copy()    
@@ -221,18 +239,21 @@ class Image(object):
             logging.info (f"image stats: min={v_min}, max={v_max}, mean={v_mean}, std={v_std}")
         else:
             logging.error("unable to reduce images")
+            return False
     
         # display image
         self.image = self.show_image(image = self.img_stacked,
                         fig_img = self.img_figure,
                         ax_img = self.img_axe,
                         show_colorbar = True, 
-                        cmap = self.conf.get_str('display', 'colormap'))
+                        #cmap = 'grey' #cmap = self.conf.get_str('display', 'colormap')
+                        )
         
         self.update_image()
+        return True
 
     def show_image( self, image,
-                    cmap: str,
+                    #cmap: str,
                     show_colorbar: bool,
                     fig_img: Figure, 
                     ax_img: Axes) -> AxesImage:
@@ -250,13 +271,16 @@ class Image(object):
             origin = 'lower', 
             interpolation='none',
             aspect = 'equal',
-            cmap = cmap,
+            cmap = self.img_cmap,
             #**scale_args
         )
 
         if show_colorbar:
             if self.img_colorbar is not None:
-                self.img_colorbar.remove()
+                try:
+                    self.img_colorbar.remove()
+                except:
+                    pass
             
             self.img_colorbar = fig_img.colorbar(img, ax = ax_img, location='right', shrink=0.6)
 
