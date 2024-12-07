@@ -28,7 +28,7 @@ class Application(tk.Tk):
 
     def __init__(self, app_name: str, app_version: str) -> None:
         super().__init__()
-        
+
         self.iconbitmap(r'./quickspec.ico')
         self.title(f"{app_name} - {app_version}")
         self.app_name = app_name
@@ -145,7 +145,7 @@ class Application(tk.Tk):
         # create new config file if not existing
         self.conf.set_conf_directory(OSUtils.get_path_directory(path=path[0]))
 
-        # check file type to call proper load routine 
+        # check header to either load an image 2D or a spectrum 1D
         img_names: list[str] = []
         for img_name in path:
             fit_data: CCDData = CCDData.read(img_name, unit=u.dimensionless_unscaled)
@@ -155,20 +155,28 @@ class Application(tk.Tk):
                 self._spectrum.open_spectrum(img_name)
 
             elif fit_data.ndim == 2:
-                # this is a fit image - keep it to load it later
+                # this is a fit image - keep it to load them all together
                 logging.info(f"{img_name} is a fit image (naxis = 2)")
                 img_names.append(img_name)
             else:
                 # not supported fit format
                 logging.error(f"{img_name} is not a supported fit format (naxis > 2)")
 
+        # clear existing images
+        self._image.clear_image()
+
+        # show wait cursor while loading images
         if len(img_names) > 0:
             self.config(cursor="watch")
             self.update()
             self._image.load_images(img_names)
             self.config(cursor="")    
         
-        self.title(f"{self.app_name} - {self.app_version} [{Path(path[0]).stem}...]")
+        # update names in title
+        if len(img_names) > 0:
+            self.title(f"{self.app_name} - {self.app_version} [{Path(path[0]).stem}..{Path(path[-1]).stem}]")
+        else:
+            self.title(f"{self.app_name} - {self.app_version} [{Path(path[0]).stem}]")
 
         return True
 

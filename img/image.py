@@ -130,8 +130,8 @@ class Image(object):
         self.img_names:list[str] = []
         self.img_count = 0
         self.img_combiner: ImagesCombiner = None
+        self.img_axe.clear()
         #self.image.set_data(self.img_stacked)
-        #self.img_axe.clear()
         self.image = self.show_image(image = self.img_stacked,
                 fig_img = self.img_figure,
                 ax_img = self.img_axe,

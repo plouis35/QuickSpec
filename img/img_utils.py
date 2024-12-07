@@ -76,10 +76,9 @@ class ImagesCombiner(object):
                        #dtype = np.float32,
                        mem_limit = self._memory_limit)
               )
-   
-    """
-    returns the sigmaclip'ed frame of frames loaded in this set
-    """
+        """
+        returns the sigmaclip'ed frame of frames loaded in this set
+        """
     def sigmaclip(self, low_thresh: int = 5, high_thresh: int = 5) -> CCDData:
         logging.info(f'sigmaclip combine on {len(self._images)} images ...')
         return(combine(self._images,

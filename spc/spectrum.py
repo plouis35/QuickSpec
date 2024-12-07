@@ -276,7 +276,7 @@ class Spectrum(object):
                 #fitter = fitting.LinearLSQFitter()
                 )
         except Exception as e:
-            logging.error(f"unable to calibraet spectrum : {e}")
+            logging.error(f"unable to calibrate spectrum : {e}")
             return False
 
         logging.info(f"residuals : {repr(cal.residuals)}")
@@ -292,7 +292,7 @@ class Spectrum(object):
 
         logging.info('spectrum normalized')
 
-        # aply response file if any defined
+        # apply response file if any defined
         #sci_spectrum = FluxCalibration(normalized_spec, 1.0) #, airmass = airmass) 
         final_spec = normalized_spec
 
