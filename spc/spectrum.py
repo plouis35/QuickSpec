@@ -53,8 +53,10 @@ class Spectrum(object):
         self.science_spectrum: Spectrum1D = None
         self.science_trace: FitTrace = None
         self.showed_lines: bool = False
+        self.showed_colorized: bool = False
         self.colors = ('blue', 'red', 'green', 'orange', 'cyan')
         self.lines_color = 'yellow'    
+        self.spectrum_color = 'grey'
 
         # create figure and axe
         self.spc_figure = Figure(figsize=(10, 3))
@@ -101,21 +103,32 @@ class Spectrum(object):
             logging.info("please calibrate first")
             return
         
-        min_wl = 3800 # self.science_spectrum.wavelength.value.min()
-        max_wl = 7500 #self.science_spectrum.wavelength.value.max()
-        bin_size = 50
+        min_wl = 3800 
+        max_wl = 7500
+        bin_size = 20 # size (AA) of each colored slice under spectrum
+        alpha = 1.0
 
-        colors = plt.cm.jet((self.science_spectrum.wavelength.value - min_wl) / (max_wl - min_wl))
-        for i in range(0, len(self.science_spectrum.wavelength) - 1, bin_size):
-            self.spc_axe.fill_between(self.science_spectrum.wavelength.value[i:i+bin_size], 0, 
-                            self.science_spectrum.flux.value[i:i+bin_size], color=colors[i]) #, alpha=0.3)
+        if self.showed_colorized:
+            # show 'black' color under spectrum
+            for i in range(0, len(self.science_spectrum.wavelength) - 1, bin_size):
+                self.spc_axe.fill_between(self.science_spectrum.wavelength.value[i:i+bin_size], 0, 
+                                self.science_spectrum.flux.value[i:i+bin_size], color='black', alpha=alpha)
+            self.showed_colorized = False
+        else:
+            # show 'rainbow' color under spectrum
+            colors = plt.cm.turbo((self.science_spectrum.wavelength.value - min_wl) / (max_wl - min_wl))            
+            for i in range(0, len(self.science_spectrum.wavelength) - 1, bin_size):
+                self.spc_axe.fill_between(self.science_spectrum.wavelength.value[i:i+bin_size], 0, 
+                                self.science_spectrum.flux.value[i:i+bin_size], color=colors[i], alpha=alpha)
+            self.showed_colorized = True
             
         self.spc_figure.canvas.draw_idle()
 
     def clear_spectra(self) -> None:
         self.spc_axe.clear()
         self.spc_axe.grid(color = 'grey', linestyle = '--', linewidth = 0.5)
-        self.showed_lines: bool = False
+        self.showed_lines = False
+        self.showed_colorized = False
         self.spc_figure.canvas.draw_idle()
 
     def show_spectrum(self, spectrum: Spectrum1D, calibrated: bool = False) -> None:
@@ -134,8 +147,12 @@ class Spectrum(object):
             self.spc_axe.format_coord=format_coord
         
         # plot spectrum
-        self.colors = np.roll(self.colors, 1) # rotate a new color every call 
-        _color = self.colors[0]
+        if spectrum == self.science_spectrum:
+            _color = self.spectrum_color
+        else:
+            self.colors = np.roll(self.colors, 1) # rotate a new color every call 
+            _color = self.colors[0]
+
         self.spc_axe.plot(spectrum.spectral_axis , spectrum.flux, color=_color, linewidth = '0.8')
         self.spc_axe.grid(color = 'grey', linestyle = '--', linewidth = 0.5)
 
