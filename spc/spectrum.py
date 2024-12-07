@@ -71,17 +71,17 @@ class Spectrum(object):
 
         # add new buttons
         self.clear_button = ttk.Button(spc_toolbar, text="Clear", command=self.clear_spectra)
-        self.clear_button.pack(side=tk.LEFT, padx=20, pady=0)
+        self.clear_button.pack(side=tk.LEFT, padx=5, pady=0)
 
         self.lines_button = ttk.Button(spc_toolbar, text="Show lines", command=self.show_lines)
-        self.lines_button.pack(side=tk.LEFT, padx=0, pady=0)
+        self.lines_button.pack(side=tk.LEFT, padx=5, pady=0)
 
-        #spc_toolbar = NavigationToolbar2Tk(self.spc_canvas, spc_frame, pack_toolbar=False)
-        #spc_toolbar.children['!button4'].pack_forget()      # ugly... should use another method to remove the conf button.
+        self.lines_button = ttk.Button(spc_toolbar, text="Colorize", command=self.colorize)
+        self.lines_button.pack(side=tk.LEFT, padx=5, pady=0)
+
         spc_toolbar.update()
         spc_toolbar.pack(side=tk.TOP, fill=tk.X)
-        self.spc_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)#side=tk.TOP, 
-
+        self.spc_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
     def open_spectrum( self, spc_name: str) -> bool:
         # open spectrum data
@@ -96,6 +96,22 @@ class Spectrum(object):
         self.science_spectrum = spec1d
         return True
 
+    def colorize(self) -> None:
+        if self.science_spectrum is None:
+            logging.info("please calibrate first")
+            return
+        
+        min_wl = 3800 # self.science_spectrum.wavelength.value.min()
+        max_wl = 7500 #self.science_spectrum.wavelength.value.max()
+        bin_size = 50
+
+        colors = plt.cm.jet((self.science_spectrum.wavelength.value - min_wl) / (max_wl - min_wl))
+        for i in range(0, len(self.science_spectrum.wavelength) - 1, bin_size):
+            self.spc_axe.fill_between(self.science_spectrum.wavelength.value[i:i+bin_size], 0, 
+                            self.science_spectrum.flux.value[i:i+bin_size], color=colors[i]) #, alpha=0.3)
+            
+        self.spc_figure.canvas.draw_idle()
+
     def clear_spectra(self) -> None:
         self.spc_axe.clear()
         self.spc_axe.grid(color = 'grey', linestyle = '--', linewidth = 0.5)
@@ -103,24 +119,13 @@ class Spectrum(object):
         self.spc_figure.canvas.draw_idle()
 
     def show_spectrum(self, spectrum: Spectrum1D, calibrated: bool = False) -> None:
-
+        # set legend titles
         if calibrated:
             self.spc_axe.set_ylabel('Relative intensity')
             self.spc_axe.set_xlabel('Wavelength (Angstrom)')
             def format_coord(x,y):
                 return "Lambda: ({:.2f}, Intensity: {:.2f})".format(x,y)
             self.spc_axe.format_coord=format_coord
-            """"
-            #x = np.linspace(0, 10, 100)
-            #y = np.sin(x)
-            colors = [(1, 0, 0), (0, 1, 0), (0, 0, 1)]  # R -> G -> B
-            n_bins = 100  # Increase this for smoother color transitions
-            cm = LinearSegmentedColormap.from_list('custom', colors, N=n_bins)
-            z = np.linspace(0, 1, len(spectrum.wavelength.value))
-            self.spc_axe.fill_between(spectrum.wavelength.value, 0, spectrum.flux.value, color='white', where=spectrum.flux.value > 0, zorder=3)
-            for i in range(1, len(spectrum.wavelength.value)):
-                self.spc_axe.fill_between(spectrum.wavelength.value[i-1:i+1], spectrum.flux.value[i-1:i+1], color=cm(z[i-1]), step='pre', zorder=2)
-            """
         else:
             self.spc_axe.set_xlabel('Pixels')
             self.spc_axe.set_ylabel('ADU')
@@ -129,7 +134,7 @@ class Spectrum(object):
             self.spc_axe.format_coord=format_coord
         
         # plot spectrum
-        self.colors = np.roll(self.colors, 1) # pick a new color every call 
+        self.colors = np.roll(self.colors, 1) # rotate a new color every call 
         _color = self.colors[0]
         self.spc_axe.plot(spectrum.spectral_axis , spectrum.flux, color=_color, linewidth = '0.8')
         self.spc_axe.grid(color = 'grey', linestyle = '--', linewidth = 0.5)
@@ -372,16 +377,15 @@ class CustomSpcToolbar(NavigationToolbar2Tk):
         #   image_file, # name of the image for the button (without the extension)
         #   name_of_method, # name of the method in NavigationToolbar2 to call
         # )
-        # this is enforced by MPL lib - sould use a DICT otherwize...
         self.toolitems = (
-            ('Home', 'Reset zoom to original view', 'home', 'home'),
-            ('Back', 'Back to previous view', 'back', 'back'),
-            ('Forward', 'Forward to next view', 'forward', 'forward'),
+            ('Home', 'Reset zoom to original view', 'home_large', 'home'),
+            ('Back', 'Back to previous view', 'back_large', 'back'),
+            ('Forward', 'Forward to next view', 'forward_large', 'forward'),
             (None, None, None, None),
-            ('Pan', 'Pan axes with left mouse, zoom with right', 'move', 'pan'),
-            ('Zoom', 'Zoom to rectangle', 'zoom_to_rect', 'zoom'),
+            ('Pan', 'Pan axes with left mouse, zoom with right', 'move_large', 'pan'),
+            ('Zoom', 'Zoom to rectangle', 'zoom_to_rect_large', 'zoom'),
             (None, None, None, None),
-            ('Save', 'Save the figure', 'filesave', 'save_figure'), 
+            ('Save', 'Save the figure', 'filesave_large', 'save_figure'), 
         )
 
         super().__init__(canvas = canvas, window = parent, pack_toolbar = True)

@@ -60,7 +60,7 @@ class Image(object):
 
         # add new buttons
         self.clear_button = ttk.Button(img_toolbar, text="Clear", command=self.clear_image)
-        self.clear_button.pack(side=tk.LEFT, padx=20, pady=0)
+        self.clear_button.pack(side=tk.LEFT, padx=5, pady=0)
 
         _cmap_options = ["grey", "inferno", "magma", "plasma"]
         bt_cmap_default = "grey"
@@ -73,7 +73,7 @@ class Image(object):
             logging.info(f"colormap changed to {cmap}")
             
         bt_cmap = ttk.OptionMenu(img_toolbar, _var, bt_cmap_default, *(_cmap_options), command = cb_cmap_option)
-        bt_cmap.pack(side=tk.LEFT, padx=0, pady=0)
+        bt_cmap.pack(side=tk.LEFT, padx=5, pady=0)
 
         # pack buttons
         img_toolbar.update()
@@ -82,10 +82,10 @@ class Image(object):
 
         # now create sliders
         slider_frame = ttk.Frame(bt_frame)
-        slider_frame.pack(side=tk.RIGHT, fill=tk.BOTH, padx=50, pady=0, expand=True)
+        slider_frame.pack(side=tk.RIGHT, fill=tk.BOTH, padx=35, pady=0, expand=True)
 
         slider_high_frame = ttk.Frame(slider_frame)
-        slider_high_frame.pack(side=tk.TOP, fill=tk.X, padx=50, pady=0)
+        slider_high_frame.pack(side=tk.TOP, fill=tk.X, padx=5, pady=0)
         self.slider_high_value = ttk.Label(slider_high_frame, text="0")
         self.slider_high_value.pack(side=tk.LEFT)
         #slider_high_label = ttk.Label(slider_high_frame, text="0")
@@ -98,7 +98,7 @@ class Image(object):
         self.slider_high.bind("<ButtonRelease>", self.update_slider) 
 
         slider_low_frame = ttk.Frame(slider_frame)
-        slider_low_frame.pack(side=tk.TOP, fill=tk.X, padx=50, pady=0)
+        slider_low_frame.pack(side=tk.TOP, fill=tk.X, padx=5, pady=0)
         self.slider_low_value = ttk.Label(slider_low_frame, text="0")
         self.slider_low_value.pack(side=tk.LEFT)
         #slider_low_label = ttk.Label(slider_low_frame, text="0")
@@ -130,8 +130,8 @@ class Image(object):
         self.img_names:list[str] = []
         self.img_count = 0
         self.img_combiner: ImagesCombiner = None
-        self.image.set_data(self.img_stacked)
-        self.img_axe.clear()
+        #self.image.set_data(self.img_stacked)
+        #self.img_axe.clear()
         self.image = self.show_image(image = self.img_stacked,
                 fig_img = self.img_figure,
                 ax_img = self.img_axe,
@@ -296,16 +296,15 @@ class CustomImgToolbar(NavigationToolbar2Tk):
         #   image_file, # name of the image for the button (without the extension)
         #   name_of_method, # name of the method in NavigationToolbar2 to call
         # )
-        # this is enforced by MPL lib - sould use a DICT otherwize...
         self.toolitems = (
-            ('Home', 'Reset zoom to original view', 'home', 'home'),
-            ('Back', 'Back to previous view', 'back', 'back'),
-            ('Forward', 'Forward to next view', 'forward', 'forward'),
+            ('Home', 'Reset zoom to original view', 'home_large', 'home'),
+            ('Back', 'Back to previous view', 'back_large', 'back'),
+            ('Forward', 'Forward to next view', 'forward_large', 'forward'),
             (None, None, None, None),
-            ('Pan', 'Pan axes with left mouse, zoom with right', 'move', 'pan'),
-            ('Zoom', 'Zoom to rectangle', 'zoom_to_rect', 'zoom'),
+            ('Pan', 'Pan axes with left mouse, zoom with right', 'move_large', 'pan'),
+            ('Zoom', 'Zoom to rectangle', 'zoom_to_rect_large', 'zoom'),
             (None, None, None, None),
-            ('Save', 'Save the figure', 'filesave', 'save_figure'), 
+            ('Save', 'Save the figure', 'filesave_large', 'save_figure'), 
         )
 
         super().__init__(canvas = canvas, window = parent, pack_toolbar = True)

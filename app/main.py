@@ -28,6 +28,7 @@ class Application(tk.Tk):
 
     def __init__(self, app_name: str, app_version: str) -> None:
         super().__init__()
+        
         self.iconbitmap(r'./quickspec.ico')
         self.title(f"{app_name} - {app_version}")
         self.app_name = app_name
@@ -43,7 +44,7 @@ class Application(tk.Tk):
     def create_panels(self) -> None:
         plt.style.use('dark_background')        
         plt.rcParams['figure.constrained_layout.use'] = True
-
+        
         # create top frame to hold buttons and sliders
         self.bt_frame = ttk.Frame(self)
         self.bt_frame.pack(side=tk.TOP, fill=tk.X)
@@ -63,7 +64,7 @@ class Application(tk.Tk):
         self._spectrum = Spectrum(spc_frame, self._image.img_axe)
 
     def create_buttons(self) -> None:
-        bt_load = ttk.Button(self.bt_frame, text="Load", command=self.cb_open_files)
+        bt_load = ttk.Button(self.bt_frame, text="Load", command=self.cb_open_files) 
         bt_load.pack(side=tk.LEFT, padx=5, pady=0)
 
         bt_run = ttk.Button(self.bt_frame, text="Run all", command=self.cb_run_all)
