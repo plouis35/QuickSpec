@@ -2,6 +2,7 @@ import logging
 import time
 from pathlib import Path
 import functools
+import os
 
 import tkinter as tk
 from tkinter import ttk
@@ -39,6 +40,7 @@ class Application(tk.Tk):
         self.create_buttons()
 
         # create a timer to capture new files created
+        self.last_timer: float = time.time()
         self.after_idle(self.watch_files)
 
     def create_panels(self) -> None:
@@ -180,5 +182,12 @@ class Application(tk.Tk):
         return True
 
     def watch_files(self):
-        #logging.info(f"watcher time is : {time.strftime("%H:%M:%S", time.localtime())}")
+        #logging.debug(f"watcher time is : {time.strftime("%H:%M:%S", time.localtime())}")
+
+        if ((path := OSUtils.get_current_path()) != '.'):
+            new_file = OSUtils.list_files(path, '*.fit*')[0]
+            if os.path.getmtime(f"{path}/{new_file}") >= self.last_timer:
+                logging.info(f"new FIT detected: {new_file}")
+                self.last_timer = time.time()
+
         self.after(1000, self.watch_files) 
