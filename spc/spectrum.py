@@ -42,7 +42,7 @@ from app.os_utils import OSUtils
 from app.config import Config
 from img.image import Image
 from img.img_utils import Images
-from spc.spc_utils import rgb
+from spc.spc_utils import SPCUtils
 
 class Spectrum(object):
 
@@ -160,36 +160,14 @@ class Spectrum(object):
 
     def do_trace(self, img_stacked:np.ndarray) -> bool:
         if img_stacked is None: 
-            logging.error("please reduce image(s) before tracing")
+            logging.error("please reduce image(s) before fitting trace")
             return False
 
-        master_science: np.ndarray = img_stacked
+        self.science_trace = SPCUtils.trace_spectrum(img_stacked)
+        if self.science_trace is None:
+            return False
         
-        #trace_model : one of Chebyshev1D, Legendre1D, Polynomial1D, or Spline1D
-        #peak_method : One of gaussian, centroid, or max. gaussian
-        #trace_model : one of ~astropy.modeling.polynomial.Chebyshev1D,
-        #  ~astropy.modeling.polynomial.Legendre1D, 
-        # ~astropy.modeling.polynomial.Polynomial1D,
-        #  or ~astropy.modeling.spline.Spline1D, optional The 1-D polynomial model used to fit the trace to the bins' peak pixels. S
-        # pline1D models are fit with Astropy's 'SplineSmoothingFitter', while the other models are fit with the 'LevMarLSQFitter'.
-        #  [default: models.Polynomial1D(degree=1)]
-
-        try:
-            self.science_trace:FitTrace = FitTrace(master_science, 
-                                    bins=self.conf.get_int('processing', 'trace_x_bins'), 
-                                    #trace_model=models.Chebyshev1D(degree=2), 
-                                    trace_model=models.Polynomial1D(degree=2),
-                                    peak_method='gaussian' , #centroid',     #'gaussian', 
-                                    window=self.conf.get_int('processing', 'trace_y_window'),
-                                    guess=self.conf.get_float('processing', 'trace_y_guess')
-                                    )
-            
-        except Exception as e:
-            logging.error(f"unable to fit trace : {e}")
-            return False
-
-        # trace spectrum fitted
-        self.science_trace.shape
+        # trace fitted spectrum
         self.img_axe.plot(self.science_trace.trace , color='red', linestyle='dashed', linewidth = '0.5')
         self.img_axe.get_figure().canvas.draw_idle()
 
@@ -204,60 +182,37 @@ class Spectrum(object):
             logging.error("please fit trace before extracting spectrum")
             return False
 
-        master_science: np.ndarray = img_stacked
-        
-        try:
-            bg_trace: Background = Background.two_sided(master_science, 
-                                                  self.science_trace, 
-                                                  separation=self.conf.get_int('processing', 'sky_y_offset'), 
-                                                  width=self.conf.get_int('processing', 'sky_y_size')  ) 
-        except Exception as e:
-            logging.error(f"unable to fit background : {e}")
+        extracted_spectrum = SPCUtils.extract_spectrum(img_stacked, self.science_trace)
+        if extracted_spectrum is None:
             return False
         
-        logging.info('background extracted')
-                
-        try:
-            extracted_spectrum = BoxcarExtract(master_science - bg_trace, 
-                                    self.science_trace, 
-                                    width = self.conf.get_float('processing', 'trace_y_size') )
-        except Exception as e:
-            logging.error(f"unable to extract background : {e}")
-            return False
-
-        logging.info('background substracted')
-
-        try:
-            science_spectrum = extracted_spectrum.spectrum
-        except Exception as e:
-            logging.error(f"unable to extract science spectrum : {e}")
-            return False
-
-        self.science_spectrum = science_spectrum
+        self.science_spectrum = extracted_spectrum
         logging.info('spectrum extracted')
 
         self.clear_spectra()
 
         # trace sky zones
-        self.img_axe.plot(self.science_spectrum.spectral_axis, self.science_trace.trace + extracted_spectrum.width , color='blue', 
-                            linestyle='dashed', linewidth = '0.5')  #, alpha=0.2)
-        self.img_axe.plot(self.science_spectrum.spectral_axis, self.science_trace.trace - extracted_spectrum.width , color='blue', 
-                            linestyle='dashed', linewidth = '0.5')  #, alpha=0.2)
+        self.img_axe.plot(self.science_spectrum.spectral_axis, self.science_trace.trace + self.conf.get_int('processing', 'trace_y_size'), 
+                color='blue', linestyle='dashed', linewidth = '0.5')  #, alpha=0.2)
+        self.img_axe.plot(self.science_spectrum.spectral_axis, self.science_trace.trace - self.conf.get_int('processing', 'trace_y_size'), 
+                color='blue', linestyle='dashed', linewidth = '0.5')  #, alpha=0.2)
 
         self.img_axe.plot(self.science_spectrum.spectral_axis, self.science_trace.trace + (self.conf.get_int('processing', 'sky_y_offset')) , 
-                            color='green', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
+                color='green', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
+        self.img_axe.plot(self.science_spectrum.spectral_axis, self.science_trace.trace - (self.conf.get_int('processing', 'sky_y_offset')) , 
+                color='green', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
+
         self.img_axe.plot(self.science_spectrum.spectral_axis, 
-                            self.science_trace.trace + (self.conf.get_int('processing', 'sky_y_offset') + self.conf.get_int('processing', 'sky_y_size')) , 
-                            color='green', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
+                self.science_trace.trace + (self.conf.get_int('processing', 'sky_y_offset') + self.conf.get_int('processing', 'sky_y_size')) , 
+                color='green', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
         self.img_axe.plot(self.science_spectrum.spectral_axis, 
-                            self.science_trace.trace - (self.conf.get_int('processing', 'sky_y_offset') + self.conf.get_int('processing', 'sky_y_size')) , 
-                            color='green', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
-        self.img_axe.plot(self.science_spectrum.spectral_axis, 
-                            self.science_trace.trace - (self.conf.get_int('processing', 'sky_y_offset')) , 
-                            color='green', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
+                self.science_trace.trace - (self.conf.get_int('processing', 'sky_y_offset') + self.conf.get_int('processing', 'sky_y_size')) , 
+                color='green', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
         
         self.img_axe.get_figure().canvas.draw_idle()
 
+        # show extracted spectrum
+        self.clear_spectra()
         self.show_spectrum(self.science_spectrum, False)
 
         return True
@@ -269,82 +224,32 @@ class Spectrum(object):
         
         logging.info('calibrating spectrum...')
         
-        _wavelength = self.conf.get_str('processing', 'calib_x_wavelength')     #[6506.53, 6532.88, 6598.95, 6678.28, 6717.04]*u.AA
-        _pixels = self.conf.get_str('processing', 'calib_x_pixel')     #[770, 1190, 2240, 3484, 4160]*u.pix
+        _wavelength = self.conf.get_str('processing', 'calib_x_wavelength')  
+        _pixels = self.conf.get_str('processing', 'calib_x_pixel') 
 
-        wavelength = [float(x) for x in _wavelength.replace(',', '').split()]*u.AA
-        pixels = [float(x) for x in _pixels.replace(',', '').split()]*u.pix
-        logging.info(f"calibrating pixels set : {pixels}")
-        logging.info(f"with wavelengths set : {wavelength}")
-
-        try:
-            #input_spectrum, matched_line_list=None, line_pixels=None, line_wavelengths=None, catalog=None, input_model=Linear1D(), fitter=None
-            #fitter: ~astropy.modeling.fitting.Fitter, optional The fitter to use in optimizing the model fit. Defaults to
-            #~astropy.modeling.fitting.LinearLSQFitter if the model to fit is linear
-            #or ~astropy.modeling.fitting.LMLSQFitter if the model to fit is non-linear.
-            cal = WavelengthCalibration1D(input_spectrum = self.science_spectrum,
-                line_wavelengths = wavelength,
-                line_pixels = pixels,
-                #matched_line_list = line_list,
-                #input_model = models.Linear1D(),
-                #fitter = fitting.LMLSQFitter(),
-                input_model = models.Polynomial1D(degree = 2),
-                #fitter = fitting.LMLSQFitter()
-                #fitter = fitting.LinearLSQFitter()
-                )
-        except Exception as e:
-            logging.error(f"unable to calibrate spectrum : {e}")
+        if (_wavelength is None) or (_pixels is None):
+            logging.error("please specify lines/waves index in config file")
             return False
-
-        logging.info(f"residuals : {repr(cal.residuals)}")
         
-        # calibrate science spectrum
-        calibrated_spectrum: Spectrum1D = cal.apply_to_spectrum(self.science_spectrum)
-        logging.info('spectrum calibrated')
-
-        # normalize to 1 arround 6500 - 6520 Ang
-        #sci_mean_norm_region = calibrated_spectrum[6500 * u.AA: 6520 * u.AA].flux.mean()       # starEx2400 : high resolution
-        sci_mean_norm_region = calibrated_spectrum[6500 * u.AA: 6520 * u.AA].flux.mean()       # starEx2400 : high resolution
-        normalized_spec = Spectrum1D(spectral_axis = calibrated_spectrum.wavelength, flux = calibrated_spectrum.flux / sci_mean_norm_region)  
-
-        logging.info('spectrum normalized')
-
-        # apply response file if any defined
-        #sci_spectrum = FluxCalibration(normalized_spec, 1.0) #, airmass = airmass) 
-        final_spec = normalized_spec
-
-        try:
-            if (respFile := self.conf.get_str('processing', 'response_file')) is not None:
-                respFile = f"{self.conf.get_conf_directory()}/{respFile}"
-                logging.info(f"opening {respFile}...")
-                resp1d: Spectrum1D = Spectrum1D.read(respFile)
-                _factor = int(resp1d.shape[0] / normalized_spec.shape[0])
-                logging.info(f"{normalized_spec.shape[0]=}, {resp1d.shape[0]=}, {_factor=}")
-                
-                _resp1d_ndd = NDDataRef(resp1d)
-                _resp1d_ndd.wcs = None
-                _resp1d = _resp1d_ndd[::_factor].data
-                final_spec = normalized_spec / _resp1d
-                logging.info('response applied')
-            else:
-                logging.warning("no response file to apply")
-
-        except Exception as e:
-            logging.error(f"{e}")
-            logging.error("no response file applied")
+        calibrated_spectrum = SPCUtils.calibrate_spectrum(self.science_spectrum, _pixels, _wavelength)
+        if calibrated_spectrum is None:
+            return False        
 
         # apply median smoothing (if any defined)
         smooth: int | None = self.conf.get_int('post_processing', 'median_smooth') 
         if smooth is not None:
-            smooth_spec: Spectrum1D = median_smooth(final_spec, width = smooth) 
-            self.science_spectrum = smooth_spec
-            logging.info(f"median smooth applied={smooth}")
+            smooth_spec: Spectrum1D = SPCUtils.median_smooth(calibrated_spectrum, smooth) 
+            if smooth_spec is not None:
+                self.science_spectrum = smooth_spec
+                logging.info(f"median smooth applied={smooth}")
         else:
-            self.science_spectrum = final_spec
+            self.science_spectrum = calibrated_spectrum
+            logging.info(f"no median smooth applied")
 
+        # show derived-SNR
         logging.info(f'snr = {snr_derived(self.science_spectrum):.1f}')
 
-        #self.spc_axe.clear()
+        # show spectrum
         self.clear_spectra()
         self.show_spectrum(self.science_spectrum, True)
 

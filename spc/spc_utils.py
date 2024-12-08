@@ -1,70 +1,188 @@
-"""
-Based on
-  http://www.physics.sfasu.edu/astro/color/spectra.html
-  RGB VALUES FOR VISIBLE WAVELENGTHS   by Dan Bruton (astro@tamu.edu)
-"""
+import logging
 import numpy as np
+import math
 
-def factor(wl):
-    return np.select(
-        [ wl > 700.,
-          wl < 420.,
-          True ],
-        [ .3+.7*(780.-wl)/(780.-700.),
-          .3+.7*(wl-380.)/(420.-380.),
-          1.0 ] )
+from specutils.spectra.spectrum1d import Spectrum1D
+from specutils.manipulation import median_smooth, gaussian_smooth
+from specutils.analysis import snr, snr_derived
+from specutils.manipulation import FluxConservingResampler, LinearInterpolatedResampler, SplineInterpolatedResampler
 
-def raw_r(wl):
-    return np.select(
-        [ wl >= 580.,
-          wl >= 510.,
-          wl >= 440.,
-          wl >= 380.,
-          True ],
-        [ 1.0,
-          (wl-510.)/(580.-510.),
-          0.0,
-          (wl-440.)/(380.-440.),
-          0.0 ] )
+from astropy.utils.exceptions import AstropyWarning
+from astropy import units as u
+from astropy.nddata import CCDData, NDData, StdDevUncertainty
+from astropy.stats import mad_std
+from astropy.io import fits
+from astropy.modeling import models, fitting
+from astropy.table import QTable
+from astropy.nddata import NDDataRef
 
-def raw_g(wl):
-    return np.select(
-        [ wl >= 645.,
-          wl >= 580.,
-          wl >= 490.,
-          wl >= 440.,
-          True ],
-        [ 0.0,
-          (wl-645.)/(580.-645.),
-          1.0,
-          (wl-440.)/(490.-440.),
-          0.0 ] )
+from specutils.spectra.spectrum1d import Spectrum1D
 
-def raw_b(wl):
-    return np.select(
-        [ wl >= 510.,
-          wl >= 490.,
-          wl >= 380.,
-          True ],
-        [ 0.0,
-          (wl-510.)/(490.-510.),
-          1.0,
-          0.0 ] )
+from specreduce.tracing import FlatTrace, FitTrace
+from specreduce.background import Background
+from specreduce.extract import BoxcarExtract
+from specreduce.fluxcal import FluxCalibration
+from specreduce import WavelengthCalibration1D
 
-gamma = 0.80
-def correct_r(wl):
-    return np.power(factor(wl)*raw_r(wl),gamma)
-def correct_g(wl):
-    return np.power(factor(wl)*raw_g(wl),gamma)
-def correct_b(wl):
-    return np.power(factor(wl)*raw_b(wl),gamma)
+from app.config import Config
 
-#ww=np.arange(380.,781.)
+class SPCUtils(object):
+    conf = Config()
 
-def rgb(wavelength):
-    return np.transpose([correct_r(wavelength),correct_g(wavelength),correct_b(wavelength)])
+    @staticmethod
+    def trace_spectrum(img_stacked:np.ndarray) -> FitTrace | None:
+
+      # peak_method : one of gaussian, centroid
+      # trace_model : one of :
+      #  ~astropy.modeling.polynomial.Chebyshev1D,
+      #  ~astropy.modeling.polynomial.Legendre1D, 
+      #  ~astropy.modeling.polynomial.Polynomial1D,
+      #  ~astropy.modeling.spline.Spline1D, 
+      #  optional The 1-D polynomial model used to fit the trace to the bins' peak pixels. 
+      #  Spline1D models are fit with Astropy's 'SplineSmoothingFitter', while the other models are fit with the 'LevMarLSQFitter'.
+      #  [default: models.Polynomial1D(degree=1)]
+
+      try:
+          science_trace:FitTrace = FitTrace(img_stacked, 
+                                  bins=SPCUtils.conf.get_int('processing', 'trace_x_bins'), 
+                                  trace_model=models.Chebyshev1D(degree=2), 
+                                  #trace_model=models.Polynomial1D(degree=2),
+                                  peak_method='centroid',     #'gaussian', 
+                                  window=SPCUtils.conf.get_int('processing', 'trace_y_window'),
+                                  guess=SPCUtils.conf.get_float('processing', 'trace_y_guess')
+                                  )
+          
+      except Exception as e:
+          logging.error(f"unable to fit trace : {e}")
+          return None
+
+      return science_trace
+
+
+
+    @staticmethod
+    def extract_spectrum(img_stacked:np.ndarray, science_trace: FitTrace) -> Spectrum1D | None:
+        try:
+            bg_trace: Background = Background.two_sided(img_stacked, 
+                                                  science_trace, 
+                                                  separation=SPCUtils.conf.get_int('processing', 'sky_y_offset'), 
+                                                  width=SPCUtils.conf.get_int('processing', 'sky_y_size')  ) 
+        except Exception as e:
+            logging.error(f"unable to fit background : {e}")
+            return None
+        
+        logging.info('background extracted')
+                
+        try:
+            extracted_spectrum = BoxcarExtract(img_stacked - bg_trace, 
+                                    science_trace, 
+                                    width = SPCUtils.conf.get_float('processing', 'trace_y_size') )
+        except Exception as e:
+            logging.error(f"unable to extract background : {e}")
+            return None
+
+        logging.info('background substracted')
+
+        try:
+            extracted_spectrum = extracted_spectrum.spectrum
+        except Exception as e:
+            logging.error(f"unable to extract science spectrum : {e}")
+            return None
+        
+        return extracted_spectrum
+
+
+    @staticmethod
+    def calibrate_spectrum(science_spectrum: Spectrum1D, pixels: str, wavelength: str) -> Spectrum1D | None:  
+        """_summary_
+
+        Args:
+            science_spectrum (Spectrum1D): _description_
+            pixels (str): _description_
+            wavelength (str): _description_
+
+        Returns:
+            Spectrum1D | None: _description_
+        """
+
+        # convert args to pix/AA
+        _wavelength = [float(x) for x in wavelength.replace(',', '').split()]*u.AA
+        _pixels = [float(x) for x in pixels.replace(',', '').split()]*u.pix
+        logging.info(f"calibrating pixels set : {pixels}")
+        logging.info(f"with wavelengths set : {wavelength}")
+
+        try:
+            calibration = WavelengthCalibration1D(input_spectrum = science_spectrum,
+                line_wavelengths = _wavelength,
+                line_pixels = _pixels,
+                input_model = models.Linear1D(),
+                fitter = fitting.LinearLSQFitter(),
+                #input_model = models.Polynomial1D(degree = 2),
+                #fitter = fitting.LMLSQFitter(),
+                )
+        except Exception as e:
+            logging.error(f"unable to calibrate spectrum : {e}")
+            return None
+        
+        # calibrate science spectrum
+        calibrated_spectrum: Spectrum1D = calibration.apply_to_spectrum(science_spectrum)
+        logging.info(f"spectrum calibrated - residuals : {repr(calibration.residuals)}")
+
+        # normalize to 1
+        sci_mean_norm_region = calibrated_spectrum[6500 * u.AA: 6520 * u.AA].flux.mean() 
+        normalized_spec = Spectrum1D(spectral_axis = calibrated_spectrum.wavelength, 
+                                     flux = calibrated_spectrum.flux / sci_mean_norm_region)  
+        logging.info('spectrum normalized to 1')
+
+        # apply response file if any defined
+        final_spec = normalized_spec
+
+        try:
+            if (respFile := SPCUtils.conf.get_str('processing', 'response_file')) is not None:
+                respFile = f"{SPCUtils.conf.get_conf_directory()}/{respFile}"
+                logging.info(f"opening {respFile}...")
+                resp1d: Spectrum1D = Spectrum1D.read(respFile)
+                _factor = int(resp1d.shape[0] / normalized_spec.shape[0])
+                logging.info(f"{normalized_spec.shape[0]=}, {resp1d.shape[0]=}, {_factor=}")
+                
+                _resp1d_ndd = NDDataRef(resp1d)
+                _resp1d_ndd.wcs = None
+
+                # rebin response to science spectrum axis
+                _resp1d = _resp1d_ndd[::_factor].data
+
+                # apply response
+                final_spec = normalized_spec / _resp1d
+                #final_spec = FluxCalibration(normalized_spec, airmass = airmass) 
+                logging.info('response applied')
+            else:
+                logging.info("no response file to apply")
+
+        except Exception as e:
+            logging.error(f"{e}")
+            logging.error("no response file applied")
+        
+        return final_spec
+    
+    @staticmethod
+    def median_smooth(science_spectrum: Spectrum1D, smooth_width: int = 1) -> Spectrum1D | None:
+        """
+        apply a median filter to a spectrum
+
+        Args:
+            science_spectrum (Spectrum1D): spectrum to smooth
+        Returns:
+            Spectrum1D | None: smooth'ed spectrum
+        """
+        if smooth_width is not None:
+            smooth_spec: Spectrum1D = median_smooth(science_spectrum, width=smooth_width) 
+            science_spectrum = smooth_spec
+            logging.info(f"median smooth applied={smooth_width}")
+        else:
+            logging.info(f"no median smooth applied")
+            return None
+
+        return science_spectrum
 
 if __name__ == "__main__":
-  ww=np.arange(380.,781.)
-  print(f"{rgb(456.63)=}")
-
+    pass

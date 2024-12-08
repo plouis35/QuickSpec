@@ -62,7 +62,7 @@ class Image(object):
         self.clear_button = ttk.Button(img_toolbar, text="Clear", command=self.clear_image)
         self.clear_button.pack(side=tk.LEFT, padx=5, pady=0)
 
-        _cmap_options = ["grey", "inferno", "magma", "plasma"]
+        _cmap_options = ["grey", "inferno", "nipy_spectral", "rainbow", "gnuplot", "brg"]
         bt_cmap_default = "grey"
         _var = tk.StringVar(value=bt_cmap_default)
 

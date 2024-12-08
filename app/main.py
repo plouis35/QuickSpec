@@ -70,19 +70,18 @@ class Application(tk.Tk):
         bt_run = ttk.Button(self.bt_frame, text="Run all", command=self.cb_run_all)
         bt_run.pack(side=tk.LEFT, padx=5, pady=0)
 
-        _step_options = ["Reduce", "Trace", "Extract", "Calibrate"]
+        _step_options = ["Reduce image(s)", "Find spectrum", "Extract spectrum", "Calibrate spectrum"]
         bt_step_default = "Run step"
         _var = tk.StringVar(value=bt_step_default)
 
-        def cb_run_step(step: tk.StringVar) -> None:
-            logging.info(f"step {step} started...")
-            match step:
-                case "Reduce": self.cb_reduce_images()
-                case "Trace": self.cb_trace_spectrum()
-                case "Extract": self.cb_extract_spectrum()
-                case "Calibrate": self.cb_calibrate_spectrum()
-                case _: pass
-
+        # TODO : use callbacks instead
+        def cb_run_step(selected_step: tk.StringVar) -> None:
+            logging.info(f"step {selected_step} started...")
+            if selected_step == _step_options[0]: self.cb_reduce_images()
+            elif selected_step == _step_options[1]: self.cb_trace_spectrum()
+            elif selected_step == _step_options[2]: self.cb_extract_spectrum()
+            elif selected_step == _step_options[3]: self.cb_calibrate_spectrum()
+            else: pass 
             _var.set(bt_step_default)
 
         bt_steps = ttk.OptionMenu(self.bt_frame, _var, bt_step_default, *(_step_options), command = cb_run_step)
