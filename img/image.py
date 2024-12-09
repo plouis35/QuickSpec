@@ -1,8 +1,6 @@
 import logging
 import numpy as np
 import warnings
-from pathlib import Path
-import contextlib
 
 import numpy as np
 
@@ -19,14 +17,10 @@ from matplotlib.backends._backend_tk import NavigationToolbar2Tk
 
 from astropy import units as u
 from astropy.nddata import CCDData, NDData, StdDevUncertainty
-from astropy.stats import mad_std
-from astropy.io import fits
 from astropy.utils.exceptions import AstropyWarning
-from astropy import visualization as aviz
-from astropy.nddata.blocks import block_reduce
 
 from ccdproc import Combiner, combine, subtract_bias, subtract_dark, flat_correct
-from ccdproc import trim_image, Combiner, ccd_process, cosmicray_median
+from ccdproc import trim_image, ccd_process, cosmicray_median
 
 from app.config import Config
 from img.img_utils import Images, ImagesCombiner
@@ -38,11 +32,11 @@ class Image(object):
     def __init__(self, img_frame: ttk.Frame, bt_frame: ttk.Frame) -> None: #, axe_img: Axes, axe_spc: Axes, frame: ttk.Frame) -> None:
         self.conf: Config = Config()
 
-        # assign image instance variables
+        # declare/assign instance variables
         self.image: AxesImage = None
         self.img_stacked: CCDData = CCDData(np.zeros((2,8)), unit=u.adu)
         self.img_names:list[str] = []
-        self.img_count = 0
+        self.img_count: int = 0
         self.img_colorbar: Colorbar = None
         self.img_combiner: ImagesCombiner = None
         self.img_cmap: str = 'grey'
@@ -52,14 +46,14 @@ class Image(object):
         self.img_axe = self.img_figure.add_subplot(111)
 
         # create canvas to draw to
-        self.img_canvas = FigureCanvasTkAgg(self.img_figure, img_frame) #img_frame)
+        self.img_canvas = FigureCanvasTkAgg(self.img_figure, img_frame)
         self.img_canvas.draw()
 
         # create customized toolbar
-        img_toolbar = CustomImgToolbar(self.img_canvas, img_frame)
+        self.img_toolbar = CustomImgToolbar(self.img_canvas, img_frame)
 
-        # add new buttons
-        self.clear_button = ttk.Button(img_toolbar, text="Clear", command=self.clear_image)
+        # add new buttons to toolbar
+        self.clear_button = ttk.Button(self.img_toolbar, text="Clear", command=self.clear_image)
         self.clear_button.pack(side=tk.LEFT, padx=5, pady=0)
 
         _cmap_options = ["grey", "inferno", "nipy_spectral", "rainbow", "gnuplot", "brg"]
@@ -72,12 +66,12 @@ class Image(object):
             self.img_cmap = str(cmap)
             logging.info(f"colormap changed to {cmap}")
             
-        bt_cmap = ttk.OptionMenu(img_toolbar, _var, bt_cmap_default, *(_cmap_options), command = cb_cmap_option)
+        bt_cmap = ttk.OptionMenu(self.img_toolbar, _var, bt_cmap_default, *(_cmap_options), command = cb_cmap_option)
         bt_cmap.pack(side=tk.LEFT, padx=5, pady=0)
 
         # pack buttons
-        img_toolbar.update()
-        img_toolbar.pack(side=tk.TOP, fill=tk.X)
+        self.img_toolbar.update()
+        self.img_toolbar.pack(side=tk.TOP, fill=tk.X)
         self.img_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True) #side=tk.TOP, 
 
         # now create sliders
@@ -131,7 +125,6 @@ class Image(object):
         self.img_count = 0
         self.img_combiner: ImagesCombiner = None
         self.img_axe.clear()
-        #self.image.set_data(self.img_stacked)
         self.image = self.show_image(image = self.img_stacked,
                 fig_img = self.img_figure,
                 ax_img = self.img_axe,
@@ -260,11 +253,6 @@ class Image(object):
         
         ax_img.axis('off')
         ax_img.set_yscale('linear')
-
-        #norm = aviz.ImageNormalize(image,
-         #                       interval=aviz.AsymmetricPercentileInterval(percl, percu),
-          #                      stretch=aviz.LinearStretch(), clip=True)
-        #scale_args = dict(norm=norm)
 
         img: AxesImage = ax_img.imshow(
             image, 

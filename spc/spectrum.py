@@ -49,7 +49,7 @@ class Spectrum(object):
     def __init__(self, spc_frame: ttk.Frame, img_axe: Axes) -> None: #, axe_img: Axes, axe_spc: Axes) -> None:
         self.conf = Config()
 
-        # assign spectrum instance variables
+        # declare/assign instance variables
         self.science_spectrum: Spectrum1D = None
         self.science_trace: FitTrace = None
         self.showed_lines: bool = False
@@ -60,8 +60,8 @@ class Spectrum(object):
 
         # create figure and axe
         self.spc_figure = Figure(figsize=(10, 3))
-        self.spc_axe = self.spc_figure.add_subplot(111)
-        self.img_axe = img_axe
+        self.spc_axe: Axes = self.spc_figure.add_subplot(111)
+        self.img_axe: Axes = img_axe
         self.spc_axe.grid(color = 'grey', linestyle = '--', linewidth = 0.5)
 
         # create spectrum canvas to draw to
@@ -69,20 +69,20 @@ class Spectrum(object):
         self.spc_canvas.draw()
 
         # create customized toolbar
-        spc_toolbar = CustomSpcToolbar(self.spc_canvas, spc_frame)
+        self.spc_toolbar = CustomSpcToolbar(self.spc_canvas, spc_frame)
 
         # add new buttons
-        self.clear_button = ttk.Button(spc_toolbar, text="Clear", command=self.clear_spectra)
+        self.clear_button = ttk.Button(self.spc_toolbar, text="Clear", command=self.reset_spectra)
         self.clear_button.pack(side=tk.LEFT, padx=5, pady=0)
 
-        self.lines_button = ttk.Button(spc_toolbar, text="Show lines", command=self.show_lines)
+        self.lines_button = ttk.Button(self.spc_toolbar, text="Show lines", command=self.show_lines)
         self.lines_button.pack(side=tk.LEFT, padx=5, pady=0)
 
-        self.lines_button = ttk.Button(spc_toolbar, text="Colorize", command=self.colorize)
+        self.lines_button = ttk.Button(self.spc_toolbar, text="Colorize", command=self.colorize)
         self.lines_button.pack(side=tk.LEFT, padx=5, pady=0)
 
-        spc_toolbar.update()
-        spc_toolbar.pack(side=tk.TOP, fill=tk.X)
+        self.spc_toolbar.update()
+        self.spc_toolbar.pack(side=tk.TOP, fill=tk.X)
         self.spc_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
     def open_spectrum( self, spc_name: str) -> bool:
@@ -105,7 +105,7 @@ class Spectrum(object):
         
         min_wl = 3800 
         max_wl = 7500
-        bin_size = 20 # size (AA) of each colored slice under spectrum
+        bin_size = 21 # size (AA) of each colored slice under spectrum
         alpha = 1.0
 
         if self.showed_colorized:
@@ -117,18 +117,25 @@ class Spectrum(object):
         else:
             # show 'rainbow' color under spectrum
             colors = plt.cm.turbo((self.science_spectrum.wavelength.value - min_wl) / (max_wl - min_wl))            
-            for i in range(0, len(self.science_spectrum.wavelength) - 1, bin_size):
-                self.spc_axe.fill_between(self.science_spectrum.wavelength.value[i:i+bin_size], 0, 
-                                self.science_spectrum.flux.value[i:i+bin_size], color=colors[i], alpha=alpha)
+            for i in range(0, len(self.science_spectrum.wavelength) - 0, bin_size):
+                self.spc_axe.fill_between(x=self.science_spectrum.wavelength.value[i:i+bin_size], 
+                                          y1=0, y2=self.science_spectrum.flux.value[i:i+bin_size], 
+                                          color=colors[i], alpha=alpha)
             self.showed_colorized = True
             
         self.spc_figure.canvas.draw_idle()
+
+    def reset_spectra(self) -> None:
+        self.science_spectrum = None
+        self.science_trace = None
+        self.clear_spectra()
 
     def clear_spectra(self) -> None:
         self.spc_axe.clear()
         self.spc_axe.grid(color = 'grey', linestyle = '--', linewidth = 0.5)
         self.showed_lines = False
         self.showed_colorized = False
+
         self.spc_figure.canvas.draw_idle()
 
     def show_spectrum(self, spectrum: Spectrum1D, calibrated: bool = False) -> None:
@@ -163,10 +170,12 @@ class Spectrum(object):
             logging.error("please reduce image(s) before fitting trace")
             return False
 
-        self.science_trace = SPCUtils.trace_spectrum(img_stacked)
-        if self.science_trace is None:
+        science_trace = SPCUtils.trace_spectrum(img_stacked)
+        if science_trace is None:
             return False
         
+        self.science_trace = science_trace
+
         # trace fitted spectrum
         self.img_axe.plot(self.science_trace.trace , color='red', linestyle='dashed', linewidth = '0.5')
         self.img_axe.get_figure().canvas.draw_idle()
@@ -189,7 +198,7 @@ class Spectrum(object):
         self.science_spectrum = extracted_spectrum
         logging.info('spectrum extracted')
 
-        self.clear_spectra()
+        #self.clear_spectra()
 
         # trace sky zones
         self.img_axe.plot(self.science_spectrum.spectral_axis, self.science_trace.trace + self.conf.get_int('processing', 'trace_y_size'), 
@@ -235,16 +244,7 @@ class Spectrum(object):
         if calibrated_spectrum is None:
             return False        
 
-        # apply median smoothing (if any defined)
-        smooth: int | None = self.conf.get_int('post_processing', 'median_smooth') 
-        if smooth is not None:
-            smooth_spec: Spectrum1D = SPCUtils.median_smooth(calibrated_spectrum, smooth) 
-            if smooth_spec is not None:
-                self.science_spectrum = smooth_spec
-                logging.info(f"median smooth applied={smooth}")
-        else:
-            self.science_spectrum = calibrated_spectrum
-            logging.info(f"no median smooth applied")
+        self.science_spectrum = calibrated_spectrum
 
         # show derived-SNR
         logging.info(f'snr = {snr_derived(self.science_spectrum):.1f}')
@@ -255,7 +255,49 @@ class Spectrum(object):
 
         logging.info('calibration complete')
         return True
-    
+
+
+    def do_response(self) -> bool:
+        if self.science_spectrum is None: 
+            logging.error(f'please calibrate spectrum before applying response file')
+            return False
+        
+        final_spec: Spectrum1D = SPCUtils.apply_response(self.science_spectrum) 
+        if final_spec is None:
+            return False        
+
+        self.science_spectrum = final_spec
+
+        # show spectrum
+        self.clear_spectra()
+        self.show_spectrum(self.science_spectrum, True)
+
+        logging.info('response applied')
+        return True
+
+
+    def do_smooth(self) -> bool:
+        if self.science_spectrum is None: 
+            logging.error(f'please calibrate spectrum trace before smoothing')
+            return False
+        
+        # apply median smoothing (if any defined)
+        smooth: int | None = self.conf.get_int('post_processing', 'median_smooth') 
+        if smooth is not None:
+            smooth_spec: Spectrum1D = SPCUtils.median_smooth(self.science_spectrum, smooth) 
+            if smooth_spec is not None:
+                self.science_spectrum = smooth_spec
+                logging.info(f"median smooth applied={smooth}")
+        else:
+            self.science_spectrum = self.science_spectrum
+            logging.info(f"no median smooth to apply")
+
+        # show spectrum
+        self.clear_spectra()
+        self.show_spectrum(self.science_spectrum, True)
+
+        return True
+
     def show_lines(self, ax = None, show_line = True) -> None:
         if ax is None: ax = self.spc_axe
                         

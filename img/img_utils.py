@@ -33,9 +33,6 @@ from astropy.stats import mad_std
 from astropy.nddata.blocks import block_reduce
 from astropy import visualization as aviz
 
-#import astroalign as aa
-from scipy.signal import fftconvolve
-
 from app.config import Config
 
 warnings.simplefilter('ignore', category=AstropyWarning)
@@ -201,44 +198,6 @@ class ImagesCombiner(object):
 
         logging.info(f'{len(self._images)} images reduced')
         return self
-
-    """
-    align a set of loaded frames - specific to spectra 2D images (fft based)
-    """
-    def spec_align(self, ref_image_index: int = 0) -> "ImagesCombiner":    
-        ### crosscorrelate all images (except the first) with the first
-        logging.info('align: fftconvolve running...')
-        nX, nY = self._images[ref_image_index].shape
-        correlations = [fftconvolve(self._images[ref_image_index].data.astype('float32'),
-                                    image[::-1, ::-1].data.astype('float32'),
-                                    mode='same') 
-                                    for image in self._images[1:]]
-    
-        ### find the coordinate of maximum cross-correlation.
-        logging.info('align: get max cross-correlation for every image...')
-        shift_indices = [np.unravel_index(np.argmax(corr_array, axis=None), corr_array.shape) 
-                         for corr_array in correlations]
-        
-        deltas = [(ind[0] - int(nX / 2), ind[1] - int(nY / 2)) for ind in shift_indices]
-        logging.info('align: images deltas = ' + repr(deltas))
-    
-        ### alerts images for whichrealignment requires shifting by more than 15% of the field size.
-        x_frac = abs(max(deltas, key=lambda x: abs(x[0]))[0]) / nX
-        y_frac = abs(max(deltas, key=lambda x: abs(x[1]))[1]) / nY
-        t_frac = max(x_frac, y_frac)
-        if t_frac > 0.15:
-            logging.warning('align: shifting by {}% of the field size'.format(int(100 * t_frac)))
-    
-        ### roll images to realign them
-        logging.info('align: images realignement ...')
-        realigned_images = [CCDData(np.roll(image, deltas[i], axis=(0, 1)).data, unit = u.adu, header = image.header) 
-                            for (i, image) in enumerate(self._images[1:])]
-
-        ### do not forget the reference image
-        realigned_images.append(CCDData(self._images[ref_image_index].data, unit = u.adu, header = self._images[ref_image_index].header))
-        logging.info('align: complete')
-        return ImagesCombiner(realigned_images, [])
-    
 
     def reduce_images(self) -> CCDData | None:
         conf: Config = Config()

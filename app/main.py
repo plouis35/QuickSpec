@@ -9,10 +9,6 @@ from tkinter import ttk
 from tkinter.filedialog import askopenfilenames
 
 import matplotlib.pyplot as plt
-from matplotlib.figure import Figure
-
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from matplotlib.backends._backend_tk import NavigationToolbar2Tk
 
 from astropy import units as u
 from astropy.nddata import CCDData
@@ -72,7 +68,12 @@ class Application(tk.Tk):
         bt_run = ttk.Button(self.bt_frame, text="Run all", command=self.cb_run_all)
         bt_run.pack(side=tk.LEFT, padx=5, pady=0)
 
-        _step_options = ["Reduce image(s)", "Find spectrum", "Extract spectrum", "Calibrate spectrum"]
+        _step_options = ["Reduce image(s)", 
+                                    "Trace spectrum",
+                                    "Extract spectrum", 
+                                    "Calibrate spectrum", 
+                                    "Apply response",
+                                    "Smooth spectrum"]
         bt_step_default = "Run step"
         _var = tk.StringVar(value=bt_step_default)
 
@@ -83,6 +84,8 @@ class Application(tk.Tk):
             elif selected_step == _step_options[1]: self.cb_trace_spectrum()
             elif selected_step == _step_options[2]: self.cb_extract_spectrum()
             elif selected_step == _step_options[3]: self.cb_calibrate_spectrum()
+            elif selected_step == _step_options[4]: self.cb_apply_response()
+            elif selected_step == _step_options[5]: self.cb_smooth_spectrum()
             else: pass 
             _var.set(bt_step_default)
 
@@ -107,7 +110,9 @@ class Application(tk.Tk):
         for action in ( self.cb_reduce_images, 
                         self.cb_trace_spectrum, 
                         self.cb_extract_spectrum, 
-                        self.cb_calibrate_spectrum): 
+                        self.cb_calibrate_spectrum,
+                        self.cb_apply_response,
+                        self.cb_smooth_spectrum): 
              if action() is not True:
                  logging.error('run all aborted')
                  return False
@@ -115,23 +120,27 @@ class Application(tk.Tk):
     
     @run_long_operation
     def cb_reduce_images(self) -> bool:
-        #self._image.clear_image()
         return self._image.reduce_images()
 
     @run_long_operation
     def cb_trace_spectrum(self) -> bool:
-        self._spectrum.clear_spectra()
         return self._spectrum.do_trace(self._image.img_stacked.data)
 
     @run_long_operation
     def cb_extract_spectrum(self) -> bool:
-        self._spectrum.clear_spectra()
         return self._spectrum.do_extract(self._image.img_stacked.data)
 
     @run_long_operation
     def cb_calibrate_spectrum(self) -> bool:
-        self._spectrum.clear_spectra()
         return self._spectrum.do_calibrate()
+
+    @run_long_operation
+    def cb_apply_response(self) -> bool:
+        return self._spectrum.do_response()
+
+    @run_long_operation
+    def cb_smooth_spectrum(self) -> bool:
+        return self._spectrum.do_smooth()
 
     def cb_open_files(self) -> bool:
         # get list of files to open
@@ -170,12 +179,14 @@ class Application(tk.Tk):
         if len(img_names) > 0:
             self.config(cursor="watch")
             self.update()
+
+            # load all selected images
             self._image.load_images(img_names)
             self.config(cursor="")    
         
         # update names in title
         if len(img_names) > 0:
-            self.title(f"{self.app_name} - {self.app_version} [{Path(path[0]).stem}..{Path(path[-1]).stem}]")
+            self.title(f"{self.app_name} - {self.app_version} [{Path(path[0]).stem} .. {Path(path[-1]).stem}]")
         else:
             self.title(f"{self.app_name} - {self.app_version} [{Path(path[0]).stem}]")
 
@@ -187,7 +198,26 @@ class Application(tk.Tk):
         if ((path := OSUtils.get_current_path()) != '.'):
             new_file = OSUtils.list_files(path, '*.fit*')[0]
             if os.path.getmtime(f"{path}/{new_file}") >= self.last_timer:
-                logging.info(f"new FIT detected: {new_file}")
+                logging.info(f"new FIT file detected: {new_file}")
                 self.last_timer = time.time()
+
+                # clear existing images
+                self._image.clear_image()
+                self.config(cursor="watch")
+                self.update()
+                logging.info(f"loading {new_file}...")
+
+                self._image.load_images([f"{path}/{new_file}"])
+                self.config(cursor="")    
+                
+                # update names in title
+                self.title(f"{self.app_name} - {self.app_version} [{new_file}]")
+
+                # start processing all
+                self.config(cursor="watch")
+                self.update()
+                logging.info(f"processing {new_file}...")
+                self.cb_run_all()
+                self.config(cursor="")    
 
         self.after(1000, self.watch_files) 
