@@ -131,7 +131,7 @@ class Image(object):
                 show_colorbar=False, 
                 #cmap = 'grey'
                 )
-
+        self.img_toolbar.update()
         self.img_figure.canvas.draw_idle()
 
     def stats_image(self) -> tuple[float, float, float, float]:

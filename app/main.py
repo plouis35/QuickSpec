@@ -26,7 +26,7 @@ class Application(tk.Tk):
     def __init__(self, app_name: str, app_version: str) -> None:
         super().__init__()
 
-        self.iconbitmap(r'./quickspec.ico')
+        #self.iconbitmap(r'./quickspec.ico')
         self.title(f"{app_name} - {app_version}")
         self.app_name = app_name
         self.app_version = app_version

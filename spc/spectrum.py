@@ -135,7 +135,7 @@ class Spectrum(object):
         self.spc_axe.grid(color = 'grey', linestyle = '--', linewidth = 0.5)
         self.showed_lines = False
         self.showed_colorized = False
-
+        self.spc_toolbar.update()
         self.spc_figure.canvas.draw_idle()
 
     def show_spectrum(self, spectrum: Spectrum1D, calibrated: bool = False) -> None:

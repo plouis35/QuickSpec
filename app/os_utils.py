@@ -3,7 +3,7 @@ import sys, os
 import platform
 import time
 from pathlib import Path
-import psutil
+#import psutil
 from importlib.metadata import version  
 import fnmatch, pathlib
 
@@ -11,9 +11,9 @@ class OSUtils(object):
     # private to class
     _current_path: str = '.'
 
-    @staticmethod
-    def get_memory_used() -> float:
-        return int(psutil.Process().memory_info().rss / (1024 * 1024))
+    #@staticmethod
+    #def get_memory_used() -> float:
+        #return int(psutil.Process().memory_info().rss / (1024 * 1024))
     
     @staticmethod
     def log_memory_used() -> None:
@@ -22,9 +22,10 @@ class OSUtils(object):
     @staticmethod
     def show_versions() -> None:
         logging.info("Versions installed: ")
-        for module in ['numpy','astropy', 'specutils', 'specreduce', 'ccdproc']:
+        for module in ['matplotlib', 'numpy','astropy', 'specutils', 'specreduce', 'ccdproc']:
             try:
-                logging.info(f"{module} = v{version(module)}")
+                print(f"{module} = v{version(module)}")
+                #logging.info(f"{module} = v{version(module)}")
             except Exception as e:
                 logging.info(f"{e}")
 
@@ -61,6 +62,5 @@ class OSUtils(object):
 if __name__ == "__main__":
     OSUtils.show_versions()
     #print(OSUtils.get_path_directory('/Users/papa/Documents/ASTRO/CAPTURES/202408id/_offset.fit'))
-
-    print(OSUtils.list_files('/Users/papa/Documents/ASTRO/CAPTURES/20231007_Void', '*.fit*'))
+    #print(OSUtils.list_files('/Users/papa/Documents/ASTRO/CAPTURES/20231007_Void', '*.fit*'))
 
