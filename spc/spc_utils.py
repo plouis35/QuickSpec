@@ -1,19 +1,13 @@
 import logging
 import numpy as np
-import math
 
 from specutils.spectra.spectrum1d import Spectrum1D
 from specutils.manipulation import median_smooth, gaussian_smooth
 from specutils.analysis import snr, snr_derived
-from specutils.manipulation import FluxConservingResampler, LinearInterpolatedResampler, SplineInterpolatedResampler
 
 from astropy.utils.exceptions import AstropyWarning
 from astropy import units as u
-from astropy.nddata import CCDData, NDData, StdDevUncertainty
-from astropy.stats import mad_std
-from astropy.io import fits
 from astropy.modeling import models, fitting
-from astropy.table import QTable
 from astropy.nddata import NDDataRef
 
 from specutils.spectra.spectrum1d import Spectrum1D

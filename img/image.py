@@ -16,11 +16,8 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.backends._backend_tk import NavigationToolbar2Tk
 
 from astropy import units as u
-from astropy.nddata import CCDData, NDData, StdDevUncertainty
+from astropy.nddata import CCDData
 from astropy.utils.exceptions import AstropyWarning
-
-from ccdproc import Combiner, combine, subtract_bias, subtract_dark, flat_correct
-from ccdproc import trim_image, ccd_process, cosmicray_median
 
 from app.config import Config
 from img.img_utils import Images, ImagesCombiner

@@ -24,14 +24,11 @@ import logging
 from astropy.io import fits
 from astropy import units as u
 from astropy.nddata import CCDData, StdDevUncertainty
-from astropy.visualization import astropy_mpl_style, quantity_support
 from astropy.utils.exceptions import AstropyWarning
 from ccdproc import combine, subtract_bias, subtract_dark, flat_correct
 from ccdproc import trim_image, Combiner, ccd_process, cosmicray_median, cosmicray_lacosmic, create_deviation
 from ccdproc import ImageFileCollection, gain_correct
 from astropy.stats import mad_std
-from astropy.nddata.blocks import block_reduce
-from astropy import visualization as aviz
 
 from app.config import Config
 

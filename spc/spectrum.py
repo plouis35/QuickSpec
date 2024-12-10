@@ -1,47 +1,26 @@
 import logging
 import numpy as np
-import math
-from pathlib import Path
 
 import tkinter as tk
 from tkinter import ttk
 
 import matplotlib.pyplot as plt
-from matplotlib.widgets import Button
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
-import matplotlib.colors as mpl_colors
-import matplotlib.colorbar as cb
 from matplotlib.text import Annotation
-import matplotlib.gridspec as gridspec
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.backends._backend_tk import NavigationToolbar2Tk
 from matplotlib.colors import LinearSegmentedColormap
 
 from astropy.utils.exceptions import AstropyWarning
 from astropy import units as u
-from astropy.nddata import CCDData, NDData, StdDevUncertainty
-from astropy.stats import mad_std
-from astropy.io import fits
-from astropy.modeling import models, fitting
-from astropy.table import QTable
-from astropy.nddata import NDDataRef
 
 from specutils.spectra.spectrum1d import Spectrum1D
-from specutils.manipulation import median_smooth, gaussian_smooth
 from specutils.analysis import snr, snr_derived
-from specutils.manipulation import FluxConservingResampler, LinearInterpolatedResampler, SplineInterpolatedResampler
 
 from specreduce.tracing import FlatTrace, FitTrace
-from specreduce.background import Background
-from specreduce.extract import BoxcarExtract
-from specreduce.fluxcal import FluxCalibration
-from specreduce import WavelengthCalibration1D
 
-from app.os_utils import OSUtils
 from app.config import Config
-from img.image import Image
-from img.img_utils import Images
 from spc.spc_utils import SPCUtils
 
 class Spectrum(object):
