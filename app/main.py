@@ -27,6 +27,10 @@ class Application(tk.Tk):
         super().__init__()
 
         #self.iconbitmap(r'./quickspec.ico')
+
+        self.tk.call("source", "azure.tcl")
+        self.tk.call("set_theme", "dark")
+
         self.title(f"{app_name} - {app_version}")
         self.app_name = app_name
         self.app_version = app_version
