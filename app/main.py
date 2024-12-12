@@ -25,17 +25,21 @@ class Application(tk.Tk):
 
     def __init__(self, app_name: str, app_version: str) -> None:
         super().__init__()
+        self.conf: Config = Config()
+        LogHandler().initialize()
 
         #self.iconbitmap(r'./quickspec.ico')
+        self.iconphoto(False, tk.PhotoImage(file='./quickspec.png'))
+
 
         self.tk.call("source", "azure.tcl")
-        self.tk.call("set_theme", "dark")
+        if (_theme := self.conf.get_str('display', 'theme')) is None:
+            _theme = 'light'
+        self.tk.call("set_theme", _theme)
 
         self.title(f"{app_name} - {app_version}")
         self.app_name = app_name
         self.app_version = app_version
-        self.conf: Config = Config()
-        LogHandler().initialize()
         self.create_panels()
         self.create_buttons()
 
@@ -43,13 +47,16 @@ class Application(tk.Tk):
         self.last_timer: float = time.time()
         self.after_idle(self.watch_files)
 
+        logging.info("QuickSpec started - packages versions :")
+        OSUtils.show_versions()
+
     def create_panels(self) -> None:
         plt.style.use('dark_background')        
         plt.rcParams['figure.constrained_layout.use'] = True
         
         # create top frame to hold buttons and sliders
         self.bt_frame = ttk.Frame(self)
-        self.bt_frame.pack(side=tk.TOP, fill=tk.X)
+        self.bt_frame.pack(side=tk.TOP, fill=tk.X, pady=5)
 
         # create two frames to hold image and spectrum
         paned_window = ttk.PanedWindow(self, orient=tk.VERTICAL)

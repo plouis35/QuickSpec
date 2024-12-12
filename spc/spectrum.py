@@ -159,8 +159,6 @@ class Spectrum(object):
         self.img_axe.plot(self.science_trace.trace , color='red', linestyle='dashed', linewidth = '0.5')
         self.img_axe.get_figure().canvas.draw_idle()
 
-        logging.info(f'trace fitted : y = {self.science_trace.trace}')
-
         return True
 
 

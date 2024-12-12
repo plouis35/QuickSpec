@@ -26,31 +26,41 @@ class SPCUtils(object):
     @staticmethod
     def trace_spectrum(img_stacked:np.ndarray) -> FitTrace | None:
 
-      # peak_method : one of gaussian, centroid
-      # trace_model : one of :
-      #  ~astropy.modeling.polynomial.Chebyshev1D,
-      #  ~astropy.modeling.polynomial.Legendre1D, 
-      #  ~astropy.modeling.polynomial.Polynomial1D,
-      #  ~astropy.modeling.spline.Spline1D, 
-      #  optional The 1-D polynomial model used to fit the trace to the bins' peak pixels. 
-      #  Spline1D models are fit with Astropy's 'SplineSmoothingFitter', while the other models are fit with the 'LevMarLSQFitter'.
-      #  [default: models.Polynomial1D(degree=1)]
+        # peak_method : one of gaussian, centroid
+        # trace_model : one of :
+        #  ~astropy.modeling.polynomial.Chebyshev1D,
+        #  ~astropy.modeling.polynomial.Legendre1D, 
+        #  ~astropy.modeling.polynomial.Polynomial1D,
+        #  ~astropy.modeling.spline.Spline1D, 
+        #  optional The 1-D polynomial model used to fit the trace to the bins' peak pixels. 
+        #  Spline1D models are fit with Astropy's 'SplineSmoothingFitter', while the other models are fit with the 'LevMarLSQFitter'.
+        #  [default: models.Polynomial1D(degree=1)]
 
-      try:
-          science_trace:FitTrace = FitTrace(img_stacked, 
-                                  bins=SPCUtils.conf.get_int('processing', 'trace_x_bins'), 
-                                  trace_model=models.Chebyshev1D(degree=2), 
-                                  #trace_model=models.Polynomial1D(degree=2),
-                                  peak_method='centroid',     #'gaussian', 
-                                  window=SPCUtils.conf.get_int('processing', 'trace_y_window'),
-                                  guess=SPCUtils.conf.get_float('processing', 'trace_y_guess')
-                                  )
-          
-      except Exception as e:
-          logging.error(f"unable to fit trace : {e}")
-          return None
+        if (model := SPCUtils.conf.get_str('processing', 'fit_model')) is None:
+            model = "models.Polynomial1D(degree=2)"
 
-      return science_trace
+        try:
+            science_trace:FitTrace = FitTrace(img_stacked, 
+                                    bins=SPCUtils.conf.get_int('processing', 'trace_x_bins'), 
+                                    trace_model=eval(model),
+                                    #trace_model=models.Chebyshev1D(degree=2), 
+                                    #trace_model=models.Spline1D(degree=2),
+                                    #trace_model=models.Polynomial1D(degree=2),
+                                    #trace_model=models.Legendre1D(degree=2),
+                                    #peak_method='centroid',
+                                    peak_method='gaussian',
+                                    window=SPCUtils.conf.get_int('processing', 'trace_y_window'),
+                                    guess=SPCUtils.conf.get_float('processing', 'trace_y_guess')
+                                    )
+            
+        except Exception as e:
+            logging.error(f"unable to fit trace : {e}")
+            return None
+
+        logging.info(f'trace fitted : y = {science_trace.trace}')
+        logging.info(f'trace fitted : trace model fitted = {science_trace.trace_model_fit}')
+
+        return science_trace
 
 
 
@@ -121,6 +131,7 @@ class SPCUtils(object):
         # calibrate science spectrum
         calibrated_spectrum: Spectrum1D = calibration.apply_to_spectrum(science_spectrum)
         logging.info(f"spectrum calibrated - residuals : {repr(calibration.residuals)}")
+        logging.info(f"spectrum calibrated - fitted model : {repr(calibration.fitted_model )}")
 
         # normalize to 1
         norm_region = calibrated_spectrum[6500 * u.AA: 6520 * u.AA].flux.mean() 

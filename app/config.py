@@ -8,7 +8,7 @@ from typing import LiteralString
 class Config(object):
     """
     Singleton-type class to manage configuration ini file
-    Handles exceptions (i.e. returns '' instead of raising except)
+    Handles exceptions (i.e. returns None instead of raising except)
     Is designed to be initiated by several modules
     Returns:
         config: ConfigParser
@@ -48,7 +48,7 @@ class Config(object):
         def wrap(self, *args, **kwargs):
             # check if config file has been modified - if so re-read it
             if Config._last_time_check <= os.path.getmtime(self._config_path): 
-                logging.info("config has changed - reloading it...")
+                logging.warning("config has been modified - reloading it...")
                 self.config.read(self._config_path)
                 Config._last_time_check = time.time()
 
@@ -60,7 +60,7 @@ class Config(object):
         try:
             return self.config.get(section, key)
         except (configparser.NoSectionError, configparser.NoOptionError, ValueError) as e:
-            logging.warning(f"configuration key not found: {section}.{key} {e} in {self._config_path} file")
+            logging.debug(f"configuration key not found: {section}.{key} {e} in {self._config_path} file")
             return None
 
     @check_changes
@@ -68,7 +68,7 @@ class Config(object):
         try:
             return self.config.getint(section, key)
         except (configparser.NoSectionError, configparser.NoOptionError, ValueError) as e:
-            logging.warning(f"configuration key not found: {section}.{key} {e} in {self._config_path} file")
+            logging.debug(f"configuration key not found: {section}.{key} {e} in {self._config_path} file")
             return None
 
     @check_changes
@@ -76,7 +76,7 @@ class Config(object):
         try:
             return self.config.getfloat(section, key)
         except (configparser.NoSectionError, configparser.NoOptionError, ValueError) as e:
-            logging.warning(f"configuration key not found: {section}.{key} {e} in {self._config_path} file")
+            logging.debug(f"configuration key not found: {section}.{key} {e} in {self._config_path} file")
             return None
 
     @check_changes
@@ -84,7 +84,7 @@ class Config(object):
         try:
             return self.config.getboolean(section, key)
         except (configparser.NoSectionError, configparser.NoOptionError, ValueError) as e:
-            logging.warning(f"configuration key not found: {section}.{key} {e} in {self._config_path} file")
+            logging.debug(f"configuration key not found: {section}.{key} {e} in {self._config_path} file")
             return None
 
     def save(self) -> None:
@@ -99,6 +99,10 @@ class Config(object):
         # static config template to write to first opening of a directory
         contents: LiteralString = f"""[logger]
 level = INFO
+
+[display]
+theme = dark            # light
+contrast_level = 6
 
 [pre_processing]
 #crop_auto = 0.4
@@ -191,17 +195,17 @@ response_file = _rep.fits
         with open(self._config_path, 'w', encoding="utf-8") as configfile:
             configfile.write(contents + '\n')
 
-# test
+# unit test
 if __name__ == "__main__":
     conf = Config()
 
     #for key, value in conf.config.items('lines'):
        # print(f"\tfor key {key} -> {value} (value)")
 
+    """"
     if (respFile := conf.get_str('processing', 'response_file')) is not None:
         print(f"opening {respFile}...")
 
-    """"
     from astropy import units as u
     from astropy.table import QTable
 

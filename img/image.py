@@ -53,7 +53,7 @@ class Image(object):
         self.clear_button = ttk.Button(self.img_toolbar, text="Clear", command=self.clear_image)
         self.clear_button.pack(side=tk.LEFT, padx=5, pady=0)
 
-        _cmap_options = ["grey", "inferno", "nipy_spectral", "rainbow", "gnuplot", "brg"]
+        _cmap_options = ["grey", "inferno", "nipy_spectral", "rainbow", "gnuplot"]
         bt_cmap_default = "grey"
         _var = tk.StringVar(value=bt_cmap_default)
 
@@ -144,7 +144,9 @@ class Image(object):
             v_std, v_mean, v_min, v_max = self.stats_image()
 
             # update sliders positions
-            nb_sigma = 6 #self.conf.get_int('display', 'contrast_level')
+            if (nb_sigma := self.conf.get_int('display', 'contrast_level')) is None:
+                nb_sigma = 6
+                
             low_cut = v_mean - (nb_sigma * v_std)
             high_cut = v_mean + (nb_sigma * v_std)   
 
