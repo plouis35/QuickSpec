@@ -22,8 +22,8 @@ class OSUtils(object):
         logging.info("Versions installed: ")
         for module in ['matplotlib', 'numpy','astropy', 'specutils', 'specreduce', 'ccdproc']:
             try:
-                print(f"{module} = v{version(module)}")
-                #logging.info(f"{module} = v{version(module)}")
+                #print(f"{module} = v{version(module)}")
+                logging.info(f"{module} = v{version(module)}")
             except Exception as e:
                 logging.info(f"{e}")
 

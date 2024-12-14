@@ -111,6 +111,10 @@ master_dark = _dark.fit
 master_flat = _flat.fit
 
 [processing]
+trace_model = models.Chebyshev1D(degree=2)
+#trace_model = models.Spline1D(degree=2)
+#trace_model = models.Polynomial1D(degree=2)            # default
+#trace_model = models.Legendre1D(degree=2)
 #trace_y_guess = 1695
 trace_y_size = 15
 trace_y_window = 50

@@ -183,20 +183,18 @@ class Application(tk.Tk):
                 # not supported fit format
                 logging.error(f"{img_name} is not a supported fit format (naxis > 2)")
 
-        # clear existing images
-        self._image.clear_image()
-
-        # show wait cursor while loading images
         if len(img_names) > 0:
+            self._image.clear_image()
+
             self.config(cursor="watch")
             self.update()
 
-            # load all selected images
             self._image.load_images(img_names)
             self.config(cursor="")    
+            self.update()
         
         # update names in title
-        if len(img_names) > 0:
+        if len(img_names) > 1:
             self.title(f"{self.app_name} - {self.app_version} [{Path(path[0]).stem} .. {Path(path[-1]).stem}]")
         else:
             self.title(f"{self.app_name} - {self.app_version} [{Path(path[0]).stem}]")

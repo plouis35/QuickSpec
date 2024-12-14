@@ -25,30 +25,73 @@ class SPCUtils(object):
 
     @staticmethod
     def trace_spectrum(img_stacked:np.ndarray) -> FitTrace | None:
+        """
+        (extract from specreduce code :)
+        Trace the spectrum aperture in an image.
 
-        # peak_method : one of gaussian, centroid
-        # trace_model : one of :
-        #  ~astropy.modeling.polynomial.Chebyshev1D,
-        #  ~astropy.modeling.polynomial.Legendre1D, 
-        #  ~astropy.modeling.polynomial.Polynomial1D,
-        #  ~astropy.modeling.spline.Spline1D, 
-        #  optional The 1-D polynomial model used to fit the trace to the bins' peak pixels. 
-        #  Spline1D models are fit with Astropy's 'SplineSmoothingFitter', while the other models are fit with the 'LevMarLSQFitter'.
-        #  [default: models.Polynomial1D(degree=1)]
+        Bins along the image's dispersion (wavelength) direction, finds each
+        bin's peak cross-dispersion (spatial) pixel, and uses a model to
+        interpolate the function fitted to the peaks as a final trace. The
+        number of bins, peak finding algorithm, and model used for fitting
+        are customizable by the user.
 
-        if (model := SPCUtils.conf.get_str('processing', 'fit_model')) is None:
+
+        Example: ::
+
+            trace = FitTrace(image, peak_method='gaussian', guess=trace_pos)
+
+        Parameters
+        ----------
+        image : `~astropy.nddata.NDData`-like or array-like, required
+            The image over which to run the trace. Assumes cross-dispersion
+            (spatial) direction is axis 0 and dispersion (wavelength)
+            direction is axis 1.
+        bins : int, optional
+            The number of bins in the dispersion (wavelength) direction
+            into which to divide the image. If not set, defaults to one bin
+            per dispersion (wavelength) pixel in the given image. If set,
+            requires at least 4 or N bins for a degree N ``trace_model``,
+            whichever is greater. [default: None]
+        guess : int, optional
+            A guess at the trace's location in the cross-dispersion
+            (spatial) direction. If set, overrides the normal max peak
+            finder. Good for tracing a fainter source if multiple traces
+            are present. [default: None]
+        window : int, optional
+            Fit the trace to a region with size ``window * 2`` around the
+            guess position. Useful for tracing faint sources if multiple
+            traces are present, but potentially bad if the trace is
+            substantially bent or warped. [default: None]
+        trace_model : one of `~astropy.modeling.polynomial.Chebyshev1D`,\
+                `~astropy.modeling.polynomial.Legendre1D`,\
+                `~astropy.modeling.polynomial.Polynomial1D`,\
+                or `~astropy.modeling.spline.Spline1D`, optional
+            The 1-D polynomial model used to fit the trace to the bins' peak
+            pixels. Spline1D models are fit with Astropy's
+            'SplineSmoothingFitter', generic linear models are fit with the
+            'LinearLSQFitter', while the other models are fit with the
+            'LMLSQFitter'. [default: ``models.Polynomial1D(degree=1)``]
+        peak_method : string, optional
+            One of ``gaussian``, ``centroid``, or ``max``.
+            ``gaussian``: Fits a gaussian to the window within each bin and
+            adopts the central value as the peak. May work best with fewer
+            bins on faint targets. (Based on the "kosmos" algorithm from
+            James Davenport's same-named repository.)
+            ``centroid``: Takes the centroid of the window within in bin.
+            ``max``: Saves the position with the maximum flux in each bin.
+            [default: ``max``]
+        """
+
+        if (model := SPCUtils.conf.get_str('processing', 'trace_model')) is None:
             model = "models.Polynomial1D(degree=2)"
 
         try:
             science_trace:FitTrace = FitTrace(img_stacked, 
                                     bins=SPCUtils.conf.get_int('processing', 'trace_x_bins'), 
                                     trace_model=eval(model),
-                                    #trace_model=models.Chebyshev1D(degree=2), 
-                                    #trace_model=models.Spline1D(degree=2),
-                                    #trace_model=models.Polynomial1D(degree=2),
-                                    #trace_model=models.Legendre1D(degree=2),
                                     #peak_method='centroid',
                                     peak_method='gaussian',
+                                    #peak_method='max',
                                     window=SPCUtils.conf.get_int('processing', 'trace_y_window'),
                                     guess=SPCUtils.conf.get_float('processing', 'trace_y_guess')
                                     )

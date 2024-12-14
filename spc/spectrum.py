@@ -8,6 +8,8 @@ import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 from matplotlib.text import Annotation
+from matplotlib.lines import Line2D
+
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.backends._backend_tk import NavigationToolbar2Tk
 from matplotlib.colors import LinearSegmentedColormap
@@ -156,6 +158,10 @@ class Spectrum(object):
         self.science_trace = science_trace
 
         # trace fitted spectrum
+        for elm in self.img_axe.get_children():
+                if isinstance(elm, Line2D): 
+                    elm.remove()
+
         self.img_axe.plot(self.science_trace.trace , color='red', linestyle='dashed', linewidth = '0.5')
         self.img_axe.get_figure().canvas.draw_idle()
 
