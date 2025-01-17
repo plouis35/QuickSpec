@@ -1,3 +1,7 @@
+"""
+Singleton-type class to manage configuration INI files
+Hide exceptions related to keyword/section missing (i.e. returns None instead of raising exception)
+"""
 import os
 import time
 import configparser
@@ -6,15 +10,7 @@ import functools
 from typing import LiteralString
 
 class Config(object):
-    """
-    Singleton-type class to manage configuration ini file
-    Handles exceptions (i.e. returns None instead of raising except)
-    Is designed to be initiated by several modules
-    Returns:
-        config: ConfigParser
-    """
-
-    # private class variables
+    # private 
     _instance = None
     _configDir: str = './'
     _configFile: str = 'quickspec.ini'
@@ -26,7 +22,11 @@ class Config(object):
             cls._instance._initialize()
         return cls._instance
 
-    def _initialize(self) -> None:     
+    def _initialize(self) -> None:    
+        """
+        configure INI file syntax
+        create a new INI file if not exist
+        """         
         self._config_path: str = os.path.join(Config._configDir, Config._configFile)
         self.config = configparser.ConfigParser(inline_comment_prefixes=('#', ';')) 
 
@@ -44,6 +44,16 @@ class Config(object):
 
     @staticmethod
     def check_changes(func):
+        """
+        check if config file has been modified
+        decorate all config read routines below
+
+        Args:
+            func (_type_): routine to decorate
+
+        Returns:
+            _type_: routine return code
+        """        
         @functools.wraps(func)
         def wrap(self, *args, **kwargs):
             # check if config file has been modified - if so re-read it
@@ -96,6 +106,9 @@ class Config(object):
             self.config.add_section(section)
 
     def _new_config(self) -> None:
+        """
+        generates a new config file template under selected directory
+        """        
         # static config template to write to first opening of a directory
         contents: LiteralString = f"""[logger]
 level = INFO
@@ -198,37 +211,3 @@ response_file = _rep.fits
         logging.info(f"creating a new config file: {self._config_path}")
         with open(self._config_path, 'w', encoding="utf-8") as configfile:
             configfile.write(contents + '\n')
-
-# unit test
-if __name__ == "__main__":
-    conf = Config()
-
-    #for key, value in conf.config.items('lines'):
-       # print(f"\tfor key {key} -> {value} (value)")
-
-    """"
-    if (respFile := conf.get_str('processing', 'response_file')) is not None:
-        print(f"opening {respFile}...")
-
-    from astropy import units as u
-    from astropy.table import QTable
-
-    __wavelength = [6506.53, 6532.88, 6598.95, 6678.28, 6717.04]*u.AA
-    __pixels = [770, 1190, 2240, 3484, 4160]*u.pix
-    print(' ok -> ', __wavelength, __pixels)
-
-    _wavelength = conf.get_str('processing', 'calib_x_wavelength') #[6506.53, 6532.88, 6598.95, 6678.28, 6717.04]*u.AA
-    _pixels = conf.get_str('processing', 'calib_x_pixel')    #[770, 1190, 2240, 3484, 4160]*u.pix
-    print('raw -> ', _wavelength, _pixels)
-
-    #___wavelength = _wavelength
-    #___wavelength = _wavelength.replace(',', '').split()
-    ____wavelength = [float(x) for x in _wavelength.replace(',', '').split()]*u.AA
-    print('cnv -> ', ____wavelength)
-
-    #line_list = QTable([_pixels, _wavelength], names=["pixel_center", "wavelength"]) #, dtype=[u.pix, u.AA])
-
-    wavelength = _wavelength
-    pixels = _pixels
-    print('nok -> ', wavelength, pixels)
-    """

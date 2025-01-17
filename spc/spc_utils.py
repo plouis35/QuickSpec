@@ -1,3 +1,6 @@
+"""
+utility routines to trace, extract and calibrate 2D spectra
+"""
 import logging
 import numpy as np
 
@@ -26,6 +29,8 @@ class SPCUtils(object):
     @staticmethod
     def trace_spectrum(img_stacked:np.ndarray) -> FitTrace | None:
         """
+        identify spectrum trace in a 2D image
+
         (extract from specreduce code :)
         Trace the spectrum aperture in an image.
 
@@ -35,13 +40,7 @@ class SPCUtils(object):
         number of bins, peak finding algorithm, and model used for fitting
         are customizable by the user.
 
-
-        Example: ::
-
-            trace = FitTrace(image, peak_method='gaussian', guess=trace_pos)
-
-        Parameters
-        ----------
+        Args:
         image : `~astropy.nddata.NDData`-like or array-like, required
             The image over which to run the trace. Assumes cross-dispersion
             (spatial) direction is axis 0 and dispersion (wavelength)
@@ -90,8 +89,8 @@ class SPCUtils(object):
                                     bins=SPCUtils.conf.get_int('processing', 'trace_x_bins'), 
                                     trace_model=eval(model),
                                     #peak_method='centroid',
-                                    peak_method='gaussian',
-                                    #peak_method='max',
+                                    #peak_method='gaussian',
+                                    peak_method='max',
                                     window=SPCUtils.conf.get_int('processing', 'trace_y_window'),
                                     guess=SPCUtils.conf.get_float('processing', 'trace_y_guess')
                                     )
@@ -109,6 +108,15 @@ class SPCUtils(object):
 
     @staticmethod
     def extract_spectrum(img_stacked:np.ndarray, science_trace: FitTrace) -> Spectrum1D | None:
+        """
+        extract 1D spectrum arround trace fitted
+        Args:
+            img_stacked (np.ndarray): 2D spectrum image
+            science_trace (FitTrace): identified trace returned by trace_spectrum
+
+        Returns:
+            Spectrum1D | None: uncalibrated 1D spectrum 
+        """        
         try:
             bg_trace: Background = Background.two_sided(img_stacked, 
                                                   science_trace, 
@@ -141,15 +149,16 @@ class SPCUtils(object):
 
     @staticmethod
     def calibrate_spectrum(science_spectrum: Spectrum1D, pixels: str, wavelength: str) -> Spectrum1D | None:  
-        """_summary_
+        """
+        calibrate 1D spectrum according to a list of pixel / wavelength parameters 
 
         Args:
-            science_spectrum (Spectrum1D): _description_
-            pixels (str): _description_
-            wavelength (str): _description_
+            science_spectrum (Spectrum1D): uncalibrated 1D spectrum
+            pixels (str): list of pixel positions
+            wavelength (str): list of corresponding wavelength values
 
         Returns:
-            Spectrum1D | None: _description_
+            Spectrum1D | None: calibrated 1D spectrum
         """
 
         # convert args to pix/AA
@@ -162,10 +171,10 @@ class SPCUtils(object):
             calibration = WavelengthCalibration1D(input_spectrum = science_spectrum,
                 line_wavelengths = _wavelength,
                 line_pixels = _pixels,
-                input_model = models.Linear1D(),
-                fitter = fitting.LinearLSQFitter(),
-                #input_model = models.Polynomial1D(degree = 2),
+                #input_model = models.Linear1D(),
+                #fitter = fitting.LinearLSQFitter(),
                 #fitter = fitting.LMLSQFitter(),
+                input_model = models.Polynomial1D(degree = 2),
                 )
         except Exception as e:
             logging.error(f"unable to calibrate spectrum : {e}")
@@ -186,6 +195,15 @@ class SPCUtils(object):
     
     @staticmethod
     def apply_response(science_spectrum: Spectrum1D) -> Spectrum1D | None:  
+        """
+        divide calibrated 1D spectrum by a response file
+
+        Args:
+            science_spectrum (Spectrum1D): calibrated 1D spectrum
+
+        Returns:
+            Spectrum1D | None: response corrected 1D spectrum
+        """        
         # apply response file if any defined
 
         final_spec: Spectrum1D = None
@@ -206,22 +224,6 @@ class SPCUtils(object):
 
                 # apply response
                 final_spec = science_spectrum / _resp1d
-
-                # compute airmass
-                #target_coord = SkyCoord.from_name(TARGET)
-                #target_time = Time(science_spectrum.header['DATE-OBS'])
-                #obs_coord = EarthLocation(lon = OBS_LONGITUDE * u.deg, lat = OBS_LATITUDE * u.deg)
-                #altaz = AltAz(obstime=target_time, location = obs_coord)
-                #ZD = target_coord.transform_to(AltAz(obstime = target_time, location = obs_coord)).zen
-                #airmass = 1.0 / np.cos(ZD)
-                #logging.info(f"computed {ZD=}, {airmass=}")
-
-                #cal_spec = FluxCalibration.airmass_cor(science_spectrum)
-                #fc = FluxCalibration()
-                #sci_spec = fc.mag2flux(science_spectrum)
-                #cal_spec = fc.standard_sensfunc(standard=_resp1d)
-                #final_spec = fc.apply_sensfunc(_resp1d)
-
                 logging.info('response applied')
             else:
                 logging.info("no response file to apply")

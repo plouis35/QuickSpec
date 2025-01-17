@@ -1,3 +1,7 @@
+"""
+logging routines
+output to console and a new log file created under app directory
+"""
 import logging
 from colorlog import ColoredFormatter
 from datetime import datetime
@@ -24,5 +28,10 @@ class LogHandler(logging.Handler):
         self.file_handler.setFormatter(FILE_LOGFORMAT)
 
     def initialize(self) -> None:
+        """
+        add console and file handlers
+        to be called once when app starts
+        other modules juste import logging and use logging.warn/info/error to log messages
+        """        
         self.log.addHandler(self.stream)
         self.log.addHandler(self.file_handler)

@@ -13,12 +13,15 @@ class OSUtils(object):
     #def get_memory_used() -> float:
         #return int(psutil.Process().memory_info().rss / (1024 * 1024))
     
-    @staticmethod
-    def log_memory_used() -> None:
-        logging.info(f"current memory used = {OSUtils.get_memory_used()}MB")
+    #@staticmethod
+    #def log_memory_used() -> None:
+        #logging.info(f"current memory used = {OSUtils.get_memory_used()}MB")
 
     @staticmethod
     def show_versions() -> None:
+        """
+        show some packages version
+        """        
         logging.info("Versions installed: ")
         for module in ['matplotlib', 'numpy','astropy', 'specutils', 'specreduce', 'ccdproc']:
             try:
@@ -29,11 +32,26 @@ class OSUtils(object):
 
     @staticmethod
     def get_path_directory(path: str) -> str:
+        """
+        get absolute current selected directory
+
+        Args:
+            path (str): relative path
+
+        Returns:
+            str: _description_
+        """        
         OSUtils._current_path = str(Path(path).absolute().parent)
         return OSUtils._current_path
 
     @staticmethod
     def get_current_path() -> str:
+        """
+        get current path
+
+        Returns:
+            str: current path
+        """        
         return OSUtils._current_path
 
     @staticmethod
@@ -54,11 +72,4 @@ class OSUtils(object):
                     key = os.path.getmtime, 
                     reverse = True)
                 ) , name)
-
-
-# test
-if __name__ == "__main__":
-    OSUtils.show_versions()
-    #print(OSUtils.get_path_directory('/Users/papa/Documents/ASTRO/CAPTURES/202408id/_offset.fit'))
-    #print(OSUtils.list_files('/Users/papa/Documents/ASTRO/CAPTURES/20231007_Void', '*.fit*'))
 

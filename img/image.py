@@ -1,3 +1,6 @@
+"""
+2D spectra routines
+"""
 import logging
 import numpy as np
 import warnings
@@ -26,7 +29,14 @@ warnings.simplefilter('ignore', category=AstropyWarning)
 warnings.simplefilter('ignore', UserWarning)
 
 class Image(object):
-    def __init__(self, img_frame: ttk.Frame, bt_frame: ttk.Frame) -> None: #, axe_img: Axes, axe_spc: Axes, frame: ttk.Frame) -> None:
+    def __init__(self, img_frame: ttk.Frame, bt_frame: ttk.Frame) -> None:
+        """
+        create GUI for 2D spectra
+
+        Args:
+            img_frame (ttk.Frame): frame to display 2D spectra
+            bt_frame (ttk.Frame): frame to display 2D actions buttons
+        """        
         self.conf: Config = Config()
 
         # declare/assign instance variables
@@ -110,6 +120,11 @@ class Image(object):
                         )
 
     def update_slider(self, event) -> None:
+        """
+        collect cut levels from to sliders values and update image display accordingly
+        Args:
+            event: sliders value
+        """        
         slider: ttk.Scale = event.widget
         if slider == self.slider_high:
             self.update_image(None, slider.get())
@@ -117,6 +132,9 @@ class Image(object):
             self.update_image(slider.get() , None)
 
     def clear_image(self) -> None:
+        """
+        reset 2D spectrum display and image(s) data
+        """        
         self.img_stacked: CCDData = CCDData(np.zeros((2,8)), unit=u.adu)
         self.img_names:list[str] = []
         self.img_count = 0
@@ -132,6 +150,12 @@ class Image(object):
         self.img_figure.canvas.draw_idle()
 
     def stats_image(self) -> tuple[float, float, float, float]:
+        """
+        compute image stats
+
+        Returns:
+            tuple[float, float, float, float]: std, mean, min, max
+        """        
         v_std = self.img_stacked.data.std()
         v_mean = self.img_stacked.data.mean()
         v_min = self.img_stacked.data.min()
@@ -139,11 +163,19 @@ class Image(object):
         return v_std, v_mean, v_min, v_max
 
     def update_image(self, low_cut: float | None = None, high_cut: float | None = None) -> None:
-        # collect image stats
+        """
+        compute best cuts levels and update image accordingly
+
+        Args:
+            low_cut (float | None, optional): . Defaults to None.
+            high_cut (float | None, optional): . Defaults to None.
+        """        
+    
+        # compute initial low and high cut levels from image stats
         if (low_cut is None) and (high_cut is None):
             v_std, v_mean, v_min, v_max = self.stats_image()
 
-            # update sliders positions
+            # get the 'magic' contrast level that is just a multiplier to std dev
             if (nb_sigma := self.conf.get_int('display', 'contrast_level')) is None:
                 nb_sigma = 6
                 
@@ -177,6 +209,16 @@ class Image(object):
 
 
     def load_images(self, path: list[str]) -> bool:
+        """
+        load images from a list of filenames
+        when more than one image, sum them before display
+
+        Args:
+            path (list[str]): filenames to load
+
+        Returns:
+            bool: True if images successfully loaded
+        """        
         _img_reduced: CCDData
         _img_combiner: ImagesCombiner
 
@@ -208,6 +250,12 @@ class Image(object):
 
     
     def reduce_images(self) -> bool:
+        """
+        reduce images using DOF master frames if any defined in config
+
+        Returns:
+            bool: True when successfull
+        """        
         _img_reduced: CCDData | None
         _img_combiner: ImagesCombiner = self.img_combiner
 
@@ -224,8 +272,6 @@ class Image(object):
         
         if _img_reduced is not None:
             self.img_stacked = _img_reduced.copy()    
-            #self.image.set_data(self.img_stacked.data)
-            #self.update_image()
         
             v_std, v_mean, v_min, v_max = self.stats_image()
             logging.info (f"image stats: min={v_min}, max={v_max}, mean={v_mean}, std={v_std}")
@@ -249,6 +295,18 @@ class Image(object):
                     show_colorbar: bool,
                     fig_img: Figure, 
                     ax_img: Axes) -> AxesImage:
+        """
+        display a 2D image
+
+        Args:
+            image (CCDData): frame to display
+            show_colorbar (bool): True if cmap to be displayed
+            fig_img (Figure): matplotlib figure to use
+            ax_img (Axes): matplotlib axe to use
+
+        Returns:
+            AxesImage: image reference
+        """        
         
         ax_img.axis('off')
         ax_img.set_yscale('linear')
@@ -263,6 +321,7 @@ class Image(object):
         )
 
         if show_colorbar:
+            # remove existing cmap if any
             if self.img_colorbar is not None:
                 try:
                     self.img_colorbar.remove()
@@ -276,7 +335,7 @@ class Image(object):
 
 class CustomImgToolbar(NavigationToolbar2Tk):
     def __init__(self, canvas, parent) -> None:
-        # list of toolitems to add/modify to the toolbar, format is:
+        # toolitems to add/modify to the toolbar, format is:
         # (
         #   text, # the text of the button (often not visible to users)
         #   tooltip_text, # the tooltip shown on hover (where possible)

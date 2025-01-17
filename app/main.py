@@ -1,3 +1,10 @@
+"""
+main application class:
+- initialize logging and configuration
+- creates tkinter GUI components
+- instantiates image and spectrum classes
+- creates a watchdog routine to monitor new file creation for automatic spectrum processing
+"""
 import logging
 import time
 from pathlib import Path
@@ -28,10 +35,6 @@ class Application(tk.Tk):
         self.conf: Config = Config()
         LogHandler().initialize()
 
-        #self.iconbitmap(r'./quickspec.ico')
-        self.iconphoto(False, tk.PhotoImage(file='./quickspec.png'))
-
-
         self.tk.call("source", "azure.tcl")
         if (_theme := self.conf.get_str('display', 'theme')) is None:
             _theme = 'light'
@@ -43,8 +46,8 @@ class Application(tk.Tk):
         self.create_panels()
         self.create_buttons()
 
-        # create a timer to capture new files created
-        self.last_timer: float = time.time()
+        # create a timer to capture new files creation
+        self._last_timer: float = time.time()
         self.after_idle(self.watch_files)
 
         logging.info("QuickSpec started - packages versions :")
@@ -63,8 +66,8 @@ class Application(tk.Tk):
         paned_window.pack(fill=tk.BOTH, expand=True)
         img_frame = ttk.Frame(paned_window)
         spc_frame = ttk.Frame(paned_window)
-        paned_window.add(child=img_frame) #, weight=1)
-        paned_window.add(child=spc_frame) #, weight=1)
+        paned_window.add(child=img_frame)
+        paned_window.add(child=spc_frame)
 
         # intialize image axe
         self._image = Image(img_frame, self.bt_frame)
@@ -88,7 +91,6 @@ class Application(tk.Tk):
         bt_step_default = "Run step"
         _var = tk.StringVar(value=bt_step_default)
 
-        # TODO : use callbacks instead
         def cb_run_step(selected_step: tk.StringVar) -> None:
             logging.info(f"step {selected_step} started...")
             if selected_step == _step_options[0]: self.cb_reduce_images()
@@ -106,6 +108,11 @@ class Application(tk.Tk):
     # local callbacks for buttons
     @staticmethod
     def run_long_operation(func):
+        """
+        decorator for callback buttons
+        display 'waiting' cursor while callback is runnning
+        (does not work well on Windows platforms ...)
+        """        
         @functools.wraps(func)
         def wrap(self, *args, **kwargs):
             self.config(cursor="watch")
@@ -154,6 +161,13 @@ class Application(tk.Tk):
         return self._spectrum.do_smooth()
 
     def cb_open_files(self) -> bool:
+        """
+        request user to select file(s) to open
+        open and display selected files according to type (2D or 1D spectra)
+
+        Returns:
+            bool: True when successfull
+        """        
         # get list of files to open
         path = askopenfilenames(title='Select image(s) or spectrum(s)',
                             filetypes=[("fits files", '*.fit'), 
@@ -166,7 +180,7 @@ class Application(tk.Tk):
         # create new config file if not existing
         self.conf.set_conf_directory(OSUtils.get_path_directory(path=path[0]))
 
-        # check header to either load an image 2D or a spectrum 1D
+        # check header to either load an 2D image or a 1D spectrum
         img_names: list[str] = []
         for img_name in path:
             fit_data: CCDData = CCDData.read(img_name, unit=u.dimensionless_unscaled)
@@ -202,13 +216,19 @@ class Application(tk.Tk):
         return True
 
     def watch_files(self):
+        """
+        watchdog monitor routine
+        used to check whether a new file is created under selected directory
+        if so, process the new file using run_all callback
+        TODO: raise errors if the new file is a 1D spectrum - just ignore it for now
+        """        
         #logging.debug(f"watcher time is : {time.strftime("%H:%M:%S", time.localtime())}")
 
         if ((path := OSUtils.get_current_path()) != '.'):
             new_file = OSUtils.list_files(path, '*.fit*')[0]
-            if os.path.getmtime(f"{path}/{new_file}") >= self.last_timer:
+            if os.path.getmtime(f"{path}/{new_file}") >= self._last_timer:
                 logging.info(f"new FIT file detected: {new_file}")
-                self.last_timer = time.time()
+                self._last_timer = time.time()
 
                 # clear existing images
                 self._image.clear_image()

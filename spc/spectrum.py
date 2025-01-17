@@ -1,3 +1,6 @@
+"""
+1D spectrum routines 
+"""
 import logging
 import numpy as np
 
@@ -27,10 +30,15 @@ from spc.spc_utils import SPCUtils
 
 class Spectrum(object):
 
-    def __init__(self, spc_frame: ttk.Frame, img_axe: Axes) -> None: #, axe_img: Axes, axe_spc: Axes) -> None:
-        self.conf = Config()
+    def __init__(self, spc_frame: ttk.Frame, img_axe: Axes) -> None:
+        """
+        creates 1D spectrum GUI components
 
-        # declare/assign instance variables
+        Args:
+            spc_frame (ttk.Frame): frame to draw 1D spectrum to
+            img_axe (Axes): image axe to draw to
+        """        
+        self.conf = Config()
         self.science_spectrum: Spectrum1D = None
         self.science_trace: FitTrace = None
         self.showed_lines: bool = False
@@ -67,6 +75,14 @@ class Spectrum(object):
         self.spc_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
     def open_spectrum( self, spc_name: str) -> bool:
+        """
+        read a 1D spectrum from a FIT file
+        Args:
+            spc_name (str): filename
+
+        Returns:
+            bool: True when successfull
+        """        
         # open spectrum data
         try:
             spec1d: Spectrum1D = Spectrum1D.read(spc_name)
@@ -80,6 +96,9 @@ class Spectrum(object):
         return True
 
     def colorize(self) -> None:
+        """
+        colorize 1D spectrum
+        """        
         if self.science_spectrum is None:
             logging.info("please calibrate first")
             return
@@ -90,7 +109,7 @@ class Spectrum(object):
         alpha = 1.0
 
         if self.showed_colorized:
-            # show 'black' color under spectrum
+            # show 'black' color under spectrum to reset 
             for i in range(0, len(self.science_spectrum.wavelength) - 1, bin_size):
                 self.spc_axe.fill_between(self.science_spectrum.wavelength.value[i:i+bin_size], 0, 
                                 self.science_spectrum.flux.value[i:i+bin_size], color='black', alpha=alpha)
@@ -107,11 +126,17 @@ class Spectrum(object):
         self.spc_figure.canvas.draw_idle()
 
     def reset_spectra(self) -> None:
+        """
+        clear data and spectrum 
+        """        
         self.science_spectrum = None
         self.science_trace = None
         self.clear_spectra()
 
     def clear_spectra(self) -> None:
+        """
+        clear spectrum
+        """        
         self.spc_axe.clear()
         self.spc_axe.grid(color = 'grey', linestyle = '--', linewidth = 0.5)
         self.showed_lines = False
@@ -120,7 +145,15 @@ class Spectrum(object):
         self.spc_figure.canvas.draw_idle()
 
     def show_spectrum(self, spectrum: Spectrum1D, calibrated: bool = False) -> None:
-        # set legend titles
+        """
+        display 1D spectrum
+
+        Args:
+            spectrum (Spectrum1D): spectrum to display
+            calibrated (bool, optional): . Defaults to False.
+
+        """        
+        # adjust legend titles if calibrated or not
         if calibrated:
             self.spc_axe.set_ylabel('Relative intensity')
             self.spc_axe.set_xlabel('Wavelength (Angstrom)')
@@ -138,7 +171,7 @@ class Spectrum(object):
         if spectrum == self.science_spectrum:
             _color = self.spectrum_color
         else:
-            self.colors = np.roll(self.colors, 1) # rotate a new color every call 
+            self.colors = np.roll(self.colors, 1) # pick up a new color every call 
             _color = self.colors[0]
 
         self.spc_axe.plot(spectrum.spectral_axis , spectrum.flux, color=_color, linewidth = '0.8')
@@ -147,6 +180,15 @@ class Spectrum(object):
         self.spc_figure.canvas.draw_idle()
 
     def do_trace(self, img_stacked:np.ndarray) -> bool:
+        """
+        callback for trace button
+
+        Args:
+            img_stacked (np.ndarray): 2D spectrum 
+
+        Returns:
+            bool: True if success
+        """        
         if img_stacked is None: 
             logging.error("please reduce image(s) before fitting trace")
             return False
@@ -157,11 +199,12 @@ class Spectrum(object):
         
         self.science_trace = science_trace
 
-        # trace fitted spectrum
+        # remove existing trace 
         for elm in self.img_axe.get_children():
                 if isinstance(elm, Line2D): 
                     elm.remove()
 
+        # trace spectrum
         self.img_axe.plot(self.science_trace.trace , color='red', linestyle='dashed', linewidth = '0.5')
         self.img_axe.get_figure().canvas.draw_idle()
 
@@ -169,6 +212,15 @@ class Spectrum(object):
 
 
     def do_extract(self, img_stacked:np.ndarray) -> bool:
+        """
+        callback for extract button
+
+        Args:
+            img_stacked (np.ndarray): 2D spectrum 
+
+        Returns:
+            bool: True if success
+        """        
 
         if (img_stacked is None) or (self.science_trace is None): 
             logging.error("please fit trace before extracting spectrum")
@@ -180,8 +232,6 @@ class Spectrum(object):
         
         self.science_spectrum = extracted_spectrum
         logging.info('spectrum extracted')
-
-        #self.clear_spectra()
 
         # trace sky zones
         self.img_axe.plot(self.science_spectrum.spectral_axis, self.science_trace.trace + self.conf.get_int('processing', 'trace_y_size'), 
@@ -210,6 +260,12 @@ class Spectrum(object):
         return True
     
     def do_calibrate(self) -> bool:
+        """
+        callback for calibrate button
+
+        Returns:
+            bool: True when success
+        """        
         if self.science_spectrum is None: 
             logging.error(f'please extract spectrum trace before calibrating')
             return False
@@ -241,6 +297,12 @@ class Spectrum(object):
 
 
     def do_response(self) -> bool:
+        """
+        callback for reponse button
+
+        Returns:
+            bool: True when success
+        """        
         if self.science_spectrum is None: 
             logging.error(f'please calibrate spectrum before applying response file')
             return False
@@ -260,6 +322,12 @@ class Spectrum(object):
 
 
     def do_smooth(self) -> bool:
+        """
+        callback for smooth button
+
+        Returns:
+            bool: True when success
+        """        
         if self.science_spectrum is None: 
             logging.error(f'please calibrate spectrum trace before smoothing')
             return False
@@ -282,6 +350,13 @@ class Spectrum(object):
         return True
 
     def show_lines(self, ax = None, show_line = True) -> None:
+        """
+        callback for show lines button
+
+        Args:
+            ax (_type_, optional): matplotlib axe to draw to. Defaults to None.
+            show_line (bool, optional): . Defaults to True.
+        """        
         if ax is None: ax = self.spc_axe
                         
         xbounds = ax.get_xbound()   

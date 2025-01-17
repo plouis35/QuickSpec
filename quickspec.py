@@ -1,5 +1,5 @@
 """
-
+app starter class
 """
 __app__ = 'QuickSpec'
 __version__ = '0.4'
