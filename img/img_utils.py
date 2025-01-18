@@ -280,7 +280,7 @@ class ImagesCombiner(object):
         wrapper to CCDProc reduce routine - operates on all images set
 
         Returns:
-            CCDData | None: images reduced and sum'ed
+            CCDData | None: sum of images reduced
         """        
         conf: Config = Config()
         TRIM_REGION = None
@@ -292,7 +292,7 @@ class ImagesCombiner(object):
         master_dark = None
         master_flat = None
 
-        y_ratio=conf.get_float('pre_processing','crop_auto')
+        y_ratio: float | None = conf.get_float('pre_processing','crop_auto')
 
         try:
             if (bias_file := conf.get_str('pre_processing', 'master_offset')) is not None:
@@ -348,12 +348,13 @@ class ImagesCombiner(object):
             logging.error(f"unable to reduce data: {e}")
             return None
 
-        ### combine frames (sum or median ?)
+        ### combine reduced frames
+        #return master_sciences.median()
         return master_sciences.sum()
 
 class Images(ImagesCombiner):
     """
-    Images class implements the file loader methods
+    Images class implements the image file loader methods
 
     Args:
         ImagesCombiner (List[CCDData]): images set

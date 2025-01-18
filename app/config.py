@@ -124,6 +124,7 @@ master_dark = _dark.fit
 master_flat = _flat.fit
 
 [processing]
+#auto_process = False
 trace_model = models.Chebyshev1D(degree=2)
 #trace_model = models.Spline1D(degree=2)
 #trace_model = models.Polynomial1D(degree=2)            # default

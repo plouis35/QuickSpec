@@ -20,6 +20,8 @@ from matplotlib.colors import LinearSegmentedColormap
 from astropy.utils.exceptions import AstropyWarning
 from astropy import units as u
 
+from astropy.nddata import CCDData
+
 from specutils.spectra.spectrum1d import Spectrum1D
 from specutils.analysis import snr, snr_derived
 
@@ -86,7 +88,7 @@ class Spectrum(object):
         # open spectrum data
         try:
             spec1d: Spectrum1D = Spectrum1D.read(spc_name)
-            self.show_spectrum(spec1d, True)
+            self.show_spectrum(name=spec1d.meta['header']['OBJECT'], spectrum=spec1d, calibrated=True)
 
         except Exception as e:
             logging.error(f"{e}")
@@ -144,16 +146,17 @@ class Spectrum(object):
         self.spc_toolbar.update()
         self.spc_figure.canvas.draw_idle()
 
-    def show_spectrum(self, spectrum: Spectrum1D, calibrated: bool = False) -> None:
+    def show_spectrum(self, name: str, spectrum: Spectrum1D, calibrated: bool = False) -> None:
         """
         display 1D spectrum
 
         Args:
+            name: (str): label to display
             spectrum (Spectrum1D): spectrum to display
             calibrated (bool, optional): . Defaults to False.
 
         """        
-        # adjust legend titles if calibrated or not
+        # adjust axes units
         if calibrated:
             self.spc_axe.set_ylabel('Relative intensity')
             self.spc_axe.set_xlabel('Wavelength (Angstrom)')
@@ -174,17 +177,20 @@ class Spectrum(object):
             self.colors = np.roll(self.colors, 1) # pick up a new color every call 
             _color = self.colors[0]
 
-        self.spc_axe.plot(spectrum.spectral_axis , spectrum.flux, color=_color, linewidth = '0.8')
+        self.spc_axe.plot(spectrum.spectral_axis , spectrum.flux, label=name, color=_color, linewidth = '0.8')
         self.spc_axe.grid(color = 'grey', linestyle = '--', linewidth = 0.5)
+
+        # show legend
+        self.spc_axe.legend()
 
         self.spc_figure.canvas.draw_idle()
 
-    def do_trace(self, img_stacked:np.ndarray) -> bool:
+    def do_trace(self, img_stacked:CCDData) -> bool:
         """
         callback for trace button
 
         Args:
-            img_stacked (np.ndarray): 2D spectrum 
+            img_stacked (CCDData): 2D spectrum 
 
         Returns:
             bool: True if success
@@ -193,7 +199,7 @@ class Spectrum(object):
             logging.error("please reduce image(s) before fitting trace")
             return False
 
-        science_trace = SPCUtils.trace_spectrum(img_stacked)
+        science_trace = SPCUtils.trace_spectrum(img_stacked.data)
         if science_trace is None:
             return False
         
@@ -211,12 +217,12 @@ class Spectrum(object):
         return True
 
 
-    def do_extract(self, img_stacked:np.ndarray) -> bool:
+    def do_extract(self, img_stacked: CCDData) -> bool:
         """
         callback for extract button
 
         Args:
-            img_stacked (np.ndarray): 2D spectrum 
+            img_stacked (CCDData): 2D spectrum 
 
         Returns:
             bool: True if success
@@ -226,7 +232,7 @@ class Spectrum(object):
             logging.error("please fit trace before extracting spectrum")
             return False
 
-        extracted_spectrum = SPCUtils.extract_spectrum(img_stacked, self.science_trace)
+        extracted_spectrum = SPCUtils.extract_spectrum(img_stacked.data, self.science_trace)
         if extracted_spectrum is None:
             return False
         
@@ -255,14 +261,17 @@ class Spectrum(object):
 
         # show extracted spectrum
         self.clear_spectra()
-        self.show_spectrum(self.science_spectrum, False)
+        self.show_spectrum(name=img_stacked.header['OBJECT'], spectrum=self.science_spectrum, calibrated=False)
 
         return True
     
-    def do_calibrate(self) -> bool:
+    def do_calibrate(self, img_stacked: CCDData) -> bool:
         """
         callback for calibrate button
 
+        Args:
+            img_stacked (CCDData): 2D spectrum 
+            
         Returns:
             bool: True when success
         """        
@@ -290,16 +299,19 @@ class Spectrum(object):
 
         # show spectrum
         self.clear_spectra()
-        self.show_spectrum(self.science_spectrum, True)
+        self.show_spectrum(name=img_stacked.header['OBJECT'], spectrum=self.science_spectrum, calibrated=True)
 
         logging.info('calibration complete')
         return True
 
 
-    def do_response(self) -> bool:
+    def do_response(self, img_stacked: CCDData) -> bool:
         """
         callback for reponse button
 
+        Args:
+            img_stacked (CCDData): 2D spectrum 
+            
         Returns:
             bool: True when success
         """        
@@ -315,15 +327,18 @@ class Spectrum(object):
 
         # show spectrum
         self.clear_spectra()
-        self.show_spectrum(self.science_spectrum, True)
+        self.show_spectrum(name=img_stacked.header['OBJECT'], spectrum=self.science_spectrum, calibrated=True)
 
         logging.info('response applied')
         return True
 
 
-    def do_smooth(self) -> bool:
+    def do_smooth(self, img_stacked: CCDData) -> bool:
         """
         callback for smooth button
+
+        Args:
+            img_stacked (CCDData): 2D spectrum             
 
         Returns:
             bool: True when success
@@ -345,7 +360,7 @@ class Spectrum(object):
 
         # show spectrum
         self.clear_spectra()
-        self.show_spectrum(self.science_spectrum, True)
+        self.show_spectrum(name=img_stacked.header['OBJECT'], spectrum=self.science_spectrum, calibrated=True)
 
         return True
 

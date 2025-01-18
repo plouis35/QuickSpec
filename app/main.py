@@ -142,23 +142,23 @@ class Application(tk.Tk):
 
     @run_long_operation
     def cb_trace_spectrum(self) -> bool:
-        return self._spectrum.do_trace(self._image.img_stacked.data)
+        return self._spectrum.do_trace(self._image.img_stacked)
 
     @run_long_operation
     def cb_extract_spectrum(self) -> bool:
-        return self._spectrum.do_extract(self._image.img_stacked.data)
+        return self._spectrum.do_extract(self._image.img_stacked)
 
     @run_long_operation
     def cb_calibrate_spectrum(self) -> bool:
-        return self._spectrum.do_calibrate()
+        return self._spectrum.do_calibrate(self._image.img_stacked)
 
     @run_long_operation
     def cb_apply_response(self) -> bool:
-        return self._spectrum.do_response()
+        return self._spectrum.do_response(self._image.img_stacked)
 
     @run_long_operation
     def cb_smooth_spectrum(self) -> bool:
-        return self._spectrum.do_smooth()
+        return self._spectrum.do_smooth(self._image.img_stacked)
 
     def cb_open_files(self) -> bool:
         """
@@ -207,11 +207,13 @@ class Application(tk.Tk):
             self.config(cursor="")    
             self.update()
         
-        # update names in title
+        # set window title according to images names - loaded spectra not set
         if len(img_names) > 1:
             self.title(f"{self.app_name} - {self.app_version} [{Path(path[0]).stem} .. {Path(path[-1]).stem}]")
-        else:
+        elif len(img_names) == 1:
             self.title(f"{self.app_name} - {self.app_version} [{Path(path[0]).stem}]")
+        else:
+            pass
 
         return True
 
@@ -220,33 +222,38 @@ class Application(tk.Tk):
         watchdog monitor routine
         used to check whether a new file is created under selected directory
         if so, process the new file using run_all callback
-        TODO: raise errors if the new file is a 1D spectrum - just ignore it for now
+        TODO: raise errors if the new file is a 1D spectrum - ignored for now
         """        
-        #logging.debug(f"watcher time is : {time.strftime("%H:%M:%S", time.localtime())}")
+        logging.debug(f"watchdog current time is : {time.strftime("%H:%M:%S", time.localtime())}")
+        auto_process: bool | None = self.conf.get_bool('processing', 'auto_process')
 
-        if ((path := OSUtils.get_current_path()) != '.'):
-            new_file = OSUtils.list_files(path, '*.fit*')[0]
-            if os.path.getmtime(f"{path}/{new_file}") >= self._last_timer:
-                logging.info(f"new FIT file detected: {new_file}")
-                self._last_timer = time.time()
+        if (auto_process is None) or (auto_process is True):
+            logging.debug(f"watchdog enabled")
+            if ((path := OSUtils.get_current_path()) != '.'):
+                new_file = OSUtils.list_files(path, '*.fit*')[0]
+                if os.path.getmtime(f"{path}/{new_file}") >= self._last_timer:
+                    logging.info(f"new FIT file detected: {new_file}")
+                    self._last_timer = time.time()
 
-                # clear existing images
-                self._image.clear_image()
-                self.config(cursor="watch")
-                self.update()
-                logging.info(f"loading {new_file}...")
+                    # clear existing images
+                    self._image.clear_image()
+                    self.config(cursor="watch")
+                    self.update()
+                    logging.info(f"loading {new_file}...")
 
-                self._image.load_images([f"{path}/{new_file}"])
-                self.config(cursor="")    
-                
-                # update names in title
-                self.title(f"{self.app_name} - {self.app_version} [{new_file}]")
+                    self._image.load_images([f"{path}/{new_file}"])
+                    self.config(cursor="")    
+                    
+                    # update names in title
+                    self.title(f"{self.app_name} - {self.app_version} [{new_file}]")
 
-                # start processing all
-                self.config(cursor="watch")
-                self.update()
-                logging.info(f"processing {new_file}...")
-                self.cb_run_all()
-                self.config(cursor="")    
+                    # start processing all
+                    self.config(cursor="watch")
+                    self.update()
+                    logging.info(f"processing {new_file}...")
+                    self.cb_run_all()
+                    self.config(cursor="")    
+        else:
+            logging.debug(f"watchdog disabled")
 
         self.after(1000, self.watch_files) 

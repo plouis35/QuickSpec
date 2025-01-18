@@ -29,6 +29,8 @@ warnings.simplefilter('ignore', category=AstropyWarning)
 warnings.simplefilter('ignore', UserWarning)
 
 class Image(object):
+    INIT_SHAPE = (2, 8)     # empty image shape filled with zeros
+
     def __init__(self, img_frame: ttk.Frame, bt_frame: ttk.Frame) -> None:
         """
         create GUI for 2D spectra
@@ -41,12 +43,13 @@ class Image(object):
 
         # declare/assign instance variables
         self.image: AxesImage = None
-        self.img_stacked: CCDData = CCDData(np.zeros((2,8)), unit=u.adu)
+        self.img_stacked: CCDData = CCDData(np.zeros(Image.INIT_SHAPE), unit=u.adu)
         self.img_names:list[str] = []
         self.img_count: int = 0
         self.img_colorbar: Colorbar = None
         self.img_combiner: ImagesCombiner = None
         self.img_cmap: str = 'grey'
+        self.img_reduced = False
 
         # create figure and axe for image
         self.img_figure = Figure(figsize=(10, 3))
@@ -135,10 +138,12 @@ class Image(object):
         """
         reset 2D spectrum display and image(s) data
         """        
-        self.img_stacked: CCDData = CCDData(np.zeros((2,8)), unit=u.adu)
+        self.img_stacked: CCDData = CCDData(np.zeros(Image.INIT_SHAPE), unit=u.adu)
         self.img_names:list[str] = []
         self.img_count = 0
         self.img_combiner: ImagesCombiner = None
+        self.img_reduced = False
+
         self.img_axe.clear()
         self.image = self.show_image(image = self.img_stacked,
                 fig_img = self.img_figure,
@@ -263,6 +268,10 @@ class Image(object):
             logging.error('please load some images before reducing')
             return False
         
+        if self.img_reduced:
+            logging.info('reduce done already - skipped')
+            return True
+        
         try:
             _img_reduced = _img_combiner.reduce_images()
             
@@ -288,6 +297,8 @@ class Image(object):
                         )
         
         self.update_image()
+        self.img_reduced = True
+
         return True
 
     def show_image( self, image,
@@ -319,6 +330,10 @@ class Image(object):
             cmap = self.img_cmap,
             #**scale_args
         )
+
+        def format_coord(x,y):
+            return "(x, y): ({:.0f}, {:.0f})".format(x,y)
+        ax_img.format_coord=format_coord
 
         if show_colorbar:
             # remove existing cmap if any
