@@ -1,12 +1,12 @@
 # QuickSpec
-Quick-look spectra reduction &amp; calibration tool - aimed at demonstrating spectroscopy science to public
+Quick-look spectra reduction &amp; calibration tool - aimed at demonstrating spectroscopy to public
 > :warning: does not produce science-quality spectra - please use instead:
 > - [specinti](https://solex.astrosurf.com/specinti1_fr.html)
 > - [demetra](https://www.shelyak.com/logiciel/logiciel-demetra/)
 > - [spcaudace](http://spcaudace.free.fr)
 
 # Usage
-> youtube video (French): [Youtube](https://)
+> [Youtube (French)](https://)
 
 # Installation
 from binaries:
