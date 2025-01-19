@@ -10,18 +10,21 @@ Quick-look spectra reduction &amp; calibration tool - aimed at demonstrating spe
 
 # Installation
 from binaries:
+> download and extract the following ZIP file:
 > - [Windows](https://)
 > - [MacOS](https://)
 > - [Linux](https://)
+> then go to your extracted location and execute:```quickspec[.exe]``` (can take several minutes for the first execution...)
 
 from sources:
-> - download and install python interpreter: ```$ ...```
-> - create a python environment: ```$ ...```
-> - clone QuickSpec sources: ```$ ...```
-> - installl requirements: ```$ ...```
-> - run Quickspec : ```$ python quickspec.py```
+> - download and install a python interpreter: [miniforge](https://github.com/conda-forge/miniforge)
+> - create a python environment: ```$ conda env create ...```
+> - clone QuickSpec sources: ```$ git clone https://github.com/plouis35/QuickSpec.git``` (or download zip)
+> - go to cloned directory: ```$ cd quickspec```
+> - install requirements: ```$ pip install -r requirements.txt```
+> - and run Quickspec : ```$ python quickspec.py```
 
-# Configuration file reference : 
+# Configuration file reference: 
 
 ```
 [logger]
