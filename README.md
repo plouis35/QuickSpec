@@ -1,12 +1,12 @@
 # QuickSpec
-Quick-look spectra reduction &amp; calibration tool - aimed at demonstrating spectroscopy to public
-> :warning: does not generate science-quality spectra - please use instead :
+Quick-look spectra reduction &amp; calibration tool - aimed at demonstrating spectroscopy science to public
+> :warning: does not produce science-quality spectra - please use instead:
 > - [specinti](https://solex.astrosurf.com/specinti1_fr.html)
 > - [demetra](https://www.shelyak.com/logiciel/logiciel-demetra/)
 > - [spcaudace](http://spcaudace.free.fr)
 
 # Usage
-> please watch this youtube video (French):
+> youtube video (French): [Youtube](https://)
 
 # Installation
 from binaries:
@@ -14,6 +14,7 @@ from binaries:
 > - [Windows](https://)
 > - [MacOS](https://)
 > - [Linux](https://)
+
 > then go to your extracted location and execute:```quickspec[.exe]``` (can take several minutes for the first execution...)
 
 from sources:
