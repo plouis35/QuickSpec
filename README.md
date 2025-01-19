@@ -6,7 +6,7 @@ Quick-look spectra reduction &amp; calibration
 > - demetra
 > - spcaudace
 
-## Usage : please go to this youtube video
+Usage : please go to this youtube video
 
 # Configuration file reference : 
 
