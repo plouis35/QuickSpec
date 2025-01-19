@@ -1,7 +1,10 @@
 # QuickSpec
 Quick-look spectra reduction &amp; calibration
-[!WARNING]  
-> :warning: it does not generate science-grade spectra - it is dedicated to spectroscopy introduction
+> :warning: does not generate science-grade spectra
+> please use insted :
+> - specinti
+> - demetra
+> - spcaudace
 
 ## Usage : please go to this youtube video
 
