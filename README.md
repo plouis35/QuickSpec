@@ -5,7 +5,7 @@ Quick-look spectra reduction &amp; calibration tool - aimed at demonstrating spe
 > - [demetra](https://www.shelyak.com/logiciel/logiciel-demetra/)
 > - [spcaudace](http://spcaudace.free.fr)
 
-![Alt text](./screenshot_01.PNG){width=50%}
+![Alt text](./screenshot_01.PNG)
 
 # Usage
 > [Youtube (French)](https://)
