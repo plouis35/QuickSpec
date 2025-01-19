@@ -9,12 +9,12 @@ Quick-look spectra reduction &amp; calibration tool - aimed at demonstrating spe
 > please watch this youtube video (French):
 
 # Installation
-> - from binaries:
+from binaries:
 > - [Windows](https://)
 > - [MacOS](https://)
 > - [Linux](https://)
 
-> - from sources:
+from sources:
 > - download and install python interpreter: ```$ ...```
 > - create a python environment: ```$ ...```
 > - clone QuickSpec sources: ```$ ...```
