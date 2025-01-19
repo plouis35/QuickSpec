@@ -1,9 +1,9 @@
 # QuickSpec
-Quick-look spectra reduction &amp; calibration tool - aimed at introducing spectroscopy usage to public
+Quick-look spectra reduction &amp; calibration tool - aimed at demonstrating spectroscopy to public
 > :warning: does not generate science-quality spectra - please use instead :
-> - specinti: [text](https://solex.astrosurf.com/specinti1_fr.html)
-> - demetra: [text](https://www.shelyak.com/logiciel/logiciel-demetra/)
-> - spcaudace: [text](http://spcaudace.free.fr)
+> - [specinti](https://solex.astrosurf.com/specinti1_fr.html)
+> - [demetra](https://www.shelyak.com/logiciel/logiciel-demetra/)
+> - [spcaudace](http://spcaudace.free.fr)
 
 # Usage
 > please watch this youtube video (French): 
