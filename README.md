@@ -6,7 +6,20 @@ Quick-look spectra reduction &amp; calibration tool - aimed at demonstrating spe
 > - [spcaudace](http://spcaudace.free.fr)
 
 # Usage
-> please watch this youtube video (French): 
+> please watch this youtube video (French):
+
+# Installation
+## Binaries:
+> - [Windows](https://)
+> - [MacOS](https://)
+> - [Linux](https://)
+
+## Sources:
+> - download and install python interpreter: ```$ ...```
+> - create a python environment: ```$ ...```
+> - clone QuickSpec sources: ```$ ...```
+> - installl requirements: ```$ ...```
+> - run Quickspec : ```$ python quickspec.py```
 
 # Configuration file reference : 
 
