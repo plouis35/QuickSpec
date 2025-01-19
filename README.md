@@ -1,12 +1,12 @@
 # QuickSpec
-Quick-look spectra reduction &amp; calibration
-> :warning: does not generate science-grade spectra
-> please use insted :
-> - specinti
-> - demetra
-> - spcaudace
+Quick-look spectra reduction &amp; calibration tool - aimed at introducing spectroscopy usage to public
+> :warning: does not generate science-quality spectra - please use instead :
+> - specinti: [text](https://solex.astrosurf.com/specinti1_fr.html)
+> - demetra: [text](https://www.shelyak.com/logiciel/logiciel-demetra/)
+> - spcaudace: [text](http://spcaudace.free.fr)
 
-Usage : please go to this youtube video
+# Usage
+> please watch this youtube video (French): 
 
 # Configuration file reference : 
 
@@ -16,10 +16,10 @@ level = INFO
 
 [display]
 theme = dark            # light
-contrast_level = 6
+contrast_level = 6      # from 1 to 9 : 
 
 [pre_processing]
-#crop_auto = 0.4
+crop_auto = 0.5, 0.3    # y central relative (0.0 = bottom, 1.0 = top), crop ratio (0.0 = 0%, 1.0 = 100%)
 master_offset = _offset.fit
 master_dark = _dark.fit
 master_flat = _flat.fit

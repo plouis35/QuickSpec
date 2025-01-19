@@ -1,5 +1,5 @@
 """
-2D spectra routines
+2D spectra GUI and associated routines
 """
 import logging
 import numpy as np
@@ -33,7 +33,7 @@ class Image(object):
 
     def __init__(self, img_frame: ttk.Frame, bt_frame: ttk.Frame) -> None:
         """
-        create GUI for 2D spectra
+        create GUI components
 
         Args:
             img_frame (ttk.Frame): frame to display 2D spectra
@@ -124,9 +124,9 @@ class Image(object):
 
     def update_slider(self, event) -> None:
         """
-        collect cut levels from to sliders values and update image display accordingly
+        collect cut levels from sliders positions and update image display accordingly
         Args:
-            event: sliders value
+            event: sliders widget event (here position)
         """        
         slider: ttk.Scale = event.widget
         if slider == self.slider_high:

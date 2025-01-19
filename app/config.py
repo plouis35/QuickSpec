@@ -118,7 +118,7 @@ theme = dark            # light
 contrast_level = 6
 
 [pre_processing]
-#crop_auto = 0.4
+#y_crop = 0.4, 0.4
 master_offset = _offset.fit
 master_dark = _dark.fit
 master_flat = _flat.fit

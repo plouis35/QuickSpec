@@ -292,7 +292,7 @@ class ImagesCombiner(object):
         master_dark = None
         master_flat = None
 
-        y_ratio: float | None = conf.get_float('pre_processing','crop_auto')
+        y_ratio: float | None = conf.get_float('pre_processing','y-crop')
 
         try:
             if (bias_file := conf.get_str('pre_processing', 'master_offset')) is not None:

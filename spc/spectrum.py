@@ -1,5 +1,5 @@
 """
-1D spectrum routines 
+1D spectrum GUI and associated routines 
 """
 import logging
 import numpy as np
@@ -34,7 +34,7 @@ class Spectrum(object):
 
     def __init__(self, spc_frame: ttk.Frame, img_axe: Axes) -> None:
         """
-        creates 1D spectrum GUI components
+        creates GUI components
 
         Args:
             spc_frame (ttk.Frame): frame to draw 1D spectrum to
