@@ -107,7 +107,7 @@ class Spectrum(object):
         
         min_wl = 3800 
         max_wl = 7500
-        bin_size = 21 # size (AA) of each colored slice under spectrum
+        bin_size = 20 # size (AA) of each colored slice under spectrum
         alpha = 1.0
 
         if self.showed_colorized:
@@ -120,8 +120,9 @@ class Spectrum(object):
             # show 'rainbow' color under spectrum
             colors = plt.cm.turbo((self.science_spectrum.wavelength.value - min_wl) / (max_wl - min_wl))            
             for i in range(0, len(self.science_spectrum.wavelength) - 0, bin_size):
-                self.spc_axe.fill_between(x=self.science_spectrum.wavelength.value[i:i+bin_size], 
-                                          y1=0, y2=self.science_spectrum.flux.value[i:i+bin_size], 
+                self.spc_axe.fill_between(x=self.science_spectrum.wavelength.value[i:i+bin_size+1], 
+                                          y1=0,
+                                          y2=self.science_spectrum.flux.value[i:i+bin_size+1], 
                                           color=colors[i], alpha=alpha)
             self.showed_colorized = True
             
@@ -237,7 +238,6 @@ class Spectrum(object):
             return False
         
         self.science_spectrum = extracted_spectrum
-        logging.info('spectrum extracted')
 
         # trace sky zones
         self.img_axe.plot(self.science_spectrum.spectral_axis, self.science_trace.trace + self.conf.get_int('processing', 'trace_y_size'), 
@@ -301,7 +301,6 @@ class Spectrum(object):
         self.clear_spectra()
         self.show_spectrum(name=img_stacked.header['OBJECT'], spectrum=self.science_spectrum, calibrated=True)
 
-        logging.info('calibration complete')
         return True
 
 
@@ -329,7 +328,6 @@ class Spectrum(object):
         self.clear_spectra()
         self.show_spectrum(name=img_stacked.header['OBJECT'], spectrum=self.science_spectrum, calibrated=True)
 
-        logging.info('response applied')
         return True
 
 

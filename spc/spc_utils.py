@@ -162,8 +162,8 @@ class SPCUtils(object):
         """
 
         # convert args to pix/AA
-        _wavelength = [float(x) for x in wavelength.replace(',', '').split()]*u.AA
-        _pixels = [float(x) for x in pixels.replace(',', '').split()]*u.pix
+        _wavelength = [float(x) for x in wavelength.replace(',', '').split()]*u.Unit('angstrom')
+        _pixels = [float(x) for x in pixels.replace(',', '').split()]*u.Unit('pixel')
         logging.info(f"calibrating pixels set : {pixels}")
         logging.info(f"with wavelengths set : {wavelength}")
 
@@ -185,8 +185,9 @@ class SPCUtils(object):
         logging.info(f"spectrum calibrated - residuals : {repr(calibration.residuals)}")
         logging.info(f"spectrum calibrated - fitted model : {repr(calibration.fitted_model )}")
 
-        # normalize to 1
-        norm_region = calibrated_spectrum[6500 * u.AA: 6520 * u.AA].flux.mean() 
+        # normalize to 1 
+        # TODO: make sure the normalized range is within the calibration range !
+        norm_region = calibrated_spectrum[6500 * u.Unit('angstrom'): 6520 * u.Unit('angstrom')].flux.mean() 
         normalized_spec = Spectrum1D(spectral_axis = calibrated_spectrum.wavelength, 
                                      flux = calibrated_spectrum.flux / norm_region)  
         logging.info('spectrum normalized to 1')
@@ -226,6 +227,7 @@ class SPCUtils(object):
                 final_spec = science_spectrum / _resp1d
                 logging.info('response applied')
             else:
+                final_spec = science_spectrum
                 logging.info("no response file to apply")
 
         except Exception as e:
@@ -247,8 +249,6 @@ class SPCUtils(object):
         """
         smooth_spec: Spectrum1D = median_smooth(science_spectrum, width=smooth_width) 
         science_spectrum = smooth_spec
-        logging.info(f"median smooth applied={smooth_width}")
-
         return science_spectrum
 
 if __name__ == "__main__":

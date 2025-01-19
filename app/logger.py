@@ -12,20 +12,22 @@ class LogHandler(logging.Handler):
         self.conf = Config()
         
         LOG_LEVEL: str | None = self.conf.get_str('logger', 'level')
-        CONSOLE_LOGFORMAT = "%(log_color)s%(asctime)s %(levelname)s - %(message)s%(reset)s "
-        FILE_LOGFORMAT = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 
         logging.root.setLevel(LOG_LEVEL)
-        formatter = ColoredFormatter(CONSOLE_LOGFORMAT)
+        console_formatter = ColoredFormatter("%(log_color)s%(asctime)s %(levelname)s - %(message)s%(reset)s ",
+            "%H:%M:%S")
+        file_formatter = logging.Formatter(
+            "%(asctime)s : %(levelname)s : [%(filename)s:%(lineno)s - %(funcName)s()] : %(message)s",
+            "%Y-%m-%d %H:%M:%S")
         self.stream = logging.StreamHandler()
         self.stream.setLevel(LOG_LEVEL)
-        self.stream.setFormatter(formatter)
+        self.stream.setFormatter(console_formatter)
         self.log = logging.getLogger()
         self.log.setLevel(LOG_LEVEL)
 
         self.file_handler = logging.FileHandler(f"quickspec_{datetime.now().strftime('%d-%m-%Y_%H%M%S')}.log")
         self.file_handler.setLevel(LOG_LEVEL)
-        self.file_handler.setFormatter(FILE_LOGFORMAT)
+        self.file_handler.setFormatter(file_formatter)
 
     def initialize(self) -> None:
         """

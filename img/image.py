@@ -43,7 +43,7 @@ class Image(object):
 
         # declare/assign instance variables
         self.image: AxesImage = None
-        self.img_stacked: CCDData = CCDData(np.zeros(Image.INIT_SHAPE), unit=u.adu)
+        self.img_stacked: CCDData = CCDData(np.zeros(Image.INIT_SHAPE), unit=u.Unit('adu'))
         self.img_names:list[str] = []
         self.img_count: int = 0
         self.img_colorbar: Colorbar = None
@@ -138,7 +138,7 @@ class Image(object):
         """
         reset 2D spectrum display and image(s) data
         """        
-        self.img_stacked: CCDData = CCDData(np.zeros(Image.INIT_SHAPE), unit=u.adu)
+        self.img_stacked: CCDData = CCDData(np.zeros(Image.INIT_SHAPE), unit=u.Unit('adu'))
         self.img_names:list[str] = []
         self.img_count = 0
         self.img_combiner: ImagesCombiner = None
@@ -228,7 +228,9 @@ class Image(object):
         _img_combiner: ImagesCombiner
 
         try:
-            _img_combiner = Images.from_fits(imgs=path).y_crop(y_ratio=self.conf.get_float('pre_processing','crop_auto'))
+            _img_combiner = Images.from_fits_by_names_list(imgs=path).y_crop(
+                    y_crop=self.conf.get_str('pre_processing','y_crop')
+                )
             _img_reduced = _img_combiner.sum()
 
         except Exception as e:

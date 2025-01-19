@@ -2,7 +2,7 @@
 app starter class
 """
 __app__ = 'QuickSpec'
-__version__ = '0.4'
+__version__ = '0.5'
 
 from app.main import Application
 

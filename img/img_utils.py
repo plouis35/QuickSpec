@@ -152,26 +152,30 @@ class ImagesCombiner(object):
             logging.info('no trimming')
         return self
 
-    def y_crop(self, y_ratio: float | None):
+    def y_crop(self, y_crop: str | None):
         """
-        trim all frames loaded in this set on an y-axis percentage
+        trim all frames loaded in this set on an y-axis position and percentage
 
         Args:
-            y_ratio (float | None): percentage (0.1 .. 1.0) ratio from y-center
+            y_crop: tuple(float, float): y_center, y_ratio: percentage (0.1 .. 1.0) ratio from y-center
 
         Returns:
             self: images set updated
         """        
-        if y_ratio is not None:
-            x1 = 0
-            y1 = round(self._images[0].shape[0] * y_ratio)
-            x2 = self._images[0].shape[1]
-            y2 = round(self._images[0].shape[0] - (self._images[0].shape[0] * y_ratio))
+        conf: Config = Config()
 
+        # y_crop contains a tuple: y_pos for relative y center, y_ratio for relative crop arround this y center
+        y_center = 0.5      # default to middle
+        y_ratio = 0.3       # default to 30%
+    
+        if y_crop is not None:
+            y_center, y_ratio= eval(y_crop)
+
+        if y_crop is not None:
             for i in range(0, len(self._images)):
+                x1, x2, y1, y2 = Images.compute_crop(self._images[i], y_center, y_ratio)
                 self._images[i] = trim_image(self._images[i][y1:y2, x1:x2])
-
-            logging.info(f"{len(self._images)} images y-cropped to {y_ratio}x: {x1=},{x2=},{y1=},{y2=}")
+            logging.info(f"{len(self._images)} science images y-cropped to {y1=}, {y2=}")
         else:
             logging.info('no y-cropping to do')
         return self
@@ -222,7 +226,8 @@ class ImagesCombiner(object):
             self: images set updated
         """        
         for i in range(0, len(self._images)):
-            self._images[i] = subtract_dark(self._images[i], frame, scale = scale_exposure, exposure_time = exposure, exposure_unit = u.second)                
+            self._images[i] = subtract_dark(self._images[i], frame, 
+                                            scale = scale_exposure, exposure_time = exposure, exposure_unit = u.Unit('second'))                
         
         logging.info(f'masterdark substracted to {len(self._images)} images')
         return self
@@ -269,7 +274,7 @@ class ImagesCombiner(object):
                 dark_frame = master_dark,
                 master_flat = master_flat,
                 exposure_key = exposure_key,
-                exposure_unit = u.second,
+                exposure_unit = u.Unit('second'),
                 dark_scale = True)            
 
         logging.info(f'{len(self._images)} images reduced')
@@ -277,60 +282,59 @@ class ImagesCombiner(object):
 
     def reduce_images(self) -> CCDData | None:
         """
-        wrapper to CCDProc reduce routine - operates on all images set
+        wrapper to CCDProc.ccd_process reduce routine - operates on all images from images set
 
         Returns:
             CCDData | None: sum of images reduced
         """        
         conf: Config = Config()
-        TRIM_REGION = None
-        EXPOSURE_KEY = 'EXPTIME'
+        EXPOSURE_KEY = 'EXPTIME'        # TODO: maybe use a keyword instead of harded-code key ?
+
+        # collect current images directory from first image
         CAPTURE_DIR =  str(Path(self.get_image_names()[0]).absolute().parent) + '/'
         
+        # y_crop contains a tuple: y_pos for relative y center, y_ratio for relative crop arround this y center
+        y_center = 0.5      # default to middle
+        y_ratio = 0.3       # default to 30%
+        if (y_crop := conf.get_str('pre_processing','y_crop')) is not None:
+            y_center, y_ratio= eval(y_crop)
+
         # read master frames
         master_bias = None
         master_dark = None
         master_flat = None
 
-        y_ratio: float | None = conf.get_float('pre_processing','y-crop')
-
         try:
             if (bias_file := conf.get_str('pre_processing', 'master_offset')) is not None:
-                master_bias = CCDData.read(CAPTURE_DIR + bias_file, unit = u.adu)
-                if y_ratio is not None:
-                    x1 = 0
-                    y1 = round(master_bias.shape[0] * y_ratio)
-                    x2 = master_bias.shape[1]
-                    y2 = round(master_bias.shape[0] - (master_bias.shape[0] * y_ratio))
+                master_bias = CCDData.read(CAPTURE_DIR + bias_file, unit = u.Unit('adu'))
+                if y_crop is not None:
+                    x1, x2, y1, y2 = Images.compute_crop(master_bias, y_center, y_ratio)
                     master_bias = trim_image(master_bias[y1:y2, x1:x2])
-
+                    logging.info(f"masterbias y_cropped to {y1=}, {y2=}")
                 logging.info(f"masterbias loaded")
+
         except Exception as e:
             logging.error(f"cannot read masterbias: {e}")
 
         try:
             if (dark_file := conf.get_str('pre_processing', 'master_dark')) is not None:
-                master_dark = CCDData.read(CAPTURE_DIR + dark_file, unit = u.adu)
-                if y_ratio is not None:
-                    x1 = 0
-                    y1 = round(master_dark.shape[0] * y_ratio)
-                    x2 = master_dark.shape[1]
-                    y2 = round(master_dark.shape[0] - (master_dark.shape[0] * y_ratio))
+                master_dark = CCDData.read(CAPTURE_DIR + dark_file, unit = u.Unit('adu'))
+                if y_crop is not None:
+                    x1, x2, y1, y2 = Images.compute_crop(master_dark, y_center, y_ratio)
                     master_dark = trim_image(master_dark[y1:y2, x1:x2])
-
+                    logging.info(f"masterdark y_cropped to {y1=}, {y2=}")
                 logging.info(f"masterdark loaded")
+
         except Exception as e:
             logging.error(f"cannot read masterdark: {e}")
 
         try:
             if (flat_file := conf.get_str('pre_processing', 'master_flat')) is not None:
-                master_flat = CCDData.read(CAPTURE_DIR + flat_file, unit = u.adu)
-                if y_ratio is not None:
-                    x1 = 0
-                    y1 = round(master_flat.shape[0] * y_ratio)
-                    x2 = master_flat.shape[1]
-                    y2 = round(master_flat.shape[0] - (master_flat.shape[0] * y_ratio))
+                master_flat = CCDData.read(CAPTURE_DIR + flat_file, unit = u.Unit('adu'))
+                if y_crop is not None:
+                    x1, x2, y1, y2 = Images.compute_crop(master_flat, y_center, y_ratio)
                     master_flat = trim_image(master_flat[y1:y2, x1:x2])
+                    logging.info(f"masterflat y_cropped to {y1=}, {y2=}")
 
                 logging.info(f"masterflat loaded")
         except Exception as e:
@@ -380,15 +384,15 @@ class Images(ImagesCombiner):
         return (ic.files_filtered(include_path=True))
 
     @classmethod
-    def from_fit(cls, dir: str, filter: str, 
-                 camera_electronic_gain: float = 1.2 * u.electron / u.adu, 
-                 camera_readout_noise: float =  2.2 * u.electron):
+    def from_fits_by_name_dateobs(cls, dir: str, filter: str, 
+                 camera_electronic_gain: float = 1.2 * u.Unit('electron') / u.Unit('adu'), 
+                 camera_readout_noise: float =  2.2 * u.Unit('electron')):
         """_summary_
-        load a set of FIT images from a directory
+        load a set of FIT images filtered by name from a directory
 
         Args:
             dir (str): path
-            filter (str): wildcard filter
+            filter (str): wildcard name filter
             camera_electronic_gain (float, optional): . Defaults to 1.2*u.electron/u.adu.
             camera_readout_noise (float, optional): . Defaults to 2.2*u.electron.
 
@@ -405,16 +409,16 @@ class Images(ImagesCombiner):
               #                             readnoise = camera_readout_noise,
                #                            disregard_nan = True
                 #                          ))
-            images.append(CCDData.read(fp, unit = u.adu))
+            images.append(CCDData.read(fp, unit = u.Unit('adu')))
             names.append(fp)
             logging.info(f'image : {fp} loaded')
         
         return ImagesCombiner(images=images, names=names)
 
     @classmethod
-    def from_fits(cls, imgs: list[str],
-                 camera_electronic_gain: float = 1.2 * u.electron / u.adu, 
-                 camera_readout_noise: float =  2.2 * u.electron):
+    def from_fits_by_names_list(cls, imgs: list[str],
+                 camera_electronic_gain: float = 1.2 * u.Unit('electron') / u.Unit('adu'), 
+                 camera_readout_noise: float =  2.2 * u.Unit('electron')):
         """
         load a set of FIT images from a list of names
 
@@ -424,7 +428,7 @@ class Images(ImagesCombiner):
             camera_readout_noise (float, optional): . Defaults to 2.2*u.electron.
 
         Returns:
-            _type_: _description_
+            List (CCData): images set loaded
         """        
         
         images = []
@@ -435,8 +439,31 @@ class Images(ImagesCombiner):
               #                             readnoise = camera_readout_noise,
                #                            disregard_nan = True
                 #                          ))
-            images.append(CCDData.read(fp, unit = u.adu))
+            images.append(CCDData.read(fp, unit = u.Unit('adu')))
             names.append(fp)
             logging.info(f'image : {fp} loaded')
         
         return ImagesCombiner(images=images, names=names)
+    
+    @classmethod
+    def compute_crop(cls, img:CCDData, y_center: float = 0.5, y_ratio: float = 0.3) -> tuple[float, float, float, float]:
+        """
+        compute array coords to crop to
+
+        Args:
+            img (CCDData): image to crop
+            y_center (float, optional): relative center. Defaults to 0.5.
+            y_ratio (float, optional): relative y_size. Defaults to 0.4.
+
+        Returns:
+            tuple[float, float, float, float]: x1, x2, y1, y2
+        """            
+
+        x1 = 0
+        x2 = img.shape[1]
+        y1 = round((img.shape[0] * y_center) - ((img.shape[0] * y_ratio) / 2))
+        y2 = round((img.shape[0] * y_center) + ((img.shape[0] * y_ratio) / 2))
+
+        return x1, x2, y1, y2
+
+

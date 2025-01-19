@@ -22,7 +22,7 @@ class OSUtils(object):
         """
         show some packages version
         """        
-        logging.info("Versions installed: ")
+        logging.info("Packages version: ")
         for module in ['matplotlib', 'numpy','astropy', 'specutils', 'specreduce', 'ccdproc']:
             try:
                 #print(f"{module} = v{version(module)}")

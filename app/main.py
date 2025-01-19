@@ -50,7 +50,7 @@ class Application(tk.Tk):
         self._last_timer: float = time.time()
         self.after_idle(self.watch_files)
 
-        logging.info("QuickSpec started - packages versions :")
+        logging.info(f"{app_name} {app_version} started")
         OSUtils.show_versions()
 
     def create_panels(self) -> None:
@@ -224,7 +224,7 @@ class Application(tk.Tk):
         if so, process the new file using run_all callback
         TODO: raise errors if the new file is a 1D spectrum - ignored for now
         """        
-        logging.debug(f"watchdog current time is : {time.strftime("%H:%M:%S", time.localtime())}")
+        logging.debug(f"watchdog current time is : {time.strftime('%H:%M:%S', time.localtime())}")
         auto_process: bool | None = self.conf.get_bool('processing', 'auto_process')
 
         if (auto_process is None) or (auto_process is True):
