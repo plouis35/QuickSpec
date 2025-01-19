@@ -1,8 +1,9 @@
 # QuickSpec
 Quick-look spectra reduction &amp; calibration
-:warning: it does not generate science-grade spectra - it is dedicated to spectroscopy introduction
+[!WARNING]  
+> :warning: it does not generate science-grade spectra - it is dedicated to spectroscopy introduction
 
-# Usage : please go to this youtube video
+## Usage : please go to this youtube video
 
 # Configuration file reference : 
 
