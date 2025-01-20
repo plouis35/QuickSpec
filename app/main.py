@@ -35,14 +35,28 @@ class Application(tk.Tk):
         self.conf: Config = Config()
         LogHandler().initialize()
 
+        # set window style from Microsoft azure
         self.tk.call("source", "azure.tcl")
-        if (_theme := self.conf.get_str('display', 'theme')) is None:
-            _theme = 'light'
-        self.tk.call("set_theme", _theme)
 
-        self.title(f"{app_name} - {app_version}")
+        # set theme and colors
+        _tk_theme = 'dark'
+        _mpl_theme = 'dark_background'
+        if (_theme := self.conf.get_str('display', 'theme')) is not None:
+            if _theme == 'light':
+                _tk_theme = _theme
+                _mpl_theme = 'grayscale'
+            else:
+                logging.warning(f"unsupported color theme: {_theme=}")
+            
+        plt.style.use(_mpl_theme)        
+        self.tk.call("set_theme", _tk_theme)
+        plt.rcParams['figure.constrained_layout.use'] = True
+        
+        self.title(f"{app_name} - ")
         self.app_name = app_name
         self.app_version = app_version
+
+        # create image and spectrum panels
         self.create_panels()
         self.create_buttons()
 
@@ -50,13 +64,11 @@ class Application(tk.Tk):
         self._last_timer: float = time.time()
         self.after_idle(self.watch_files)
 
+        # and last display major packages versions installed
         logging.info(f"{app_name} {app_version} started")
         OSUtils.show_versions()
 
     def create_panels(self) -> None:
-        plt.style.use('dark_background')        
-        plt.rcParams['figure.constrained_layout.use'] = True
-        
         # create top frame to hold buttons and sliders
         self.bt_frame = ttk.Frame(self)
         self.bt_frame.pack(side=tk.TOP, fill=tk.X, pady=5)
@@ -209,9 +221,9 @@ class Application(tk.Tk):
         
         # set window title according to images names - loaded spectra not set
         if len(img_names) > 1:
-            self.title(f"{self.app_name} - {self.app_version} [{Path(path[0]).stem} .. {Path(path[-1]).stem}]")
+            self.title(f"{self.app_name} - [{Path(path[0]).stem} .. {Path(path[-1]).stem}]")
         elif len(img_names) == 1:
-            self.title(f"{self.app_name} - {self.app_version} [{Path(path[0]).stem}]")
+            self.title(f"{self.app_name} - [{Path(path[0]).stem}]")
         else:
             pass
 
@@ -245,7 +257,7 @@ class Application(tk.Tk):
                     self.config(cursor="")    
                     
                     # update names in title
-                    self.title(f"{self.app_name} - {self.app_version} [{new_file}]")
+                    self.title(f"{self.app_name} - [{new_file}]")
 
                     # start processing all
                     self.config(cursor="watch")

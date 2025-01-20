@@ -107,23 +107,27 @@ class Spectrum(object):
         
         min_wl = 3800 
         max_wl = 7500
-        bin_size = 20 # size (AA) of each colored slice under spectrum
-        alpha = 1.0
+        bin_size = 20 # size (angstroms) of each colored slice under spectrum
 
         if self.showed_colorized:
-            # show 'black' color under spectrum to reset 
+            if (plt.rcParams.get('figure.facecolor')) == 'black': _color = 'black'
+            else: _color = 'white'
+
+            # remove existing colorization
             for i in range(0, len(self.science_spectrum.wavelength) - 1, bin_size):
-                self.spc_axe.fill_between(self.science_spectrum.wavelength.value[i:i+bin_size], 0, 
-                                self.science_spectrum.flux.value[i:i+bin_size], color='black', alpha=alpha)
+                self.spc_axe.fill_between(x=self.science_spectrum.wavelength.value[i:i+bin_size+1], 
+                                y1=0, 
+                                y2=self.science_spectrum.flux.value[i:i+bin_size+1],
+                                color=_color, alpha=1.0)
             self.showed_colorized = False
         else:
             # show 'rainbow' color under spectrum
             colors = plt.cm.turbo((self.science_spectrum.wavelength.value - min_wl) / (max_wl - min_wl))            
             for i in range(0, len(self.science_spectrum.wavelength) - 0, bin_size):
                 self.spc_axe.fill_between(x=self.science_spectrum.wavelength.value[i:i+bin_size+1], 
-                                          y1=0,
-                                          y2=self.science_spectrum.flux.value[i:i+bin_size+1], 
-                                          color=colors[i], alpha=alpha)
+                                y1=0,
+                                y2=self.science_spectrum.flux.value[i:i+bin_size+1], 
+                                color=colors[i], alpha=1.0)
             self.showed_colorized = True
             
         self.spc_figure.canvas.draw_idle()
@@ -370,6 +374,10 @@ class Spectrum(object):
             ax (_type_, optional): matplotlib axe to draw to. Defaults to None.
             show_line (bool, optional): . Defaults to True.
         """        
+        if self.science_spectrum.spectral_axis_unit == u.Unit('pixel'):
+            logging.warning("spectrum needs to ba calibrated first")
+            return
+
         if ax is None: ax = self.spc_axe
                         
         xbounds = ax.get_xbound()   

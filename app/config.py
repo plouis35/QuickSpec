@@ -114,21 +114,14 @@ class Config(object):
 level = INFO
 
 [display]
-theme = dark            # light
-contrast_level = 6
+theme = dark
 
 [pre_processing]
-#y_crop = 0.4, 0.4
 master_offset = _offset.fit
 master_dark = _dark.fit
 master_flat = _flat.fit
 
 [processing]
-#auto_process = False
-trace_model = models.Chebyshev1D(degree=2)
-#trace_model = models.Spline1D(degree=2)
-#trace_model = models.Polynomial1D(degree=2)            # default
-#trace_model = models.Legendre1D(degree=2)
 #trace_y_guess = 1695
 trace_y_size = 15
 trace_y_window = 50
@@ -136,25 +129,9 @@ trace_x_bins = 12
 sky_y_size = 140
 sky_y_offset = 120
 
-# HR (starex2400)
 calib_x_pixel = 770, 1190, 2240, 3520, 4160
 calib_x_wavelength = 6506.53, 6532.88, 6598.95, 6678.28, 6717.04
 response_file = _rep.fits
-
-# LR (alpy600)
-#calib_x_pixel = 959, 1645, 2130
-#calib_x_wavelength = 4200.7, 5852.4, 6965.4
-#response_file = _rep.fits
-
-# LR (dados200)
-#calib_x_pixel: 61, 683, 940, 1400, 1540
-#calib_x_wavelength: 4333.56, 5400.56, 5852.49, 6678.28, 6929.47
-#response_file = _rep.fits
-
-# MR (dados900)
-#calib_x_pixel: 61, 683, 940, 1400, 1540
-#calib_x_wavelength: 4333.56, 5400.56, 5852.49, 6678.28, 6929.47
-#response_file = _rep.fits
 
 [post_processing]
 #median_smooth = 7
