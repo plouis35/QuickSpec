@@ -12,6 +12,7 @@ from astropy.utils.exceptions import AstropyWarning
 from astropy import units as u
 from astropy.modeling import models, fitting
 from astropy.nddata import NDDataRef
+from astropy.nddata import CCDData
 
 from specutils.spectra.spectrum1d import Spectrum1D
 
@@ -24,10 +25,9 @@ from specreduce import WavelengthCalibration1D
 from app.config import Config
 
 class SPCUtils(object):
-    conf = Config()
 
     @staticmethod
-    def trace_spectrum(img_stacked:np.ndarray) -> FitTrace | FlatTrace | None:
+    def trace_spectrum(img_stacked:CCDData) -> FitTrace | FlatTrace | None:
         """
         identify trace in a 2D spectrum image
         two methods implemented from specreduce: 
@@ -40,22 +40,23 @@ class SPCUtils(object):
         Returns:
             FitTrace | FlatTrace |  None: specreduce Fit/flatTrace class - will be used to extract spectrum later
         """        
+        conf = Config()
 
-        if (_trace_method := SPCUtils.conf.get_str('processing', 'trace_method')) is not None:
+        if (_trace_method := conf.get_str('processing', 'trace_method')) is not None:
             if _trace_method == 'fit': 
                 try:
-                    if (_trace_model := SPCUtils.conf.get_str('processing', 'trace_model')) is None:
+                    if (_trace_model := conf.get_str('processing', 'trace_model')) is None:
                         _trace_model = "models.Polynomial1D(degree=2)"
 
-                    if (_peak_method := SPCUtils.conf.get_str('processing', 'peak_model')) is None:
+                    if (_peak_method := conf.get_str('processing', 'peak_model')) is None:
                         _peak_method = "max"
 
                     science_trace = FitTrace(image=img_stacked, 
-                                            bins=SPCUtils.conf.get_int('processing', 'trace_x_bins'), 
+                                            bins=conf.get_int('processing', 'trace_x_bins'), 
                                             trace_model=eval(_trace_model),
                                             peak_method=_peak_method,
-                                            window=SPCUtils.conf.get_int('processing', 'trace_y_window'),
-                                            guess=SPCUtils.conf.get_float('processing', 'trace_y_guess')
+                                            window=conf.get_int('processing', 'trace_y_window'),
+                                            guess=conf.get_float('processing', 'trace_y_guess')
                                             )
                     logging.info(f'trace fitted : trace model fitted = {science_trace.trace_model_fit}')
 
@@ -64,9 +65,12 @@ class SPCUtils(object):
                     return None
 
             elif _trace_method == 'flat': 
+                if conf.get_float('processing', 'trace_y_guess') is None:
+                    logging.error("please define a 'trace_y_guess' for flat trace mode")
+                    return None
                 try:
                     science_trace = FlatTrace(image=img_stacked, 
-                                            trace_pos=SPCUtils.conf.get_float('processing', 'trace_y_guess')
+                                            trace_pos=conf.get_float('processing', 'trace_y_guess')
                                             )
                 except Exception as e:
                     logging.error(f"unable to flat trace : {e}")
@@ -86,7 +90,7 @@ class SPCUtils(object):
 
 
     @staticmethod
-    def extract_spectrum(img_stacked:np.ndarray, science_trace: FitTrace) -> Spectrum1D | None:
+    def extract_spectrum(img_stacked:CCDData, science_trace: FitTrace) -> Spectrum1D | None:
         """
         extract 1D spectrum arround trace fitted
         Args:
@@ -96,13 +100,14 @@ class SPCUtils(object):
         Returns:
             Spectrum1D | None: uncalibrated 1D spectrum 
         """      
+        conf = Config()
 
-        if SPCUtils.conf.get_bool('processing', 'sky_substract') in (None, True):
+        if conf.get_bool('processing', 'sky_substract') in (None, True):
             try:
                 bg_trace: Background = Background.two_sided(img_stacked, 
                                                     science_trace, 
-                                                    separation=SPCUtils.conf.get_int('processing', 'sky_y_offset'), 
-                                                    width=SPCUtils.conf.get_int('processing', 'sky_y_size')  ) 
+                                                    separation=conf.get_int('processing', 'sky_y_offset'), 
+                                                    width=conf.get_int('processing', 'sky_y_size')  ) 
             except Exception as e:
                 logging.error(f"unable to fit background : {e}")
                 return None
@@ -112,7 +117,7 @@ class SPCUtils(object):
             try:
                 _extract = BoxcarExtract(img_stacked - bg_trace, 
                                         science_trace,
-                                        width = SPCUtils.conf.get_float('processing', 'trace_y_size') )
+                                        width = conf.get_float('processing', 'trace_y_size') )
             except Exception as e:
                 logging.error(f"unable to extract spectrum : {e}")
                 return None
@@ -122,7 +127,7 @@ class SPCUtils(object):
             try:
                 _extract = BoxcarExtract(img_stacked, 
                                         science_trace,
-                                        width = SPCUtils.conf.get_float('processing', 'trace_y_size') )
+                                        width = conf.get_float('processing', 'trace_y_size') )
             except Exception as e:
                 logging.error(f"unable to extract spectrum : {e}")
                 return None
@@ -151,6 +156,7 @@ class SPCUtils(object):
         Returns:
             Spectrum1D | None: calibrated 1D spectrum
         """
+        conf = Config()
 
         # convert args to pix/AA
         _wavelength = [float(x) for x in wavelength.replace(',', '').split()]*u.Unit('angstrom')
@@ -158,10 +164,10 @@ class SPCUtils(object):
         logging.info(f"calibrating pixels set : {pixels}")
         logging.info(f"with wavelengths set : {wavelength}")
 
-        if (_input_model := SPCUtils.conf.get_str('processing', 'input_model')) is None:
+        if (_input_model := conf.get_str('processing', 'input_model')) is None:
             _input_model = "models.Polynomial1D(degree=2)"
 
-        if (_fitter_model := SPCUtils.conf.get_str('processing', 'fitter_model')) is None:
+        if (_fitter_model := conf.get_str('processing', 'fitter_model')) is None:
             _fitter_model = "fitting.LMLSQFitter()"
 
         try:
@@ -200,13 +206,13 @@ class SPCUtils(object):
         Returns:
             Spectrum1D | None: response corrected 1D spectrum
         """        
-        # apply response file if any defined
+        conf = Config()
 
         final_spec: Spectrum1D = None
 
         try:
-            if (respFile := SPCUtils.conf.get_str('processing', 'response_file')) is not None:
-                respFile = f"{SPCUtils.conf.get_conf_directory()}/{respFile}"
+            if (respFile := conf.get_str('processing', 'response_file')) is not None:
+                respFile = f"{conf.get_conf_directory()}/{respFile}"
                 logging.info(f"opening {respFile}...")
                 resp1d: Spectrum1D = Spectrum1D.read(respFile)
                 _factor = int(resp1d.shape[0] / science_spectrum.shape[0])

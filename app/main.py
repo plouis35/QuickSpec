@@ -31,6 +31,14 @@ from spc.spectrum import Spectrum
 class Application(tk.Tk):
 
     def __init__(self, app_name: str, app_version: str) -> None:
+        """
+        initialize GUI components
+        start watchdog timer
+
+        Args:
+            app_name (str): app name 
+            app_version (str): app version
+        """        
         super().__init__()
         self.conf: Config = Config()
         LogHandler().initialize()
@@ -60,15 +68,19 @@ class Application(tk.Tk):
         self.create_panels()
         self.create_buttons()
 
-        # create a timer to capture new files creation
+        # create a watchdog timer to capture new files creation
         self._last_timer: float = time.time()
         self.after_idle(self.watch_files)
 
-        # and last display major packages versions installed
+        # and display major packages versions installed
         logging.info(f"{app_name} v{app_version} started")
         OSUtils.show_versions()
 
     def create_panels(self) -> None:
+        """
+        create tkinter panels for 2D and D spectrum display
+        instantiate image and spectrum classes to manage them
+        """        
         # create top frame to hold buttons and sliders
         self.bt_frame = ttk.Frame(self)
         self.bt_frame.pack(side=tk.TOP, fill=tk.X, pady=5)
@@ -88,6 +100,9 @@ class Application(tk.Tk):
         self._spectrum = Spectrum(spc_frame, self._image.img_axe)
 
     def create_buttons(self) -> None:
+        """
+        creates buttons to load, process_all and process_step_by_step spectra
+        """        
         bt_load = ttk.Button(self.bt_frame, text="Load", command=self.cb_open_files) 
         bt_load.pack(side=tk.LEFT, padx=5, pady=0)
 
@@ -117,6 +132,26 @@ class Application(tk.Tk):
         bt_steps = ttk.OptionMenu(self.bt_frame, _var, bt_step_default, *(_step_options), command = cb_run_step)
         bt_steps.pack(side=tk.LEFT, padx=5, pady=0)
 
+    def set_cursor(self, cursor: str = '') -> None:
+        """
+        set cursor icon to 'hourglass' mode
+        NOTE: works well on Linux and macOS - not on Windows...
+
+        Args:
+            mode (str) : either 'watch' (hourglass) or '' (back to default)
+        """        
+        self.config(cursor=cursor)
+        self.update()
+
+    def set_title(self, title: str = '') -> None:
+        """
+        set window title
+
+        Args:
+            title (str, optional): new title. Defaults to ''.
+        """        
+        self.title(f"{self.app_name} v{self.app_version} - {title}")
+        
     # local callbacks for buttons
     @staticmethod
     def run_long_operation(func):
@@ -127,11 +162,9 @@ class Application(tk.Tk):
         """        
         @functools.wraps(func)
         def wrap(self, *args, **kwargs):
-            self.config(cursor="watch")
-            self.update()
+            self.set_cursor("watch")
             retcode = func(self, *args, **kwargs)
-            self.config(cursor="")    
-            self.update()
+            self.set_cursor()    
             return retcode
         return wrap
 
@@ -209,23 +242,20 @@ class Application(tk.Tk):
                 # not supported fit format
                 logging.error(f"{img_name} is not a supported fit format (naxis > 2)")
 
+        # load and stack selected images 
         if len(img_names) > 0:
             self._image.clear_image()
-
-            self.config(cursor="watch")
-            self.update()
-
+            self.set_cursor("watch")
             self._image.load_images(img_names)
-            self.config(cursor="")    
-            self.update()
+            self.set_cursor()    
         
-        # set window title according to images names - loaded spectra not set
-        if len(img_names) > 1:
-            self.title(f"{self.app_name} v{self.app_version} - [{Path(path[0]).stem} .. {Path(path[-1]).stem}]")
-        elif len(img_names) == 1:
-            self.title(f"{self.app_name} v{self.app_version} - [{Path(path[0]).stem}]")
-        else:
-            pass
+        # set window title according to images names
+        #if len(img_names) > 1:
+         #   self.set_title(f"[{Path(path[0]).stem} .. {Path(path[-1]).stem}]")
+        #elif len(img_names) == 1:
+          #  self.set_title(f"[{Path(path[0]).stem}]")
+        #else:
+         #   pass
 
         return True
 
@@ -234,11 +264,12 @@ class Application(tk.Tk):
         watchdog monitor routine
         used to check whether a new file is created under selected directory
         if so, process the new file using run_all callback
-        TODO: raise errors if the new file is a 1D spectrum - ignored for now
+        TODO: raise errors if the new file is a 1D spectrum (ignored for now)
         """        
+
         logging.debug(f"watchdog current time is : {time.strftime('%H:%M:%S', time.localtime())}")
         auto_process: bool | None = self.conf.get_bool('processing', 'auto_process')
-
+        
         if (auto_process is None) or (auto_process is True):
             logging.debug(f"watchdog enabled")
             if ((path := OSUtils.get_current_path()) != '.'):
@@ -247,25 +278,19 @@ class Application(tk.Tk):
                     logging.info(f"new FIT file detected: {new_file}")
                     self._last_timer = time.time()
 
-                    # clear existing images
+                    # load and process the new file
+                    self.set_cursor("watch")
+
                     self._image.clear_image()
-                    self.config(cursor="watch")
-                    self.update()
                     logging.info(f"loading {new_file}...")
-
                     self._image.load_images([f"{path}/{new_file}"])
-                    self.config(cursor="")    
-                    
-                    # update names in title
-                    self.title(f"{self.app_name} v{self.app_version} - [{new_file}]")
-
-                    # start processing all
-                    self.config(cursor="watch")
-                    self.update()
                     logging.info(f"processing {new_file}...")
                     self.cb_run_all()
-                    self.config(cursor="")    
+                    
+                    self.set_cursor()
         else:
             logging.debug(f"watchdog disabled")
 
+        # restart watchdog every second
         self.after(1000, self.watch_files) 
+

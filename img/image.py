@@ -187,7 +187,7 @@ class Image(object):
             low_cut = v_mean - (nb_sigma * v_std)
             high_cut = v_mean + (nb_sigma * v_std)   
 
-            min_cut = low_cut - (2 * nb_sigma * v_std)
+            min_cut = low_cut - (1 * nb_sigma * v_std)
             max_cut = high_cut + (8 * nb_sigma * v_std)
             
             self.slider_low.config(from_=min_cut)
@@ -226,9 +226,11 @@ class Image(object):
         """        
         _img_reduced: CCDData
         _img_combiner: ImagesCombiner
+        if (_max_memory := self.conf.get_float('pre_processing','max_memory')) is None: 
+            _max_memory = 1e9
 
         try:
-            _img_combiner = Images.from_fits_by_names_list(imgs=path).y_crop(
+            _img_combiner = Images.from_fits_by_names_list(imgs=path, max_memory=_max_memory).y_crop(
                     y_crop=self.conf.get_str('pre_processing','y_crop')
                 )
             _img_reduced = _img_combiner.sum()

@@ -46,7 +46,7 @@ class Spectrum(object):
         self.showed_lines: bool = False
         self.showed_colorized: bool = False
         self.colors = ('blue', 'red', 'green', 'orange', 'cyan')
-        self.lines_color = 'yellow'    
+        self.lines_color = 'orange' #'yellow'    
         self.spectrum_color = 'grey'
 
         # create figure and axe
@@ -242,7 +242,8 @@ class Spectrum(object):
             logging.error("please fit trace before extracting spectrum")
             return False
 
-        extracted_spectrum = SPCUtils.extract_spectrum(img_stacked.data, self.science_trace)
+        extracted_spectrum = SPCUtils.extract_spectrum(img_stacked=img_stacked, 
+                                                       science_trace=self.science_trace)
         if extracted_spectrum is None:
             return False
         

@@ -1,3 +1,6 @@
+"""
+utility routines to manage files and other OS-related functions
+"""
 import logging
 import os, sys, platform
 from pathlib import Path
@@ -70,7 +73,6 @@ class OSUtils(object):
         Returns:
             list(str): list of files (sorted)
         """      
-        image_types = ['fit', 'fts', 'fits']
         return fnmatch.filter((str(i).split(os.sep)[-1] for i in sorted(
                     pathlib.Path(path).iterdir(), 
                     key = os.path.getmtime, 

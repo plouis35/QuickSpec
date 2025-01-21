@@ -37,7 +37,7 @@ warnings.simplefilter('ignore', category=AstropyWarning)
 warnings.simplefilter('ignore', UserWarning)
 
 class ImagesCombiner(object):
-    def __init__(self, images: List[CCDData], names: List[str], max_memory: float = 2e9) -> None:
+    def __init__(self, images: List[CCDData], names: List[str], max_memory: float = 1e9) -> None:
         """
         maintains images set array and file names
         max memory is used by ccdproc routines to avoid OOM exceptions when working with large set of big images
@@ -386,7 +386,8 @@ class Images(ImagesCombiner):
     @classmethod
     def from_fits_by_name_dateobs(cls, dir: str, filter: str, 
                  camera_electronic_gain: float = 1.2 * u.Unit('electron') / u.Unit('adu'), 
-                 camera_readout_noise: float =  2.2 * u.Unit('electron')):
+                 camera_readout_noise: float =  2.2 * u.Unit('electron'),
+                 max_memory: float = 1e9) -> ImagesCombiner:
         """_summary_
         load a set of FIT images filtered by name from a directory
 
@@ -395,6 +396,7 @@ class Images(ImagesCombiner):
             filter (str): wildcard name filter
             camera_electronic_gain (float, optional): . Defaults to 1.2*u.electron/u.adu.
             camera_readout_noise (float, optional): . Defaults to 2.2*u.electron.
+            max_memory (float, optional): default to 1e9 bytes
 
         Returns:
             List (CCData): images set loaded
@@ -413,12 +415,13 @@ class Images(ImagesCombiner):
             names.append(fp)
             logging.info(f'image : {fp} loaded')
         
-        return ImagesCombiner(images=images, names=names)
+        return ImagesCombiner(images=images, names=names, max_memory=max_memory)
 
     @classmethod
     def from_fits_by_names_list(cls, imgs: list[str],
                  camera_electronic_gain: float = 1.2 * u.Unit('electron') / u.Unit('adu'), 
-                 camera_readout_noise: float =  2.2 * u.Unit('electron')):
+                 camera_readout_noise: float =  2.2 * u.Unit('electron'),
+                 max_memory: float = 1e9) -> ImagesCombiner:
         """
         load a set of FIT images from a list of names
 
@@ -426,6 +429,7 @@ class Images(ImagesCombiner):
             imgs (list[str]): list of names
             camera_electronic_gain (float, optional): . Defaults to 1.2*u.electron/u.adu.
             camera_readout_noise (float, optional): . Defaults to 2.2*u.electron.
+            max_memory (float, optional): default to 1e9 bytes
 
         Returns:
             List (CCData): images set loaded
@@ -443,7 +447,7 @@ class Images(ImagesCombiner):
             names.append(fp)
             logging.info(f'image : {fp} loaded')
         
-        return ImagesCombiner(images=images, names=names)
+        return ImagesCombiner(images=images, names=names, max_memory=max_memory)
     
     @classmethod
     def compute_crop(cls, img:CCDData, y_center: float = 0.5, y_ratio: float = 0.3) -> tuple[float, float, float, float]:
