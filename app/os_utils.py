@@ -1,5 +1,5 @@
 import logging
-import os
+import os, sys, platform
 from pathlib import Path
 #import psutil
 from importlib.metadata import version  
@@ -22,10 +22,15 @@ class OSUtils(object):
         """
         show some packages version
         """        
-        logging.info("versions installed: ")
+        from tkinter import TkVersion
+
+        logging.info("versions running: ")
+        logging.info(f"platform = {platform.system()}, release = {platform.release()}")
+        logging.info(f"python = {sys.version}")
+        logging.info(f"tkinter = {TkVersion}")
         for module in ['matplotlib', 'numpy', 'astropy', 'specutils', 'specreduce', 'ccdproc']:
             try:
-                logging.info(f"{module} = v{version(module)}")
+                logging.info(f"{module} = {version(module)}")
             except Exception as e:
                 logging.info(f"{e}")
 
@@ -71,4 +76,5 @@ class OSUtils(object):
                     key = os.path.getmtime, 
                     reverse = True)
                 ) , name)
+    
 

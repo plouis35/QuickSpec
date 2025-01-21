@@ -105,11 +105,16 @@ class Spectrum(object):
             logging.info("please calibrate first")
             return
         
-        min_wl = 3800 
-        max_wl = 7500
+        if self.science_spectrum.spectral_axis_unit == u.Unit('pixel'):
+            logging.warning("spectrum needs to be calibrated first")
+            return
+
+        min_wl = 3800       # TODO: should go to configuration
+        max_wl = 7500       # TODO: should go to configuration
         bin_size = 20 # size (angstroms) of each colored slice under spectrum
 
         if self.showed_colorized:
+            # find out if theme is dark or light to get proper background color to clear colorization
             if (plt.rcParams.get('figure.facecolor')) == 'black': _color = 'black'
             else: _color = 'white'
 
@@ -243,23 +248,25 @@ class Spectrum(object):
         
         self.science_spectrum = extracted_spectrum
 
-        # trace sky zones
+        # trace spectrum zone
         self.img_axe.plot(self.science_spectrum.spectral_axis, self.science_trace.trace + self.conf.get_int('processing', 'trace_y_size'), 
                 color='blue', linestyle='dashed', linewidth = '0.5')  #, alpha=0.2)
         self.img_axe.plot(self.science_spectrum.spectral_axis, self.science_trace.trace - self.conf.get_int('processing', 'trace_y_size'), 
                 color='blue', linestyle='dashed', linewidth = '0.5')  #, alpha=0.2)
 
-        self.img_axe.plot(self.science_spectrum.spectral_axis, self.science_trace.trace + (self.conf.get_int('processing', 'sky_y_offset')) , 
-                color='green', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
-        self.img_axe.plot(self.science_spectrum.spectral_axis, self.science_trace.trace - (self.conf.get_int('processing', 'sky_y_offset')) , 
-                color='green', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
+        # trace sky zone
+        if self.conf.get_bool('processing', 'sky_substract') in (None, True):
+            self.img_axe.plot(self.science_spectrum.spectral_axis, self.science_trace.trace + (self.conf.get_int('processing', 'sky_y_offset')) , 
+                    color='green', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
+            self.img_axe.plot(self.science_spectrum.spectral_axis, self.science_trace.trace - (self.conf.get_int('processing', 'sky_y_offset')) , 
+                    color='green', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
 
-        self.img_axe.plot(self.science_spectrum.spectral_axis, 
-                self.science_trace.trace + (self.conf.get_int('processing', 'sky_y_offset') + self.conf.get_int('processing', 'sky_y_size')) , 
-                color='green', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
-        self.img_axe.plot(self.science_spectrum.spectral_axis, 
-                self.science_trace.trace - (self.conf.get_int('processing', 'sky_y_offset') + self.conf.get_int('processing', 'sky_y_size')) , 
-                color='green', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
+            self.img_axe.plot(self.science_spectrum.spectral_axis, 
+                    self.science_trace.trace + (self.conf.get_int('processing', 'sky_y_offset') + self.conf.get_int('processing', 'sky_y_size')) , 
+                    color='green', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
+            self.img_axe.plot(self.science_spectrum.spectral_axis, 
+                    self.science_trace.trace - (self.conf.get_int('processing', 'sky_y_offset') + self.conf.get_int('processing', 'sky_y_size')) , 
+                    color='green', linewidth = '0.5', linestyle='dashed')  #, alpha=0.2)
         
         self.img_axe.get_figure().canvas.draw_idle()
 
@@ -375,7 +382,7 @@ class Spectrum(object):
             show_line (bool, optional): . Defaults to True.
         """        
         if self.science_spectrum.spectral_axis_unit == u.Unit('pixel'):
-            logging.warning("spectrum needs to ba calibrated first")
+            logging.warning("spectrum needs to be calibrated first")
             return
 
         if ax is None: ax = self.spc_axe

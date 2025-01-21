@@ -35,10 +35,10 @@ level = INFO
 
 [display]
 theme = dark            # light
-contrast_level = 6      # from 1 to 9 : 
+contrast_level = 2      # from 1 (low) to 9 (high)
 
 [pre_processing]
-crop_auto = 0.5, 0.3    # y central relative (0.0 = bottom, 1.0 = top), crop ratio (0.0 = 0%, 1.0 = 100%)
+y_crop = 0.5, 0.3    # y central relative (0.0 = bottom, 1.0 = top), crop ratio (0.0 = 0%, 1.0 = 100%)
 master_offset = _offset.fit
 master_dark = _dark.fit
 master_flat = _flat.fit

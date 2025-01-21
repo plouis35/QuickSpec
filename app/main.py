@@ -52,7 +52,7 @@ class Application(tk.Tk):
         self.tk.call("set_theme", _tk_theme)
         plt.rcParams['figure.constrained_layout.use'] = True
         
-        self.title(f"{app_name} - ")
+        self.title(f"{app_name} v{app_version}")
         self.app_name = app_name
         self.app_version = app_version
 
@@ -65,7 +65,7 @@ class Application(tk.Tk):
         self.after_idle(self.watch_files)
 
         # and last display major packages versions installed
-        logging.info(f"{app_name} {app_version} started")
+        logging.info(f"{app_name} v{app_version} started")
         OSUtils.show_versions()
 
     def create_panels(self) -> None:
@@ -221,9 +221,9 @@ class Application(tk.Tk):
         
         # set window title according to images names - loaded spectra not set
         if len(img_names) > 1:
-            self.title(f"{self.app_name} - [{Path(path[0]).stem} .. {Path(path[-1]).stem}]")
+            self.title(f"{self.app_name} v{self.app_version} - [{Path(path[0]).stem} .. {Path(path[-1]).stem}]")
         elif len(img_names) == 1:
-            self.title(f"{self.app_name} - [{Path(path[0]).stem}]")
+            self.title(f"{self.app_name} v{self.app_version} - [{Path(path[0]).stem}]")
         else:
             pass
 
@@ -257,7 +257,7 @@ class Application(tk.Tk):
                     self.config(cursor="")    
                     
                     # update names in title
-                    self.title(f"{self.app_name} - [{new_file}]")
+                    self.title(f"{self.app_name} v{self.app_version} - [{new_file}]")
 
                     # start processing all
                     self.config(cursor="watch")

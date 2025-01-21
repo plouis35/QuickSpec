@@ -115,22 +115,32 @@ level = INFO
 
 [display]
 theme = dark
+contrast_level = 4
 
 [pre_processing]
+#y_crop = 0.5, 0.3
+auto_process = Yes
 master_offset = _offset.fit
 master_dark = _dark.fit
 master_flat = _flat.fit
 
 [processing]
+trace_method = flat                             # fit
+#peak_model = max                               # gaussian, centroid
+#trace_model = models.Polynomial1D(degree=2)    # models.polynomial.Chebyshev1D, models.polynomial.Legendre1D, models.spline.Spline1D
 #trace_y_guess = 1695
 trace_y_size = 15
 trace_y_window = 50
 trace_x_bins = 12
-sky_y_size = 140
-sky_y_offset = 120
+sky_substract = Yes
+sky_y_size = 60
+sky_y_offset = 60
 
 calib_x_pixel = 770, 1190, 2240, 3520, 4160
 calib_x_wavelength = 6506.53, 6532.88, 6598.95, 6678.28, 6717.04
+#input_model = models.Polynomial1D(degree=2)    # models.polynomial.Chebyshev1D, models.polynomial.Legendre1D, models.spline.Spline1D
+#fitter_model = fitting.LinearLSQFitter         # fitting.LMLSQFitter (non-linear)
+
 response_file = _rep.fits
 
 [post_processing]
