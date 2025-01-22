@@ -1,5 +1,5 @@
-#name: EasySpec
-name: quickspec
+#name: quickspec
+name: base
 channels:
   - conda-forge
 dependencies:

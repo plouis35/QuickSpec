@@ -24,8 +24,7 @@ from specreduce import WavelengthCalibration1D
 
 from app.config import Config
 
-class SPCUtils(object):
-
+class SPCUtils(object):    
     @staticmethod
     def trace_spectrum(img_stacked:CCDData) -> FitTrace | FlatTrace | None:
         """
@@ -40,7 +39,7 @@ class SPCUtils(object):
         Returns:
             FitTrace | FlatTrace |  None: specreduce Fit/flatTrace class - will be used to extract spectrum later
         """        
-        conf = Config()
+        conf = Config().__new__(Config)
 
         if (_trace_method := conf.get_str('processing', 'trace_method')) is not None:
             if _trace_method == 'fit': 
@@ -83,7 +82,7 @@ class SPCUtils(object):
             logging.error("please define trace method in configuration file")
             return None
             
-        logging.info(f'trace fitted : y = {science_trace.trace}')
+        #logging.info(f'trace fitted : y = {science_trace.trace}')
 
         return science_trace
 
@@ -100,7 +99,7 @@ class SPCUtils(object):
         Returns:
             Spectrum1D | None: uncalibrated 1D spectrum 
         """      
-        conf = Config()
+        conf = Config().__new__(Config)
 
         if conf.get_bool('processing', 'sky_substract') in (None, True):
             try:
@@ -156,7 +155,7 @@ class SPCUtils(object):
         Returns:
             Spectrum1D | None: calibrated 1D spectrum
         """
-        conf = Config()
+        conf = Config().__new__(Config)
 
         # convert args to pix/AA
         _wavelength = [float(x) for x in wavelength.replace(',', '').split()]*u.Unit('angstrom')
@@ -182,16 +181,34 @@ class SPCUtils(object):
             return None
         
         # calibrate science spectrum
-        calibrated_spectrum: Spectrum1D = calibration.apply_to_spectrum(science_spectrum)
-        logging.info(f"spectrum calibrated - residuals : {repr(calibration.residuals)}")
-        logging.info(f"spectrum calibrated - fitted model : {repr(calibration.fitted_model )}")
+        try:
+            calibrated_spectrum: Spectrum1D = calibration.apply_to_spectrum(science_spectrum)
+            logging.info(f"spectrum calibrated - residuals : {repr(calibration.residuals)}")
+            logging.info(f"spectrum calibrated - fitted model : {repr(calibration.fitted_model )}")
+
+        except Exception as e:
+            logging.error(f"unable to apply calibration to spectrum : {e}")
+            return None
 
         # normalize to 1 
-        # TODO: make sure the normalized range is within the calibration range !
-        norm_region = calibrated_spectrum[6500 * u.Unit('angstrom'): 6520 * u.Unit('angstrom')].flux.mean() 
-        normalized_spec = Spectrum1D(spectral_axis = calibrated_spectrum.wavelength, 
-                                     flux = calibrated_spectrum.flux / norm_region)  
-        logging.info('spectrum normalized to 1')
+        if (_norm_region := conf.get_str('processing', 'normalized_region')) is None:
+            _min_region = 6500
+            _max_region = 6520
+        else:
+            _min_region = eval(_norm_region)[0]
+            _max_region = eval(_norm_region)[1]
+
+        logging.info(f"normalized regions to use = ({_min_region}, {_max_region})")
+
+        try:
+            norm_region = calibrated_spectrum[_min_region * u.Unit('angstrom'): _max_region * u.Unit('angstrom')].flux.mean() 
+            normalized_spec = Spectrum1D(spectral_axis = calibrated_spectrum.wavelength, 
+                                        flux = calibrated_spectrum.flux / norm_region)  
+            logging.info('spectrum normalized to 1')
+        
+        except Exception as e:
+            logging.error(f"unable to normalize spectrum : {e}")
+            return None
 
         return normalized_spec
     
@@ -199,6 +216,8 @@ class SPCUtils(object):
     def apply_response(science_spectrum: Spectrum1D) -> Spectrum1D | None:  
         """
         divide calibrated 1D spectrum by a response file
+        WARNING: only specinti generated response files are supported
+        TODO: investigate other format, i.e. rebin response and science spectrum to be compatible
 
         Args:
             science_spectrum (Spectrum1D): calibrated 1D spectrum
@@ -206,8 +225,7 @@ class SPCUtils(object):
         Returns:
             Spectrum1D | None: response corrected 1D spectrum
         """        
-        conf = Config()
-
+        conf = Config().__new__(Config)
         final_spec: Spectrum1D = None
 
         try:
@@ -248,6 +266,8 @@ class SPCUtils(object):
         Returns:
             Spectrum1D | None: smooth'ed spectrum
         """
+        conf = Config().__new__(Config)
+
         smooth_spec: Spectrum1D = median_smooth(science_spectrum, width=smooth_width) 
         science_spectrum = smooth_spec
         return science_spectrum

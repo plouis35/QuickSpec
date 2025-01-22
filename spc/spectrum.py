@@ -46,7 +46,7 @@ class Spectrum(object):
         self.showed_lines: bool = False
         self.showed_colorized: bool = False
         self.colors = ('blue', 'red', 'green', 'orange', 'cyan')
-        self.lines_color = 'orange' #'yellow'    
+        self.lines_color = 'grey' #'yellow'    
         self.spectrum_color = 'grey'
 
         # create figure and axe
@@ -112,6 +112,7 @@ class Spectrum(object):
         min_wl = 3800       # TODO: should go to configuration
         max_wl = 7500       # TODO: should go to configuration
         bin_size = 20 # size (angstroms) of each colored slice under spectrum
+        _y1=self.science_spectrum.flux.min()
 
         if self.showed_colorized:
             # find out if theme is dark or light to get proper background color to clear colorization
@@ -121,7 +122,7 @@ class Spectrum(object):
             # remove existing colorization
             for i in range(0, len(self.science_spectrum.wavelength) - 1, bin_size):
                 self.spc_axe.fill_between(x=self.science_spectrum.wavelength.value[i:i+bin_size+1], 
-                                y1=0, 
+                                y1=_y1, 
                                 y2=self.science_spectrum.flux.value[i:i+bin_size+1],
                                 color=_color, alpha=1.0)
             self.showed_colorized = False
@@ -130,7 +131,7 @@ class Spectrum(object):
             colors = plt.cm.turbo((self.science_spectrum.wavelength.value - min_wl) / (max_wl - min_wl))            
             for i in range(0, len(self.science_spectrum.wavelength) - 0, bin_size):
                 self.spc_axe.fill_between(x=self.science_spectrum.wavelength.value[i:i+bin_size+1], 
-                                y1=0,
+                                y1=_y1,
                                 y2=self.science_spectrum.flux.value[i:i+bin_size+1], 
                                 color=colors[i], alpha=1.0)
             self.showed_colorized = True
