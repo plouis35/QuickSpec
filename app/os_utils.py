@@ -8,7 +8,7 @@ from pathlib import Path
 from importlib.metadata import version  
 import fnmatch, pathlib
 
-class OSUtils(object):
+class os_utils(object):
     # private to class
     _current_path: str = '.'
 
@@ -48,8 +48,8 @@ class OSUtils(object):
         Returns:
             str: _description_
         """        
-        OSUtils._current_path = str(Path(path).absolute().parent)
-        return OSUtils._current_path
+        os_utils._current_path = str(Path(path).absolute().parent)
+        return os_utils._current_path
 
     @staticmethod
     def get_current_path() -> str:
@@ -59,7 +59,7 @@ class OSUtils(object):
         Returns:
             str: current path
         """        
-        return OSUtils._current_path
+        return os_utils._current_path
 
     @staticmethod
     def list_files(path: str, name: str = '*') -> list:

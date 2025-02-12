@@ -356,6 +356,9 @@ class ImagesCombiner(object):
         #return master_sciences.median()
         return master_sciences.sum()
 
+"""
+namespace wrapper to image(s) loading function
+"""
 class Images(ImagesCombiner):
     """
     Images class implements the image file loader methods

@@ -26,9 +26,10 @@ from specutils.spectra.spectrum1d import Spectrum1D
 from specutils.analysis import snr, snr_derived
 
 from specreduce.tracing import FlatTrace, FitTrace
+from astropy.modeling import models, fitting
 
 from app.config import Config
-from spc.spc_utils import SPCUtils
+from spc.spc_utils import spc_utils
 
 class Spectrum(object):
 
@@ -41,8 +42,8 @@ class Spectrum(object):
             img_axe (Axes): image axe to draw to
         """        
         self.conf = Config()
-        self.science_spectrum: Spectrum1D = None
-        self.science_trace: FitTrace = None
+        self.science_spectrum: Spectrum1D | None = None
+        self.science_trace: FitTrace | FlatTrace | None = None
         self.showed_lines: bool = False
         self.showed_colorized: bool = False
         self.colors = ('blue', 'red', 'green', 'orange', 'cyan')
@@ -88,7 +89,13 @@ class Spectrum(object):
         # open spectrum data
         try:
             spec1d: Spectrum1D = Spectrum1D.read(spc_name)
-            self.show_spectrum(name=spec1d.meta['header']['OBJECT'], spectrum=spec1d, calibrated=True)
+            if 'OBJNAME' in spec1d.meta['header']:
+                self.show_spectrum(name=spec1d.meta['header']['OBJNAME'], spectrum=spec1d, calibrated=True)
+            elif 'OBJECT' in spec1d.meta['header']:
+                self.show_spectrum(name=spec1d.meta['header']['OBJECT'], spectrum=spec1d, calibrated=True)
+            else:
+                logging.error(f"fit header has not object name")
+                return False
 
         except Exception as e:
             logging.error(f"{e}")
@@ -109,8 +116,8 @@ class Spectrum(object):
             logging.warning("spectrum needs to be calibrated first")
             return
 
-        min_wl = 3800       # TODO: should go to configuration
-        max_wl = 7500       # TODO: should go to configuration
+        min_wl = 3800       # TODO: should go to configuration file
+        max_wl = 7500       # TODO: should go to configuration file
         bin_size = 20 # size (angstroms) of each colored slice under spectrum
         _y1=self.science_spectrum.flux.min()
 
@@ -124,7 +131,7 @@ class Spectrum(object):
                 self.spc_axe.fill_between(x=self.science_spectrum.wavelength.value[i:i+bin_size+1], 
                                 y1=_y1, 
                                 y2=self.science_spectrum.flux.value[i:i+bin_size+1],
-                                color=_color, alpha=1.0)
+                                color=_color, alpha=1.0) #, linewidth=0)
             self.showed_colorized = False
         else:
             # show 'rainbow' color under spectrum
@@ -133,7 +140,7 @@ class Spectrum(object):
                 self.spc_axe.fill_between(x=self.science_spectrum.wavelength.value[i:i+bin_size+1], 
                                 y1=_y1,
                                 y2=self.science_spectrum.flux.value[i:i+bin_size+1], 
-                                color=colors[i], alpha=1.0)
+                                color=colors[i], alpha=1.0) #, linewidth=0)
             self.showed_colorized = True
             
         self.spc_figure.canvas.draw_idle()
@@ -201,7 +208,7 @@ class Spectrum(object):
         callback for trace button
 
         Args:
-            img_stacked (CCDData): 2D spectrum 
+            img_stacked (CCDData): 2D spectrum to find trace from
 
         Returns:
             bool: True if success
@@ -210,20 +217,74 @@ class Spectrum(object):
             logging.error("please reduce image(s) before fitting trace")
             return False
 
-        science_trace = SPCUtils.trace_spectrum(img_stacked.data)
-        if science_trace is None:
-            return False
-        
+        # reset current trace
+        science_trace: FitTrace | FlatTrace | None = None
         self.science_trace = science_trace
 
-        # remove existing trace 
-        for elm in self.img_axe.get_children():
-                if isinstance(elm, Line2D): 
-                    elm.remove()
+        # collect trace configuration
+        if (_trace_method := self.conf.get_str('processing', 'trace_method')) is not None:
+            if _trace_method == 'fit': 
+                if (_trace_model := self.conf.get_str('processing', 'trace_model')) is None:
+                    _trace_model = eval("models.Polynomial1D(degree=2)")
+                else:
+                    _trace_model = eval(_trace_model)
 
-        # trace spectrum
-        self.img_axe.plot(self.science_trace.trace , color='red', linestyle='dashed', linewidth = '0.5')
-        self.img_axe.get_figure().canvas.draw_idle()
+                if (_peak_method := self.conf.get_str('processing', 'peak_model')) is None:
+                    _peak_method = "gaussian"
+
+                if (_bins := self.conf.get_int('processing', 'trace_x_bins')) is None:
+                    _bins = 12
+
+                if (_y_window := self.conf.get_int('processing', 'trace_y_window')) is None:
+                    _y_window = 50
+
+                if (_y_guess := self.conf.get_float('processing', 'trace_y_guess')) is None:
+                    _y_guess = None
+                
+                try:
+                    science_trace = spc_utils.trace_spectrum(img_stacked=img_stacked,
+                                                            mode=_trace_method,
+                                                            bins=_bins,
+                                                            guess=_y_guess,
+                                                            window=_y_window,
+                                                            trace_model=_trace_model,
+                                                            peak_method=_peak_method)
+                                                    
+                except Exception as e:
+                    logging.error(f"unable to fit trace : {e}")
+                    return False
+
+            elif _trace_method == 'flat': 
+                if (_y_guess := self.conf.get_float('processing', 'trace_y_guess')) is None:
+                    logging.error("please define a 'trace_y_guess' for flat trace mode")
+                    return False
+                
+                try:
+                    science_trace = spc_utils.trace_spectrum(img_stacked=img_stacked,
+                                                            mode=_trace_method,
+                                                            guess=_y_guess)
+                except Exception as e:
+                    logging.error(f"unable to flat trace : {e}")
+                    return False
+
+            else: 
+                logging.error(f"unknown trace method: {_trace_method}")
+                return False
+        else:
+            logging.error("please define trace method in configuration file")
+            return False
+                    
+        if science_trace is not None:
+            self.science_trace = science_trace
+
+            # remove existing trace 
+            for elm in self.img_axe.get_children():
+                    if isinstance(elm, Line2D): 
+                        elm.remove()
+
+            # trace spectrum
+            self.img_axe.plot(self.science_trace.trace , color='red', linestyle='dashed', linewidth = '0.8')
+            self.img_axe.get_figure().canvas.draw_idle()
 
         return True
 
@@ -243,7 +304,7 @@ class Spectrum(object):
             logging.error("please fit trace before extracting spectrum")
             return False
 
-        extracted_spectrum = SPCUtils.extract_spectrum(img_stacked=img_stacked, 
+        extracted_spectrum = spc_utils.extract_spectrum(img_stacked=img_stacked, 
                                                        science_trace=self.science_trace)
         if extracted_spectrum is None:
             return False
@@ -301,11 +362,18 @@ class Spectrum(object):
             logging.error("please specify lines/waves index in config file")
             return False
         
-        calibrated_spectrum = SPCUtils.calibrate_spectrum(self.science_spectrum, _pixels, _wavelength)
+        calibrated_spectrum = spc_utils.calibrate_spectrum(self.science_spectrum, _pixels, _wavelength)
         if calibrated_spectrum is None:
             return False        
 
-        self.science_spectrum = calibrated_spectrum
+        #self.science_spectrum = calibrated_spectrum
+        if (_shift_wv := self.conf.get_float('post_processing', 'shift_wavelength')) is None:
+            _shift_wv = 0.0
+
+        logging.info(f"shifting wavelength to {_shift_wv}")
+
+        self.science_spectrum = Spectrum1D(spectral_axis=calibrated_spectrum.spectral_axis + _shift_wv * u.Unit('Angstrom'), 
+                                           flux=calibrated_spectrum.flux)
 
         # show derived-SNR
         logging.info(f'snr = {snr_derived(self.science_spectrum):.1f}')
@@ -331,7 +399,7 @@ class Spectrum(object):
             logging.error(f'please calibrate spectrum before applying response file')
             return False
         
-        final_spec: Spectrum1D = SPCUtils.apply_response(self.science_spectrum) 
+        final_spec: Spectrum1D = spc_utils.apply_response(self.science_spectrum) 
         if final_spec is None:
             return False        
 
@@ -361,7 +429,7 @@ class Spectrum(object):
         # apply median smoothing (if any defined)
         smooth: int | None = self.conf.get_int('post_processing', 'median_smooth') 
         if smooth is not None:
-            smooth_spec: Spectrum1D = SPCUtils.median_smooth(self.science_spectrum, smooth) 
+            smooth_spec: Spectrum1D = spc_utils.median_smooth(self.science_spectrum, smooth) 
             if smooth_spec is not None:
                 self.science_spectrum = smooth_spec
                 logging.info(f"median smooth applied={smooth}")
@@ -391,7 +459,7 @@ class Spectrum(object):
                         
         xbounds = ax.get_xbound()   
         trans = ax.get_xaxis_transform()
-
+        
         if self.showed_lines is False:
             for wave, elm in self.conf.config.items('lines'):
                 _lambda = (float(wave) * 10)   # convert nm to ang
@@ -419,6 +487,7 @@ class Spectrum(object):
             self.showed_lines = False
                     
         self.spc_figure.canvas.draw_idle()
+
 
 class CustomSpcToolbar(NavigationToolbar2Tk):
     def __init__(self, canvas, parent) -> None:

@@ -1,8 +1,8 @@
 """
 main application class:
 - initialize logging and configuration
-- creates tkinter GUI components
-- instantiates image and spectrum classes
+- creates tkinter main GUI
+- instantiates 2D image and 1D spectrum classes
 - creates a watchdog routine to monitor new file creation for automatic spectrum processing
 """
 import logging
@@ -21,11 +21,11 @@ from astropy import units as u
 from astropy.nddata import CCDData
 
 from app.logger import LogHandler
-from app.os_utils import OSUtils
+from app.os_utils import os_utils
 
 from app.config import Config
 from img.image import Image
-from app.os_utils import OSUtils
+from app.os_utils import os_utils
 from spc.spectrum import Spectrum
 
 class Application(tk.Tk):
@@ -47,14 +47,17 @@ class Application(tk.Tk):
         self.tk.call("source", "azure.tcl")
 
         # set theme and colors
-        _tk_theme = 'dark'
-        _mpl_theme = 'dark_background'
-        if (_theme := self.conf.get_str('display', 'theme')) is not None:
-            if _theme == 'light':
-                _tk_theme = _theme
-                _mpl_theme = 'grayscale'
-            else:
-                logging.warning(f"unsupported color theme: {_theme=}")
+        if (_theme := self.conf.get_str('display', 'theme')) in (None, 'dark'):
+            _tk_theme = 'dark'
+            _mpl_theme = 'dark_background'
+
+        elif _theme == 'light':
+            _tk_theme = 'light'
+            _mpl_theme = 'grayscale'
+        else:
+            logging.error(f"unsupported color theme: {_theme=}")
+            _tk_theme = 'dark'
+            _mpl_theme = 'dark_background'
             
         plt.style.use(_mpl_theme)        
         self.tk.call("set_theme", _tk_theme)
@@ -74,11 +77,11 @@ class Application(tk.Tk):
 
         # and display major packages versions installed
         logging.info(f"{app_name} v{app_version} started")
-        OSUtils.show_versions()
+        os_utils.show_versions()
 
     def create_panels(self) -> None:
         """
-        create tkinter panels for 2D and D spectrum display
+        create tkinter panels for 2D and 1D spectrum display
         instantiate image and spectrum classes to manage them
         """        
         # create top frame to hold buttons and sliders
@@ -101,7 +104,7 @@ class Application(tk.Tk):
 
     def create_buttons(self) -> None:
         """
-        creates buttons to load, process_all and process_step_by_step spectra
+        creates global buttons to load, process_all and process_step_by_step spectra
         """        
         bt_load = ttk.Button(self.bt_frame, text="Load", command=self.cb_open_files) 
         bt_load.pack(side=tk.LEFT, padx=5, pady=0)
@@ -157,7 +160,7 @@ class Application(tk.Tk):
     def run_long_operation(func):
         """
         decorator for callback buttons
-        display 'waiting' cursor while callback is runnning
+        display 'waiting' cursor while processing
         (does not work well on Windows platforms ...)
         """        
         @functools.wraps(func)
@@ -170,6 +173,7 @@ class Application(tk.Tk):
 
     @run_long_operation
     def cb_run_all(self) -> bool:
+        logging.info('run all started...')
         for action in ( self.cb_reduce_images, 
                         self.cb_trace_spectrum, 
                         self.cb_extract_spectrum, 
@@ -223,7 +227,7 @@ class Application(tk.Tk):
         if path == '': return False
 
         # create new config file if not existing
-        self.conf.set_conf_directory(OSUtils.get_path_directory(path=path[0]))
+        self.conf.set_conf_directory(os_utils.get_path_directory(path=path[0]))
 
         # check header to either load an 2D image or a 1D spectrum
         img_names: list[str] = []
@@ -231,12 +235,12 @@ class Application(tk.Tk):
             fit_data: CCDData = CCDData.read(img_name, unit=u.dimensionless_unscaled)
             if fit_data.ndim == 1:
                 # this is a spectrum fit file: display directly
-                logging.info(f"{img_name} is a spectrum (naxis = 1)")
+                logging.info(f"{img_name} is a spectrum (naxis = 1, shape = {fit_data.shape})")
                 self._spectrum.open_spectrum(img_name)
 
             elif fit_data.ndim == 2:
                 # this is a fit image - keep it to load them all together
-                logging.info(f"{img_name} is a fit image (naxis = 2)")
+                logging.info(f"{img_name} is a fit image (naxis = 2, shape = {fit_data.shape})")
                 img_names.append(img_name)
             else:
                 # not supported fit format
@@ -269,11 +273,10 @@ class Application(tk.Tk):
 
         logging.debug(f"watchdog current time is : {time.strftime('%H:%M:%S', time.localtime())}")
         auto_process: bool | None = self.conf.get_bool('processing', 'auto_process')
-        
-        if (auto_process is None) or (auto_process is True):
+        if auto_process in (None, True):
             logging.debug(f"watchdog enabled")
-            if ((path := OSUtils.get_current_path()) != '.'):
-                new_file = OSUtils.list_files(path, '*.fit*')[0]
+            if ((path := os_utils.get_current_path()) != '.'):
+                new_file = os_utils.list_files(path, '*.fit*')[0]
                 if os.path.getmtime(f"{path}/{new_file}") >= self._last_timer:
                     logging.info(f"new FIT file detected: {new_file}")
                     self._last_timer = time.time()

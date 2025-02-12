@@ -58,11 +58,13 @@ class Config(object):
         def wrap(self, *args, **kwargs):
             # check if config file has been modified - if so re-read it
             if Config._last_time_check <= os.path.getmtime(self._config_path): 
-                logging.warning("config has been modified - reloading it...")
-                self.config.read(self._config_path)
+                logging.warning("config has been modified - reloading it... ")
+                #self.config.read(self._config_path)
+                self._initialize()
                 Config._last_time_check = time.time()
 
-            return func(self, *args, **kwargs)
+            retcode = func(self, *args, **kwargs)
+            return retcode
         return wrap
 
     @check_changes
@@ -127,7 +129,7 @@ auto_process = Yes                              # detect and process new file un
 [processing]
 trace_method = fit                              # fit (automatic detection and trace), flat (horizontal trace)
 peak_model = gaussian                           # max, gaussian, centroid
-trace_model = models.Polynomial1D(degree=2)     # models.Chebyshev1D(), models.Legendre1D(), models.spline.Spline1D()
+trace_model = models.Polynomial1D(degree=2)     # models.Chebyshev1D(), models.Legendre1D(), models.Spline1D()
 #trace_y_guess = 1695                           # fixed y
 trace_y_size = 15                               # spectrum bin size
 trace_y_window = 50                             # fit mode window size to search 
@@ -146,6 +148,7 @@ response_file = _rep.fits                       # response spectrum - generated 
 #median_smooth = 7                              # size of median kernel to apply 
 
 [lines]                                         # ATTENTION: special character not allowed (such as greek chars...)
+lines_color = grey
 0.00 = Zero
 656.28 = H
 486.13 = H

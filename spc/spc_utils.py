@@ -1,5 +1,5 @@
 """
-utility routines to trace, extract and calibrate 2D spectra
+namespace wrapper to utility routines to trace, extract and calibrate 2D spectra
 """
 import logging
 import numpy as np
@@ -24,72 +24,73 @@ from specreduce import WavelengthCalibration1D
 
 from app.config import Config
 
-class SPCUtils(object):    
+class spc_utils(object):    
     @staticmethod
-    def trace_spectrum(img_stacked:CCDData) -> FitTrace | FlatTrace | None:
+    def trace_spectrum( img_stacked:CCDData,
+                        mode: str = 'fit',
+                        bins: int | None = None,
+                        guess: float | None = None,
+                        window: int | None = None,
+                        trace_model = models.Polynomial1D(degree=2),
+                        peak_method: str | None = 'gaussian'
+                       ) -> FitTrace | FlatTrace | None:
         """
         identify trace in a 2D spectrum image
-        two methods implemented from specreduce: 
+        two modes are implemented: 
         1) 'flat' : just a straight line along the X-axis
-        2) 'fit' : split the spectrum into bins and identify their y-position
+        2) 'fit' : automatic split the spectrum whatever form it has
 
         Args:
-            img_stacked (np.ndarray): 2D image to scan
+            img_stacked (CCDData): image stacked
+            mode (str) : either 'fit' (automatic trace finder) or 'flat' (fixed y-position)
+            bins (int, optional): the number of bins in the dispersion (wavelength) direction into which to divide the image.
+            guess (float, optional): A guess at the trace's location in the cross-dispersion (spatial) direction.
+            window (int, optional): Fit the trace to a region with size window * 2 around the guess position.
+            trace_model (models.Model, optional): Chebyshev1D, Legendre1D, Polynomial1D, or spline.Spline1D
+            peak_method (str, optional): One of gaussian, centroid, or max.
 
         Returns:
-            FitTrace | FlatTrace |  None: specreduce Fit/flatTrace class - will be used to extract spectrum later
+            FitTrace | FlatTrace |  None: specreduce output of FitTrace or FlatTrace method - will be used to extract spectrum later
         """        
-        conf = Config().__new__(Config)
 
-        if (_trace_method := conf.get_str('processing', 'trace_method')) is not None:
-            if _trace_method == 'fit': 
-                try:
-                    if (_trace_model := conf.get_str('processing', 'trace_model')) is None:
-                        _trace_model = "models.Polynomial1D(degree=2)"
+        science_trace = None
 
-                    if (_peak_method := conf.get_str('processing', 'peak_model')) is None:
-                        _peak_method = "max"
+        logging.info(f"trace args: {mode=}, {bins=}, {trace_model=}, {peak_method=}, {window=}, {guess=}")
+        if mode == 'fit': 
+            try:
+                science_trace = FitTrace(image=img_stacked, 
+                                        bins=bins, 
+                                        trace_model=trace_model,
+                                        peak_method=peak_method,
+                                        window=window,
+                                        guess=guess
+                                        )
+                logging.info(f'trace fitted : automatic trace model fitted = {science_trace.trace_model_fit}')
 
-                    science_trace = FitTrace(image=img_stacked, 
-                                            bins=conf.get_int('processing', 'trace_x_bins'), 
-                                            trace_model=eval(_trace_model),
-                                            peak_method=_peak_method,
-                                            window=conf.get_int('processing', 'trace_y_window'),
-                                            guess=conf.get_float('processing', 'trace_y_guess')
-                                            )
-                    logging.info(f'trace fitted : trace model fitted = {science_trace.trace_model_fit}')
-
-                except Exception as e:
-                    logging.error(f"unable to fit trace : {e}")
-                    return None
-
-            elif _trace_method == 'flat': 
-                if conf.get_float('processing', 'trace_y_guess') is None:
-                    logging.error("please define a 'trace_y_guess' for flat trace mode")
-                    return None
-                try:
-                    science_trace = FlatTrace(image=img_stacked, 
-                                            trace_pos=conf.get_float('processing', 'trace_y_guess')
-                                            )
-                except Exception as e:
-                    logging.error(f"unable to flat trace : {e}")
-                    return None
-
-            else: 
-                logging.error(f"unknown trace method: {_trace_method}")
+            except Exception as e:
+                logging.error(f"unable to fit trace : {e}")
                 return None
-        else:
-            logging.error("please define trace method in configuration file")
+
+        elif mode == 'flat': 
+            try:
+                science_trace = FlatTrace(image=img_stacked, 
+                                        trace_pos=guess
+                                        )
+                logging.info(f'trace fitted : flat trace model fitted = {science_trace.trace}')
+
+            except Exception as e:
+                logging.error(f"unable to flat trace : {e}")
+                return None
+
+        else: 
+            logging.error(f"unknown trace method: {mode}")
             return None
-            
-        #logging.info(f'trace fitted : y = {science_trace.trace}')
 
         return science_trace
 
 
-
     @staticmethod
-    def extract_spectrum(img_stacked:CCDData, science_trace: FitTrace) -> Spectrum1D | None:
+    def extract_spectrum(img_stacked:CCDData, science_trace: FitTrace | FlatTrace) -> Spectrum1D | None:
         """
         extract 1D spectrum arround trace fitted
         Args:
@@ -233,7 +234,7 @@ class SPCUtils(object):
                 respFile = f"{conf.get_conf_directory()}/{respFile}"
                 logging.info(f"opening {respFile}...")
                 resp1d: Spectrum1D = Spectrum1D.read(respFile)
-                _factor = int(resp1d.shape[0] / science_spectrum.shape[0])
+                _factor = round(resp1d.shape[0] / science_spectrum.shape[0])
                 logging.info(f"{science_spectrum.shape[0]=}, {resp1d.shape[0]=}, {_factor=}")
                 
                 _resp1d_ndd = NDDataRef(resp1d)
