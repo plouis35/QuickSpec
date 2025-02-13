@@ -47,7 +47,16 @@ class Spectrum(object):
         self.showed_lines: bool = False
         self.showed_colorized: bool = False
         self.colors = ('blue', 'red', 'green', 'orange', 'cyan')
-        self.lines_color = 'grey' #'yellow'    
+
+        # define lines color from theme
+        if (_theme := self.conf.get_str('display', 'theme')) == 'dark':
+            self.lines_color = 'white'
+        elif _theme == 'light':
+            self.lines_color = 'black'
+        else:
+            logging.warning(f"unsupported color theme: {_theme=}")
+        
+        #self.lines_color = 'grey' #'yellow'    
         self.spectrum_color = 'grey'
 
         # create figure and axe

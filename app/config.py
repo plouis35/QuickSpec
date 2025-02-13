@@ -148,7 +148,6 @@ response_file = _rep.fits                       # response spectrum - generated 
 #median_smooth = 7                              # size of median kernel to apply 
 
 [lines]                                         # ATTENTION: special character not allowed (such as greek chars...)
-lines_color = grey
 0.00 = Zero
 656.28 = H
 486.13 = H
