@@ -313,8 +313,7 @@ class Spectrum(object):
             logging.error("please fit trace before extracting spectrum")
             return False
 
-        extracted_spectrum = spc_utils.extract_spectrum(img_stacked=img_stacked, 
-                                                       science_trace=self.science_trace)
+        extracted_spectrum = spc_utils.extract_spectrum(img_stacked=img_stacked, science_trace=self.science_trace)
         if extracted_spectrum is None:
             return False
         
@@ -344,7 +343,14 @@ class Spectrum(object):
 
         # show extracted spectrum
         self.clear_spectra()
-        self.show_spectrum(name=img_stacked.header['OBJECT'], spectrum=self.science_spectrum, calibrated=False)
+
+        _name = 'no_name'
+        if 'OBJNAME' in img_stacked.header:
+            _name = img_stacked.header['OBJNAME']
+        elif 'OBJECT' in img_stacked.header:
+            _name = img_stacked.header['OBJECT']
+
+        self.show_spectrum(name=_name, spectrum=self.science_spectrum, calibrated=False)
 
         return True
     
@@ -389,7 +395,14 @@ class Spectrum(object):
 
         # show spectrum
         self.clear_spectra()
-        self.show_spectrum(name=img_stacked.header['OBJECT'], spectrum=self.science_spectrum, calibrated=True)
+
+        _name = 'no_name'
+        if 'OBJNAME' in img_stacked.header:
+            _name = img_stacked.header['OBJNAME']
+        elif 'OBJECT' in img_stacked.header:
+            _name = img_stacked.header['OBJECT']
+
+        self.show_spectrum(name=_name, spectrum=self.science_spectrum, calibrated=True)
 
         return True
 
@@ -416,7 +429,14 @@ class Spectrum(object):
 
         # show spectrum
         self.clear_spectra()
-        self.show_spectrum(name=img_stacked.header['OBJECT'], spectrum=self.science_spectrum, calibrated=True)
+
+        _name = 'no_name'
+        if 'OBJNAME' in img_stacked.header:
+            _name = img_stacked.header['OBJNAME']
+        elif 'OBJECT' in img_stacked.header:
+            _name = img_stacked.header['OBJECT']
+
+        self.show_spectrum(name=_name, spectrum=self.science_spectrum, calibrated=True)
 
         return True
 
@@ -448,7 +468,14 @@ class Spectrum(object):
 
         # show spectrum
         self.clear_spectra()
-        self.show_spectrum(name=img_stacked.header['OBJECT'], spectrum=self.science_spectrum, calibrated=True)
+
+        _name = 'no_name'
+        if 'OBJNAME' in img_stacked.header:
+            _name = img_stacked.header['OBJNAME']
+        elif 'OBJECT' in img_stacked.header:
+            _name = img_stacked.header['OBJECT']
+
+        self.show_spectrum(name=_name, spectrum=self.science_spectrum, calibrated=True)
 
         return True
 

@@ -122,11 +122,7 @@ response_file = _rep.fits                       # response spectrum - generated 
 # HR (starex2400)
 calib_x_pixel = 770, 1190, 2240, 3520, 4160
 calib_x_wavelength = 6506.53, 6532.88, 6598.95, 6678.28, 6717.04
-
-# LR (alpy600)
-calib_x_pixel = 770, 1190, 2240, 3520, 4160
-calib_x_wavelength = 6506.53, 6532.88, 6598.95, 6678.28, 6717.04
-
+Ò
 # LR (dados200)
 calib_x_pixel: 61, 683, 940, 1400, 1540
 calib_x_wavelength: 4333.56, 5400.56, 5852.49, 6678.28, 6929.47
