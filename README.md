@@ -31,6 +31,7 @@ from sources:
 > - and run Quickspec : ```$ python quickspec.py```
 
 # Configuration file reference: 
+```
 [logger]
 level = INFO                                    # DEBUG, INFO, WARNING, ERROR
 
