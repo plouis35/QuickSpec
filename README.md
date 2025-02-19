@@ -5,23 +5,26 @@ Quick-look spectra reduction &amp; calibration tool - aimed at demonstrating spe
 > - [demetra](https://www.shelyak.com/logiciel/logiciel-demetra/)
 > - [spcaudace](http://spcaudace.free.fr)
 
+Pre-requisites : 
+> - bias, dark, flat and response reference files previously generated (by speciniti for exemple)
+
 ![Alt text](./screenshot_01.PNG)
 
-# Usage
-> [Youtube (French)](https://)
+# Demonstration
+> [Youtube (French)](https://<to_come...>)
 
 # Installation
 from binaries:
 > download and extract the following ZIP file:
-> - [Windows](https://)
-> - [MacOS](https://)
-> - [Linux](https://)
+> - [Windows](https://<to_come...>)
+> - [MacOS](https://<to_come...>)
+> - [Linux](https://<to_come...>)
 
 > then go to your extracted location and execute:```quickspec[.exe]``` (can take several minutes for the first execution...)
 
 from sources:
 > - download and install a python interpreter: [miniforge](https://github.com/conda-forge/miniforge)
-> - create a python environment: ```$ conda env create ...```
+> - update (or create a new) a python environment: ```$ conda env update --file environment.yml```
 > - clone QuickSpec sources: ```$ git clone https://github.com/plouis35/QuickSpec.git``` (or download zip)
 > - go to cloned directory: ```$ cd quickspec```
 > - install requirements: ```$ pip install -r requirements.txt```
