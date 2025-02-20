@@ -6,7 +6,7 @@ Quick-look spectra reduction &amp; calibration tool - aimed at demonstrating spe
 > - [spcaudace](http://spcaudace.free.fr)
 
 Pre-requisites : 
-> - bias, dark, flat and response reference files previously generated (by speciniti for exemple)
+> - DOF (bias, dark, flat) and response reference files previously generated (by specinti for exemple)
 
 ![Alt text](./screenshot_01.PNG)
 
