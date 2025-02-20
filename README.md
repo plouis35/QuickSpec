@@ -10,12 +10,12 @@ Pre-requisites :
 
 ![Alt text](./screenshot_01.PNG)
 
-# Demonstration
+# Demonstration (not ready yet...)
 > [Youtube (French)](https://<to_come...>)
 
 # Installation
 from binaries:
-> download and extract the following ZIP file:
+> download and extract the following ZIP file (not ready yet ...)
 > - [Windows](https://<to_come...>)
 > - [MacOS](https://<to_come...>)
 > - [Linux](https://<to_come...>)
