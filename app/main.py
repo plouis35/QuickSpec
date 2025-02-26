@@ -1,9 +1,9 @@
 """
 main application class:
 - initialize logging and configuration
-- creates tkinter main GUI
-- instantiates 2D image and 1D spectrum classes
-- creates a watchdog routine to monitor new file creation for automatic spectrum processing
+- create tkinter main GUI
+- instantiate 2D image and 1D spectrum classes
+- create a watchdog routine to monitor new file creation for automatic spectrum processing
 """
 import logging
 import time
@@ -212,7 +212,7 @@ class Application(tk.Tk):
     def cb_open_files(self) -> bool:
         """
         request user to select file(s) to open
-        open and display selected files according to type (2D or 1D spectra)
+        filter, open and display selected files according to type (2D or 1D spectra)
 
         Returns:
             bool: True when successfull
@@ -221,7 +221,8 @@ class Application(tk.Tk):
         path = askopenfilenames(title='Select image(s) or spectrum(s)',
                             filetypes=[("fits files", '*.fit'), 
                                        ("fits files", "*.fts"), 
-                                       ("fits files", "*.fits")
+                                       ("fits files", "*.fits"),
+                                       ("dat files", "*.dat"),
                                        ],
                             )
         if path == '': return False
@@ -232,19 +233,25 @@ class Application(tk.Tk):
         # check header to either load an 2D image or a 1D spectrum
         img_names: list[str] = []
         for img_name in path:
-            fit_data: CCDData = CCDData.read(img_name, unit=u.dimensionless_unscaled)
-            if fit_data.ndim == 1:
-                # this is a spectrum fit file: display directly
-                logging.info(f"{img_name} is a spectrum (naxis = 1, shape = {fit_data.shape})")
+            # DAT (csv) format
+            if Path(img_name).suffix == '.dat':
+                logging.info(f"{img_name} is a spectrum (2-column)")
                 self._spectrum.open_spectrum(img_name)
-
-            elif fit_data.ndim == 2:
-                # this is a fit image - keep it to load them all together
-                logging.info(f"{img_name} is a fit image (naxis = 2, shape = {fit_data.shape})")
-                img_names.append(img_name)
             else:
-                # not supported fit format
-                logging.error(f"{img_name} is not a supported fit format (naxis > 2)")
+                # FITS format
+                fit_data: CCDData = CCDData.read(img_name, unit=u.dimensionless_unscaled)
+                if fit_data.ndim == 1:
+                    # this is a spectrum fit file: display directly
+                    logging.info(f"{img_name} is a spectrum (naxis = 1, shape = {fit_data.shape})")
+                    self._spectrum.open_spectrum(img_name)
+
+                elif fit_data.ndim == 2:
+                    # this is a fit image - keep it to load them all together
+                    logging.info(f"{img_name} is a fit image (naxis = 2, shape = {fit_data.shape})")
+                    img_names.append(img_name)
+                else:
+                    # not supported fit format
+                    logging.error(f"{img_name} is not a supported fit format (naxis > 2)")
 
         # load and stack selected images 
         if len(img_names) > 0:

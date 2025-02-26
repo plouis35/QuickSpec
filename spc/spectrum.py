@@ -3,6 +3,7 @@
 """
 import logging
 import numpy as np
+from pathlib import Path
 
 import tkinter as tk
 from tkinter import ttk
@@ -94,23 +95,35 @@ class Spectrum(object):
 
         Returns:
             bool: True when successfull
-        """        
-        # open spectrum data
-        try:
-            spec1d: Spectrum1D = Spectrum1D.read(spc_name)
-            if 'OBJNAME' in spec1d.meta['header']:
-                self.show_spectrum(name=spec1d.meta['header']['OBJNAME'], spectrum=spec1d, calibrated=True)
-            elif 'OBJECT' in spec1d.meta['header']:
-                self.show_spectrum(name=spec1d.meta['header']['OBJECT'], spectrum=spec1d, calibrated=True)
-            else:
-                logging.error(f"fit header has not object name")
+        """                
+        # open spectrum in CSV format
+        if Path(spc_name).suffix == '.dat':
+            try:
+                _spc_array = np.loadtxt(spc_name)
+                _spec1d = Spectrum1D(spectral_axis=_spc_array[:,0]*u.Unit('pix'), flux=_spc_array[:,1]*u.Unit('Angstrom'))
+                self.show_spectrum(name='no_name', spectrum=_spec1d, calibrated=False)
+                
+            except Exception as e:
+                logging.error(f"{e}")
                 return False
 
-        except Exception as e:
-            logging.error(f"{e}")
-            return False
+        else:
+            # open spectrum in FITS format
+            try:
+                _spec1d: Spectrum1D = Spectrum1D.read(spc_name)
+                if 'OBJNAME' in _spec1d.meta['header']:
+                    self.show_spectrum(name=_spec1d.meta['header']['OBJNAME'], spectrum=_spec1d, calibrated=True)
+                elif 'OBJECT' in _spec1d.meta['header']:
+                    self.show_spectrum(name=_spec1d.meta['header']['OBJECT'], spectrum=_spec1d, calibrated=True)
+                else:
+                    logging.error(f"fit header has not object name")
+                    return False
+
+            except Exception as e:
+                logging.error(f"{e}")
+                return False
         
-        self.science_spectrum = spec1d
+        self.science_spectrum = _spec1d
         return True
 
     def colorize(self) -> None:
