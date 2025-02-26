@@ -45,10 +45,9 @@ from sources:
 - and run Quickspec : ```$ python quickspec.py```
 
 # Usage
-- place the QuickSpec starting window so that logging information are always visible
-- press ```load``` button to navigate to and select spectra and/or calibration files : they will be automatically summed
-- use a text editor to open and adjust the parameter file generated under that directory (quickspec.ini)
-(it is recommended to open the calibration images first in order to define the proper x-pixel / wavelength tuples)
+- move the QuickSpec console window so that logging information is always visible
+- press ```load``` button to navigate to and select spectra and/or calibration images; they will automatically be summed
+- use a text editor to open and adjust the parameter file created under that images directory (quickspec.ini); it is recommended to open the calibration images first in order to define the proper x-pixel / wavelength tuples
 - press ```run all``` button to generate the calibrated spectrum
 - press ```colorize``` and ```show lines``` to explain spectrum properties
 - for demonstration purposes (and debugging), do not hesite to use the ```run step``` button
