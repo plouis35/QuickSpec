@@ -234,7 +234,7 @@ class Application(tk.Tk):
         img_names: list[str] = []
         for img_name in path:
             # DAT (csv) format
-            if Path(img_name).suffix == '.dat':
+            if Path(img_name).suffix.lower() == '.dat':
                 logging.info(f"{img_name} is a spectrum (2-column)")
                 self._spectrum.open_spectrum(img_name)
             else:

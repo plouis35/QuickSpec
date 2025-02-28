@@ -87,7 +87,7 @@ class Spectrum(object):
         self.spc_toolbar.pack(side=tk.TOP, fill=tk.X)
         self.spc_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
-    def open_spectrum( self, spc_name: str) -> bool:
+    def open_spectrum( self, spc_name: str = 'no_name') -> bool:
         """
         read a 1D spectrum from a FIT file
         Args:
@@ -97,11 +97,10 @@ class Spectrum(object):
             bool: True when successfull
         """                
         # open spectrum in CSV format
-        if Path(spc_name).suffix == '.dat':
+        if Path(spc_name).suffix.lower() == '.dat':
             try:
                 _spc_array = np.loadtxt(spc_name)
                 _spec1d = Spectrum1D(spectral_axis=_spc_array[:,0]*u.Unit('pix'), flux=_spc_array[:,1]*u.Unit('Angstrom'))
-                #self.show_spectrum(name=Path(spc_name).stem, spectrum=_spec1d, calibrated=True)
                 
             except Exception as e:
                 logging.error(f"{e}")
@@ -111,13 +110,6 @@ class Spectrum(object):
             # open spectrum in FITS format
             try:
                 _spec1d: Spectrum1D = Spectrum1D.read(spc_name)
-                #if 'OBJNAME' in _spec1d.meta['header']:
-                 #   self.show_spectrum(name=_spec1d.meta['header']['OBJNAME'], spectrum=_spec1d, calibrated=True)
-                #elif 'OBJECT' in _spec1d.meta['header']:
-                 #   self.show_spectrum(name=_spec1d.meta['header']['OBJECT'], spectrum=_spec1d, calibrated=True)
-                #else:
-                 #   logging.error(f"fit header has not object name")
-                 #   return False
 
             except Exception as e:
                 logging.error(f"{e}")
@@ -126,47 +118,6 @@ class Spectrum(object):
         self.show_spectrum(name=Path(spc_name).stem, spectrum=_spec1d, calibrated=True)
         self.science_spectrum = _spec1d
         return True
-
-    def colorize(self) -> None:
-        """
-        colorize 1D spectrum
-        """        
-        if self.science_spectrum is None:
-            logging.info("please calibrate first")
-            return
-        
-        if self.science_spectrum.spectral_axis_unit == u.Unit('pixel'):
-            logging.warning("spectrum needs to be calibrated first")
-            return
-
-        min_wl = 3800       # TODO: should go to configuration file
-        max_wl = 7500       # TODO: should go to configuration file
-        bin_size = 20 # size (angstroms) of each colored slice under spectrum
-        _y1=self.science_spectrum.flux.min()
-
-        if self.showed_colorized:
-            # find out if theme is dark or light to get proper background color to clear colorization
-            if (plt.rcParams.get('figure.facecolor')) == 'black': _color = 'black'
-            else: _color = 'white'
-
-            # remove existing colorization
-            for i in range(0, len(self.science_spectrum.wavelength) - 1, bin_size):
-                self.spc_axe.fill_between(x=self.science_spectrum.wavelength.value[i:i+bin_size+1], 
-                                y1=_y1, 
-                                y2=self.science_spectrum.flux.value[i:i+bin_size+1],
-                                color=_color, alpha=1.0) #, linewidth=0)
-            self.showed_colorized = False
-        else:
-            # show 'rainbow' color under spectrum
-            colors = plt.cm.turbo((self.science_spectrum.wavelength.value - min_wl) / (max_wl - min_wl))            
-            for i in range(0, len(self.science_spectrum.wavelength) - 0, bin_size):
-                self.spc_axe.fill_between(x=self.science_spectrum.wavelength.value[i:i+bin_size+1], 
-                                y1=_y1,
-                                y2=self.science_spectrum.flux.value[i:i+bin_size+1], 
-                                color=colors[i], alpha=1.0) #, linewidth=0)
-            self.showed_colorized = True
-            
-        self.spc_figure.canvas.draw_idle()
 
     def reset_spectra(self) -> None:
         """
@@ -196,7 +147,11 @@ class Spectrum(object):
             spectrum (Spectrum1D): spectrum to display
             calibrated (bool, optional): . Defaults to False.
 
-        """        
+        """     
+        # replace '_' by '-' (as no legend for name starting with '_')
+        name = name.replace('_', '-')
+        logging.info(f"{name=}")
+
         # adjust axes units
         if calibrated:
             self.spc_axe.set_ylabel('Relative intensity')
@@ -538,6 +493,46 @@ class Spectrum(object):
                     
         self.spc_figure.canvas.draw_idle()
 
+    def colorize(self) -> None:
+        """
+        colorize 1D spectrum
+        """        
+        if self.science_spectrum is None:
+            logging.info("please calibrate first")
+            return
+        
+        if self.science_spectrum.spectral_axis_unit == u.Unit('pixel'):
+            logging.warning("spectrum needs to be calibrated first")
+            return
+
+        min_wl = 3800       # TODO: should go to configuration file
+        max_wl = 7500       # TODO: should go to configuration file
+        bin_size = 20 # size (angstroms) of each colored slice under spectrum
+        _y1=self.science_spectrum.flux.min()
+
+        if self.showed_colorized:
+            # find out if theme is dark or light to get proper background color to clear colorization
+            if (plt.rcParams.get('figure.facecolor')) == 'black': _color = 'black'
+            else: _color = 'white'
+
+            # remove existing colorization
+            for i in range(0, len(self.science_spectrum.wavelength) - 1, bin_size):
+                self.spc_axe.fill_between(x=self.science_spectrum.wavelength.value[i:i+bin_size+1], 
+                                y1=_y1, 
+                                y2=self.science_spectrum.flux.value[i:i+bin_size+1],
+                                color=_color, alpha=1.0) #, linewidth=0)
+            self.showed_colorized = False
+        else:
+            # show 'rainbow' color under spectrum
+            colors = plt.cm.turbo((self.science_spectrum.wavelength.value - min_wl) / (max_wl - min_wl))            
+            for i in range(0, len(self.science_spectrum.wavelength) - 0, bin_size):
+                self.spc_axe.fill_between(x=self.science_spectrum.wavelength.value[i:i+bin_size+1], 
+                                y1=_y1,
+                                y2=self.science_spectrum.flux.value[i:i+bin_size+1], 
+                                color=colors[i], alpha=1.0) #, linewidth=0)
+            self.showed_colorized = True
+            
+        self.spc_figure.canvas.draw_idle()
 
 class CustomSpcToolbar(NavigationToolbar2Tk):
     def __init__(self, canvas, parent) -> None:
