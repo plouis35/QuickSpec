@@ -101,7 +101,7 @@ class Spectrum(object):
             try:
                 _spc_array = np.loadtxt(spc_name)
                 _spec1d = Spectrum1D(spectral_axis=_spc_array[:,0]*u.Unit('pix'), flux=_spc_array[:,1]*u.Unit('Angstrom'))
-                self.show_spectrum(name='no_name', spectrum=_spec1d, calibrated=False)
+                #self.show_spectrum(name=Path(spc_name).stem, spectrum=_spec1d, calibrated=True)
                 
             except Exception as e:
                 logging.error(f"{e}")
@@ -111,18 +111,19 @@ class Spectrum(object):
             # open spectrum in FITS format
             try:
                 _spec1d: Spectrum1D = Spectrum1D.read(spc_name)
-                if 'OBJNAME' in _spec1d.meta['header']:
-                    self.show_spectrum(name=_spec1d.meta['header']['OBJNAME'], spectrum=_spec1d, calibrated=True)
-                elif 'OBJECT' in _spec1d.meta['header']:
-                    self.show_spectrum(name=_spec1d.meta['header']['OBJECT'], spectrum=_spec1d, calibrated=True)
-                else:
-                    logging.error(f"fit header has not object name")
-                    return False
+                #if 'OBJNAME' in _spec1d.meta['header']:
+                 #   self.show_spectrum(name=_spec1d.meta['header']['OBJNAME'], spectrum=_spec1d, calibrated=True)
+                #elif 'OBJECT' in _spec1d.meta['header']:
+                 #   self.show_spectrum(name=_spec1d.meta['header']['OBJECT'], spectrum=_spec1d, calibrated=True)
+                #else:
+                 #   logging.error(f"fit header has not object name")
+                 #   return False
 
             except Exception as e:
                 logging.error(f"{e}")
                 return False
         
+        self.show_spectrum(name=Path(spc_name).stem, spectrum=_spec1d, calibrated=True)
         self.science_spectrum = _spec1d
         return True
 
