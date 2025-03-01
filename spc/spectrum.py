@@ -103,7 +103,7 @@ class Spectrum(object):
                 _spec1d = Spectrum1D(spectral_axis=_spc_array[:,0]*u.Unit('pix'), flux=_spc_array[:,1]*u.Unit('Angstrom'))
                 
             except Exception as e:
-                logging.error(f"{e}")
+                logging.error(f"{spc_name} : {e}")
                 return False
 
         else:
@@ -112,7 +112,7 @@ class Spectrum(object):
                 _spec1d: Spectrum1D = Spectrum1D.read(spc_name)
 
             except Exception as e:
-                logging.error(f"{e}")
+                logging.error(f"{spc_name} : {e}")
                 return False
         
         self.show_spectrum(name=Path(spc_name).stem, spectrum=_spec1d, calibrated=True)
@@ -148,9 +148,8 @@ class Spectrum(object):
             calibrated (bool, optional): . Defaults to False.
 
         """     
-        # replace '_' by '-' (as no legend for name starting with '_')
+        # replace '_' by '-' (as no legend is shown for names starting with '_')
         name = name.replace('_', '-')
-        logging.info(f"{name=}")
 
         # adjust axes units
         if calibrated:
@@ -455,7 +454,11 @@ class Spectrum(object):
         Args:
             ax (_type_, optional): matplotlib axe to draw to. Defaults to None.
             show_line (bool, optional): . Defaults to True.
-        """        
+        """  
+        if self.science_spectrum is None:
+            logging.info("please calibrate first")
+            return
+              
         if self.science_spectrum.spectral_axis_unit == u.Unit('pixel'):
             logging.warning("spectrum needs to be calibrated first")
             return

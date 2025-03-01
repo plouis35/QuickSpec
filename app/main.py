@@ -238,20 +238,24 @@ class Application(tk.Tk):
                 logging.info(f"{img_name} is a spectrum (2-column)")
                 self._spectrum.open_spectrum(img_name)
             else:
-                # FITS format
-                fit_data: CCDData = CCDData.read(img_name, unit=u.dimensionless_unscaled)
-                if fit_data.ndim == 1:
-                    # this is a spectrum fit file: display directly
-                    logging.info(f"{img_name} is a spectrum (naxis = 1, shape = {fit_data.shape})")
-                    self._spectrum.open_spectrum(img_name)
+                try:
+                    # FITS format
+                    fit_data: CCDData = CCDData.read(img_name, unit=u.dimensionless_unscaled)
+                    if fit_data.ndim == 1:
+                        # this is a spectrum fit file: display directly
+                        logging.info(f"{img_name} is a spectrum (naxis = 1, shape = {fit_data.shape})")
+                        self._spectrum.open_spectrum(img_name)
 
-                elif fit_data.ndim == 2:
-                    # this is a fit image - keep it to load them all together
-                    logging.info(f"{img_name} is a fit image (naxis = 2, shape = {fit_data.shape})")
-                    img_names.append(img_name)
-                else:
-                    # not supported fit format
-                    logging.error(f"{img_name} is not a supported fit format (naxis > 2)")
+                    elif fit_data.ndim == 2:
+                        # this is a fit image - keep it to load them all together
+                        logging.info(f"{img_name} is a fit image (naxis = 2, shape = {fit_data.shape})")
+                        img_names.append(img_name)
+                    else:
+                        # not supported fit format
+                        logging.error(f"{img_name} is not a supported fit format (naxis > 2)")
+
+                except Exception as e:
+                    logging.error(f"{img_name} : {e}")
 
         # load and stack selected images 
         if len(img_names) > 0:
@@ -259,14 +263,6 @@ class Application(tk.Tk):
             self.set_cursor("watch")
             self._image.load_images(img_names)
             self.set_cursor()    
-        
-        # set window title according to images names
-        #if len(img_names) > 1:
-         #   self.set_title(f"[{Path(path[0]).stem} .. {Path(path[-1]).stem}]")
-        #elif len(img_names) == 1:
-          #  self.set_title(f"[{Path(path[0]).stem}]")
-        #else:
-         #   pass
 
         return True
 
