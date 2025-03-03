@@ -100,7 +100,7 @@ class Spectrum(object):
         if Path(spc_name).suffix.lower() == '.dat':
             try:
                 _spc_array = np.loadtxt(spc_name)
-                _spec1d = Spectrum1D(spectral_axis=_spc_array[:,0]*u.Unit('pix'), flux=_spc_array[:,1]*u.Unit('Angstrom'))
+                _spec1d = Spectrum1D(spectral_axis=_spc_array[:,0]*u.Unit('Angstrom'), flux=_spc_array[:,1]*u.Unit('mJy'))
                 
             except Exception as e:
                 logging.error(f"{spc_name} : {e}")
