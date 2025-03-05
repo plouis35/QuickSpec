@@ -10,6 +10,7 @@ from specutils.analysis import snr, snr_derived
 
 from astropy.utils.exceptions import AstropyWarning
 from astropy import units as u
+from astropy.io import fits
 from astropy.modeling import models, fitting
 from astropy.nddata import NDDataRef
 from astropy.nddata import CCDData
@@ -233,7 +234,21 @@ class spc_utils(object):
             if (respFile := conf.get_str('processing', 'response_file')) is not None:
                 respFile = f"{conf.get_conf_directory()}/{respFile}"
                 logging.info(f"opening {respFile}...")
-                resp1d: Spectrum1D = Spectrum1D.read(respFile)
+
+                if len(fits.open(respFile)) == 1:
+                    # standard FITS spectrum with data in hdu0
+                    resp1d: Spectrum1D = Spectrum1D.read(respFile)
+
+                elif len(fits.open(respFile)) == 2:
+                    # data are in hdu1
+                    _spc = CCDData.read(respFile, hdu=1, unit=u.Unit('adu'))
+                    resp1d = Spectrum1D(spectral_axis = _spc.data['wavelength'] * u.Unit('Angstrom'), 
+                                        flux = _spc.data['flux'] * u.Unit('mJy')
+                                        )
+                else:
+                    logging.error(f"{respFile} : no data found in HDUs")
+                    return None
+                
                 _factor = round(resp1d.shape[0] / science_spectrum.shape[0])
                 logging.info(f"{science_spectrum.shape[0]=}, {resp1d.shape[0]=}, {_factor=}")
                 
