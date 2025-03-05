@@ -20,6 +20,7 @@ from matplotlib.colors import LinearSegmentedColormap
 
 from astropy.utils.exceptions import AstropyWarning
 from astropy import units as u
+from astropy.io import fits
 
 from astropy.nddata import CCDData
 
@@ -96,11 +97,13 @@ class Spectrum(object):
         Returns:
             bool: True when successfull
         """                
-        # open spectrum in CSV format
         if Path(spc_name).suffix.lower() == '.dat':
+            # open spectrum in CSV format
             try:
                 _spc_array = np.loadtxt(spc_name)
-                _spec1d = Spectrum1D(spectral_axis=_spc_array[:,0]*u.Unit('Angstrom'), flux=_spc_array[:,1]*u.Unit('mJy'))
+                _spec1d = Spectrum1D(spectral_axis=_spc_array[:,0] * u.Unit('Angstrom'), 
+                                     flux=_spc_array[:,1] * u.Unit('mJy')
+                                     )
                 
             except Exception as e:
                 logging.error(f"{spc_name} : {e}")
@@ -109,8 +112,20 @@ class Spectrum(object):
         else:
             # open spectrum in FITS format
             try:
-                _spec1d: Spectrum1D = Spectrum1D.read(spc_name)
+                if len(fits.open(spc_name)) == 1:
+                    # standard FITS spectrum with data in hdu0
+                    _spec1d: Spectrum1D = Spectrum1D.read(spc_name)
 
+                elif len(fits.open(spc_name)) == 2:
+                    # data are in hdu1
+                    _spc = CCDData.read(spc_name, hdu=1, unit=u.Unit('adu'))
+                    _spec1d = Spectrum1D(spectral_axis = _spc.data['wavelength'] * u.Unit('Angstrom'), 
+                                        flux = _spc.data['flux'] * u.Unit('mJy')
+                                        )
+                else:
+                    logging.error(f"{spc_name} : no data found in HDUs")
+                    return False
+                
             except Exception as e:
                 logging.error(f"{spc_name} : {e}")
                 return False

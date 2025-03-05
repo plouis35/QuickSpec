@@ -19,6 +19,7 @@ import matplotlib.pyplot as plt
 
 from astropy import units as u
 from astropy.nddata import CCDData
+from astropy.io import fits
 
 from app.logger import LogHandler
 from app.os_utils import os_utils
@@ -240,7 +241,7 @@ class Application(tk.Tk):
             else:
                 try:
                     # FITS format
-                    fit_data: CCDData = CCDData.read(img_name, unit=u.dimensionless_unscaled)
+                    fit_data: CCDData = CCDData.read(img_name, unit=u.dimensionless_unscaled, hdu=len(fits.open(img_name))-1)
                     if fit_data.ndim == 1:
                         # this is a spectrum fit file: display directly
                         logging.info(f"{img_name} is a spectrum (naxis = 1, shape = {fit_data.shape})")
