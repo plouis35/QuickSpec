@@ -31,6 +31,8 @@ from ccdproc import trim_image, Combiner, ccd_process, cosmicray_median, cosmicr
 from ccdproc import ImageFileCollection, gain_correct
 from astropy.stats import mad_std
 
+from scipy.signal import fftconvolve
+
 from app.config import Config
 
 warnings.simplefilter('ignore', category=AstropyWarning)
@@ -340,6 +342,17 @@ class ImagesCombiner(object):
         except Exception as e:
             logging.error(f"cannot read masterflat: {e}")
 
+        # register images, if requested
+        try:
+           reg_flag: bool | None = conf.get_bool('pre_processing', 'registration')
+           if reg_flag in (None, True):
+                self.spec_align()
+                logging.info(f"images registered")
+
+        except Exception as e:
+            logging.error(f"cannot register images: {e}")
+
+
         ### reduce science frames
         try:
             master_sciences = self.reduce(
@@ -353,8 +366,49 @@ class ImagesCombiner(object):
             return None
 
         ### combine reduced frames
-        #return master_sciences.median()
+        #return master_sciences.median() # TODO : should be a parameter : median or sum ?
         return master_sciences.sum()
+
+    def spec_align(self, ref_image_index: int = 0): 
+        """
+        align a set of loaded frames - specific to spectra fields (fft based)
+
+        Returns:
+            loaded images registered
+        """           
+        ### Collect arrays and crosscorrelate all (except the first) with the first.
+        logging.info('align: fftconvolve running...')
+        nX, nY = self._images[ref_image_index].shape
+        correlations = [fftconvolve(self._images[ref_image_index].data.astype('float32'),
+                                    image[::-1, ::-1].data.astype('float32'),
+                                    mode='same') 
+                        for image in self._images[1:]]
+    
+        ### For each image determine the coordinate of maximum cross-correlation.
+        logging.info('align: get max cross-correlation for every image...')
+        shift_indices = [np.unravel_index(np.argmax(corr_array, axis=None), corr_array.shape) 
+                        for corr_array in correlations]
+        
+        deltas = [(ind[0] - int(nX / 2), ind[1] - int(nY / 2)) for ind in shift_indices]
+    
+        ### Warn for ghost images if realignment requires shifting by more than
+        ### 5% of the field size.
+        x_frac = abs(max(deltas, key=lambda x: abs(x[0]))[0]) / nX
+        y_frac = abs(max(deltas, key=lambda x: abs(x[1]))[1]) / nY
+        t_frac = max(x_frac, y_frac)
+        if t_frac > 0.05:
+            logging.warning('align: shifting by {}% of the field size'.format(int(100 * t_frac)))
+    
+        ### Roll the images to realign them
+        logging.info('align: images realignement ...')
+        realigned_images = [CCDData(np.roll(image, deltas[i], axis=(0, 1)).data, unit = u.Unit('adu'), header = image.header) 
+                            for (i, image) in enumerate(self._images[1:])]
+
+        ### do not forget the reference image
+        realigned_images.append(CCDData(self._images[ref_image_index].data, unit = u.Unit('adu'), header = self._images[ref_image_index].header))
+        logging.info('align: complete')
+
+        return ImagesCombiner(images=realigned_images, names=self._image_names, max_memory=self._memory_limit)
 
 """
 namespace wrapper to image(s) loading function
