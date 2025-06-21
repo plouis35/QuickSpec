@@ -273,7 +273,7 @@ class Image(object):
             return False
         
         if self.img_reduced:
-            logging.info('reduce done already - skipped')
+            logging.warning('reduce done already - skipped')
             return True
         
         try:

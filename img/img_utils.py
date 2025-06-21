@@ -389,10 +389,14 @@ class ImagesCombiner(object):
         shift_indices = [np.unravel_index(np.argmax(corr_array, axis=None), corr_array.shape) 
                         for corr_array in correlations]
         
-        deltas = [(ind[0] - int(nX / 2), ind[1] - int(nY / 2)) for ind in shift_indices]
+        deltas = [(ind[0] - int(nX / 2), ind[1] - int(nY / 2)) 
+                  for ind in shift_indices]
+        
+        np.set_printoptions(legacy="1.25")
+        logging.info('images deltas from reference image #0:')
+        logging.info(deltas)
     
-        ### Warn for ghost images if realignment requires shifting by more than
-        ### 5% of the field size.
+        ### Warn for ghost images if realignment requires shifting by more than 5% of the field size.
         x_frac = abs(max(deltas, key=lambda x: abs(x[0]))[0]) / nX
         y_frac = abs(max(deltas, key=lambda x: abs(x[1]))[1]) / nY
         t_frac = max(x_frac, y_frac)
@@ -406,7 +410,7 @@ class ImagesCombiner(object):
 
         ### do not forget the reference image
         realigned_images.append(CCDData(self._images[ref_image_index].data, unit = u.Unit('adu'), header = self._images[ref_image_index].header))
-        logging.info('align: complete')
+        logging.info('align: complete') 
 
         return ImagesCombiner(images=realigned_images, names=self._image_names, max_memory=self._memory_limit)
 
