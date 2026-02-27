@@ -114,11 +114,11 @@ class Application(tk.Tk):
         bt_run.pack(side=tk.LEFT, padx=5, pady=0)
 
         _step_options = ["Reduce image(s)", 
-                                    "Trace spectrum",
+                                    "Find spectrum",
                                     "Extract spectrum", 
                                     "Calibrate spectrum", 
                                     "Apply response",
-                                    "Smooth spectrum"]
+                                    "Smooth/crop/normalize"]
         bt_step_default = "Run step"
         _var = tk.StringVar(value=bt_step_default)
 

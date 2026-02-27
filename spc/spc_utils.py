@@ -7,6 +7,7 @@ import numpy as np
 from specutils.spectra.spectrum1d import Spectrum1D
 from specutils.manipulation import median_smooth, gaussian_smooth
 from specutils.analysis import snr, snr_derived
+from specutils.manipulation import FluxConservingResampler
 
 from astropy.utils.exceptions import AstropyWarning
 from astropy import units as u
@@ -249,17 +250,21 @@ class spc_utils(object):
                     logging.error(f"{respFile} : no data found in HDUs")
                     return None
                 
-                _factor = round(resp1d.shape[0] / science_spectrum.shape[0])
-                logging.info(f"{science_spectrum.shape[0]=}, {resp1d.shape[0]=}, {_factor=}")
+                _factor = (resp1d.shape[0] / science_spectrum.shape[0])
+                #logging.info(f"{science_spectrum.shape[0]=}, {resp1d.shape[0]=}, {_factor=:.2f}")
                 
-                _resp1d_ndd = NDDataRef(resp1d)
-                _resp1d_ndd.wcs = None
+                resampler = FluxConservingResampler(extrapolation_treatment='truncate')
+                resp_resampled = resampler(resp1d, science_spectrum.spectral_axis)
+                #logging.info(f"resampled reponseFile: {min(resp_resampled.flux)=}, {max(resp_resampled.flux)=}")
+                #logging.info(f"{resp_resampled.shape[0]=}")
 
-                # rebin response to science spectrum axis size
-                _resp1d = _resp1d_ndd[::_factor].data
+                spec_resampled = resampler(science_spectrum, resp_resampled.spectral_axis)
+                #logging.info(f"resampled spectrum: {min(science_spectrum.flux)=}, {max(science_spectrum.flux)=}")
+                #logging.info(f"{spec_resampled.shape[0]=}")
 
-                # apply response
-                final_spec = science_spectrum / _resp1d
+                final_spec = spec_resampled / resp_resampled
+                #logging.info (f"final spectrum:  {min(final_spec.flux)=}, {max(final_spec.flux)=}")
+
                 logging.info('response applied')
             else:
                 final_spec = science_spectrum

@@ -426,7 +426,7 @@ class Spectrum(object):
 
     def do_smooth(self, img_stacked: CCDData) -> bool:
         """
-        callback for smooth button
+        callback for smooth & crop button
 
         Args:
             img_stacked (CCDData): 2D spectrum             
@@ -449,6 +449,37 @@ class Spectrum(object):
             self.science_spectrum = self.science_spectrum
             logging.info(f"no median smooth to apply")
 
+        # apply crop  (if any defined)
+        if (_crop_region := self.conf.get_str('post_processing', 'crop_region')) is None:
+            _min_region = -1
+            _max_region = -1
+            logging.info(f"no crop regions defined")
+        else:
+            _min_region = eval(_crop_region)[0]
+            _max_region = eval(_crop_region)[1]
+            logging.info(f"crop regions to use = ({_min_region}, {_max_region})")
+            self.science_spectrum: Spectrum1D = self.science_spectrum[_min_region * u.Unit('angstrom'): _max_region* u.Unit('angstrom')]
+
+        # normalize to 1 
+        if (_norm_region := self.conf.get_str('processing', 'normalized_region')) is None:
+            _min_region = 6500
+            _max_region = 6520
+        else:
+            _min_region = eval(_norm_region)[0]
+            _max_region = eval(_norm_region)[1]
+
+        logging.info(f"normalized regions to use = ({_min_region}, {_max_region})")
+
+        try:
+            norm_region = self.science_spectrum[_min_region * u.Unit('angstrom'): _max_region * u.Unit('angstrom')].flux.mean() 
+            self.science_spectrum = Spectrum1D(spectral_axis = self.science_spectrum.wavelength, 
+                                        flux = self.science_spectrum.flux / norm_region)  
+            logging.info('spectrum normalized to 1')
+        
+        except Exception as e:
+            logging.error(f"unable to normalize spectrum : {e}")
+            return False
+    
         # show spectrum
         self.clear_spectra()
 

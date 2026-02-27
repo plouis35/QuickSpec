@@ -367,7 +367,8 @@ class ImagesCombiner(object):
 
         ### combine reduced frames
         #return master_sciences.median() # TODO : should be a parameter : median or sum ?
-        return master_sciences.sum()
+        #return master_sciences.sum()
+        return master_sciences.median()
 
     def spec_align(self, ref_image_index: int = 0): 
         """
