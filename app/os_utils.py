@@ -1,82 +1,52 @@
 """
-utility routines to manage files and other OS-related functions
+os_utils — OS and file system utility functions.
 """
 import logging
-import os, sys, platform
+import os
+import sys
+import platform
 from pathlib import Path
-#import psutil
-from importlib.metadata import version  
-import fnmatch, pathlib
+from importlib.metadata import version
 
-class os_utils(object):
-    # private to class
-    _current_path: str = '.'
+# Current working directory — updated when the user opens a file
+_current_path: str = '.'
 
-    #@staticmethod
-    #def get_memory_used() -> float:
-        #return int(psutil.Process().memory_info().rss / (1024 * 1024))
-    
-    #@staticmethod
-    #def log_memory_used() -> None:
-        #logging.info(f"current memory used = {OSUtils.get_memory_used()}MB")
 
-    @staticmethod
-    def show_versions() -> None:
-        """
-        show some packages version
-        """        
-        from tkinter import TkVersion
+def get_path_directory(path: str) -> str:
+    """
+    Derive and store the parent directory of a given file path.
 
-        logging.info("versions running: ")
-        logging.info(f"platform = {platform.system()}, release = {platform.release()}")
-        logging.info(f"python = {sys.version}")
-        logging.info(f"tkinter = {TkVersion}")
-        for module in ['matplotlib', 'numpy', 'astropy', 'specutils', 'specreduce', 'ccdproc']:
-            try:
-                logging.info(f"{module} = {version(module)}")
-            except Exception as e:
-                logging.info(f"{e}")
+    Args:
+        path (str): any file path
 
-    @staticmethod
-    def get_path_directory(path: str) -> str:
-        """
-        get absolute current selected directory
+    Returns:
+        str: absolute parent directory
+    """
+    global _current_path
+    _current_path = str(Path(path).absolute().parent)
+    return _current_path
 
-        Args:
-            path (str): relative path
 
-        Returns:
-            str: _description_
-        """        
-        os_utils._current_path = str(Path(path).absolute().parent)
-        return os_utils._current_path
+def get_current_path() -> str:
+    """
+    Return the currently monitored directory.
 
-    @staticmethod
-    def get_current_path() -> str:
-        """
-        get current path
+    Returns:
+        str: absolute path, or '.' if none selected yet
+    """
+    return _current_path
 
-        Returns:
-            str: current path
-        """        
-        return os_utils._current_path
 
-    @staticmethod
-    def list_files(path: str, name: str = '*') -> list:
-        """
-        returns a list of files under a path, reverse sorted by last modified time
+def show_versions() -> None:
+    """Log platform and key package versions at startup."""
+    from tkinter import TkVersion
 
-        Args:
-            path (str): path to scan 
-            name (str, optional): name filter. Defaults to '*'.
-
-        Returns:
-            list(str): list of files (sorted)
-        """      
-        return fnmatch.filter((str(i).split(os.sep)[-1] for i in sorted(
-                    pathlib.Path(path).iterdir(), 
-                    key = os.path.getmtime, 
-                    reverse = True)
-                ) , name)
-    
-
+    logging.info("versions installed:")
+    logging.info(f"platform = {platform.system()}, release = {platform.release()}")
+    logging.info(f"python = {sys.version}")
+    logging.info(f"tkinter = {TkVersion}")
+    for module in ['matplotlib', 'numpy', 'scipy', 'astropy', 'specutils', 'specreduce', 'ccdproc']:
+        try:
+            logging.info(f"{module} = {version(module)}")
+        except Exception as e:
+            logging.info(f"{e}")

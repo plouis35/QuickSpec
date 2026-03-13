@@ -3,12 +3,13 @@ main application class:
 - initialize logging and configuration
 - create tkinter main GUI
 - instantiate 2D image and 1D spectrum classes
-- start a watchdog thread (via the 'watchdog' library) to monitor new FITS files
+- create a watchdog routine to monitor new file creation for automatic spectrum processing
 """
 import logging
-import os
+import time
 from pathlib import Path
 import functools
+import os
 
 import tkinter as tk
 from tkinter import ttk
@@ -16,14 +17,16 @@ from tkinter.filedialog import askopenfilenames
 
 import matplotlib.pyplot as plt
 
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler, FileCreatedEvent
+from astropy import units as u
+from astropy.nddata import CCDData
+from astropy.io import fits
 
 from app.logger import LogHandler
-import app.os_utils as os_utils
-from app.file_utils import classify_files
+from app.os_utils import os_utils
+
 from app.config import Config
 from img.image import Image
+from app.os_utils import os_utils
 from spc.spectrum import Spectrum
 
 class Application(tk.Tk):
@@ -59,8 +62,6 @@ class Application(tk.Tk):
             
         plt.style.use(_mpl_theme)        
         self.tk.call("set_theme", _tk_theme)
-        self.tk.call('set', 'tk_strictMotif', '1')
-
         plt.rcParams['figure.constrained_layout.use'] = True
         
         self.title(f"{app_name} v{app_version}")
@@ -71,8 +72,9 @@ class Application(tk.Tk):
         self.create_panels()
         self.create_buttons()
 
-        # start watchdog for automatic FITS file processing
-        self._start_watchdog()
+        # create a watchdog timer to capture new files creation
+        self._last_timer: float = time.time()
+        self.after_idle(self.watch_files)
 
         # and display major packages versions installed
         logging.info(f"{app_name} v{app_version} started")
@@ -120,21 +122,15 @@ class Application(tk.Tk):
         bt_step_default = "Run step"
         _var = tk.StringVar(value=bt_step_default)
 
-        _step_map = {
-            _step_options[0]: self.cb_reduce_images,
-            _step_options[1]: self.cb_trace_spectrum,
-            _step_options[2]: self.cb_extract_spectrum,
-            _step_options[3]: self.cb_calibrate_spectrum,
-            _step_options[4]: self.cb_apply_response,
-            _step_options[5]: self.cb_smooth_spectrum,
-        }
-
         def cb_run_step(selected_step: tk.StringVar) -> None:
             logging.info(f"step {selected_step} started...")
-            if (action := _step_map.get(selected_step)) is not None:
-                action()
-            else:
-                logging.warning(f"unknown step: {selected_step}")
+            if selected_step == _step_options[0]: self.cb_reduce_images()
+            elif selected_step == _step_options[1]: self.cb_trace_spectrum()
+            elif selected_step == _step_options[2]: self.cb_extract_spectrum()
+            elif selected_step == _step_options[3]: self.cb_calibrate_spectrum()
+            elif selected_step == _step_options[4]: self.cb_apply_response()
+            elif selected_step == _step_options[5]: self.cb_smooth_spectrum()
+            else: pass 
             _var.set(bt_step_default)
 
         bt_steps = ttk.OptionMenu(self.bt_frame, _var, bt_step_default, *(_step_options), command = cb_run_step)
@@ -216,120 +212,95 @@ class Application(tk.Tk):
 
     def cb_open_files(self) -> bool:
         """
-        Prompt user to select files, classify them, and dispatch to
-        Image or Spectrum controllers.
+        request user to select file(s) to open
+        filter, open and display selected files according to type (2D or 1D spectra)
 
         Returns:
-            bool: True when at least one file was processed
-        """
-        #self.tk.call('set', 'tk_strictMotif', '1')
+            bool: True when successfull
+        """        
+        #self.tk.call('tk', 'useinputmethods', '0')  
+        #self.tk.call('set', '::tk::dialog::file::useTk', '1') 
 
-        paths = askopenfilenames(
-            title='Select image(s) or spectrum(s)',
-            filetypes=[
-                ("fits files", '*.fit'),
-                ("fits files", "*.fts"),
-                ("fits files", "*.fits"),
-                ("dat files", "*.dat"),
-            ],
-        )
-        #self.tk.call('set', 'tk_strictMotif', '0')
+        # get list of files to open
+        path = askopenfilenames(title='Select image(s) or spectrum(s)',
+                            filetypes=[("fits files", '*.fit'), 
+                                       ("fits files", "*.fts"), 
+                                       ("fits files", "*.fits"),
+                                       ("dat files", "*.dat"),
+                                       ],
+                            )
+        if path == '': return False
 
-        if not paths:
-            return False
+        # create new config file if not existing
+        self.conf.set_conf_directory(os_utils.get_path_directory(path=path[0]))
 
-        self.conf.set_conf_directory(os_utils.get_path_directory(path=paths[0]))
+        # check header to either load an 2D image or a 1D spectrum
+        img_names: list[str] = []
+        for img_name in path:
+            # DAT (csv) format
+            if Path(img_name).suffix.lower() == '.dat':
+                logging.info(f"{img_name} is a spectrum (2-column)")
+                self._spectrum.open_spectrum(img_name)
+            else:
+                try:
+                    # FITS format
+                    fit_data: CCDData = CCDData.read(img_name, unit=u.dimensionless_unscaled, hdu=len(fits.open(img_name))-1)
+                    if fit_data.ndim == 1:
+                        # this is a spectrum fit file: display directly
+                        logging.info(f"{img_name} is a spectrum (naxis = 1, shape = {fit_data.shape})")
+                        self._spectrum.open_spectrum(img_name)
 
-        spectrum_paths, image_paths = classify_files(paths)
+                    elif fit_data.ndim == 2:
+                        # this is a fit image - keep it to load them all together
+                        logging.info(f"{img_name} is a fit image (naxis = 2, shape = {fit_data.shape})")
+                        img_names.append(img_name)
+                    else:
+                        # not supported fit format
+                        logging.error(f"{img_name} is not a supported fit format (naxis > 2)")
 
-        for spc_path in spectrum_paths:
-            self._spectrum.open_spectrum(spc_path)
+                except Exception as e:
+                    logging.error(f"{img_name} : {e}")
 
-        if image_paths:
+        # load and stack selected images 
+        if len(img_names) > 0:
             self._image.clear_image()
             self.set_cursor("watch")
-            self._image.load_images(image_paths)
-            self.set_cursor()
+            self._image.load_images(img_names)
+            self.set_cursor()    
 
         return True
 
-    def _start_watchdog(self) -> None:
+    def watch_files(self):
         """
-        Start a watchdog Observer thread that reacts to new FITS file creation
-        in the currently monitored directory.
-        """
-        self._watchdog_observer: Observer | None = None
+        watchdog monitor routine
+        used to check whether a new file is created under selected directory
+        if so, process the new file using run_all callback
+        TODO: raise errors if the new file is a 1D spectrum (ignored for now)
+        """        
 
-        auto_process = self.conf.get_bool('processing', 'auto_process')
-        if auto_process not in (None, True):
-            logging.debug("watchdog disabled by configuration")
-            return
+        logging.debug(f"watchdog current time is : {time.strftime('%H:%M:%S', time.localtime())}")
+        auto_process: bool | None = self.conf.get_bool('processing', 'auto_process')
+        if auto_process in (None, True):
+            logging.debug(f"watchdog enabled")
+            if ((path := os_utils.get_current_path()) != '.'):
+                new_file = os_utils.list_files(path, '*.fit*')[0]
+                if os.path.getmtime(f"{path}/{new_file}") >= self._last_timer:
+                    logging.info(f"new FIT file detected: {new_file}")
+                    self._last_timer = time.time()
 
-        watch_path = os_utils.get_current_path()
-        if watch_path == '.':
-            logging.debug("watchdog: no directory selected yet, skipping start")
-            return
+                    # load and process the new file
+                    self.set_cursor("watch")
 
-        handler = _FitsEventHandler(on_new_file=self._on_new_fits_file)
-        self._watchdog_observer = Observer()
-        self._watchdog_observer.schedule(handler, path=watch_path, recursive=False)
-        self._watchdog_observer.start()
-        logging.info(f"watchdog started on: {watch_path}")
+                    self._image.clear_image()
+                    logging.info(f"loading {new_file}...")
+                    self._image.load_images([f"{path}/{new_file}"])
+                    logging.info(f"processing {new_file}...")
+                    self.cb_run_all()
+                    
+                    self.set_cursor()
+        else:
+            logging.debug(f"watchdog disabled")
 
-    def _stop_watchdog(self) -> None:
-        """Stop the watchdog Observer thread if running."""
-        if getattr(self, '_watchdog_observer', None) is not None:
-            self._watchdog_observer.stop()
-            self._watchdog_observer.join()
-            self._watchdog_observer = None
-            logging.info("watchdog stopped")
+        # restart watchdog every second
+        self.after(1000, self.watch_files) 
 
-    def _on_new_fits_file(self, filepath: str) -> None:
-        """
-        Callback fired by the watchdog thread when a new FITS file appears.
-        Schedules the actual processing on the Tk main thread via after().
-
-        Args:
-            filepath (str): absolute path of the new FITS file
-        """
-        logging.info(f"new FIT file detected: {filepath}")
-        # Marshal back to Tk thread — never touch GUI from a background thread
-        self.after(0, lambda: self._process_new_fits(filepath))
-
-    def _process_new_fits(self, filepath: str) -> None:
-        """
-        Load and process a newly detected FITS file (runs on Tk main thread).
-
-        Args:
-            filepath (str): absolute path of the new FITS file
-        """
-        self.set_cursor("watch")
-        self._image.clear_image()
-        logging.info(f"loading {filepath}...")
-        self._image.load_images([filepath])
-        logging.info(f"processing {filepath}...")
-        self.cb_run_all()
-        self.set_cursor()
-
-
-
-class _FitsEventHandler(FileSystemEventHandler):
-    """
-    Watchdog event handler that fires a callback when a new FITS file appears.
-    Runs in a background thread — must NOT touch the Tk GUI directly.
-    """
-    FITS_SUFFIXES = {'.fit', '.fts', '.fits'}
-
-    def __init__(self, on_new_file) -> None:
-        """
-        Args:
-            on_new_file (callable): called with the new file path (str)
-        """
-        super().__init__()
-        self._on_new_file = on_new_file
-
-    def on_created(self, event: FileCreatedEvent) -> None:
-        if event.is_directory:
-            return
-        if Path(event.src_path).suffix.lower() in self.FITS_SUFFIXES:
-            self._on_new_file(event.src_path)

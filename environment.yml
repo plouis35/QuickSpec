@@ -1,7 +1,14 @@
-#name: quickspec
-name: base
-channels:
-  - conda-forge
+name: QuickSpec
 dependencies:
   - python=3.12
-  #- astroscrappy
+  - numpy>2
+  - matplotlib>3
+  - astropy>7
+  - ccdproc>2
+  - specutils>2 
+  - photutils>2
+  - specreduce>=1.8
+  - watchdog>=5.0
+  - scikit-image
+  - colorlog
+  - pytest

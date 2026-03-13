@@ -31,7 +31,8 @@ from ccdproc import trim_image, Combiner, ccd_process, cosmicray_median, cosmicr
 from ccdproc import ImageFileCollection, gain_correct
 from astropy.stats import mad_std
 
-from scipy.signal import fftconvolve
+from skimage.registration import phase_cross_correlation
+import scipy.ndimage as ndimage
 
 from app.config import Config
 
@@ -39,6 +40,7 @@ warnings.simplefilter('ignore', category=AstropyWarning)
 warnings.simplefilter('ignore', UserWarning)
 
 class ImagesCombiner(object):
+    EXPOSURE_KEY: str = 'EXPTIME'   # FITS keyword for exposure time
     def __init__(self, images: List[CCDData], names: List[str], max_memory: float = 1e9) -> None:
         """
         maintains images set array and file names
@@ -145,9 +147,14 @@ class ImagesCombiner(object):
             self: images set updated
         """        
         if trim_region is not None:
-            for i in range(0, len(self._images)):
-                self._images[i] = trim_image(self._images[i][eval(trim_region)[1]:eval(trim_region)[3],
-                                                              eval(trim_region)[0]:eval(trim_region)[2]])
+            try:
+                coords = [int(x.strip()) for x in trim_region.split(',')]
+                x1, y1, x2, y2 = coords[0], coords[1], coords[2], coords[3]
+            except (ValueError, IndexError) as e:
+                logging.error(f"invalid trim_region value '{trim_region}': {e}")
+                return self
+            for i in range(len(self._images)):
+                self._images[i] = trim_image(self._images[i][y1:y2, x1:x2])
 
             logging.info(f'{len(self._images)} images trimmed to ({trim_region})')
         else:
@@ -171,7 +178,7 @@ class ImagesCombiner(object):
         y_ratio = 0.3       # default to 30%
     
         if y_crop is not None:
-            y_center, y_ratio= eval(y_crop)
+            y_center, y_ratio = (float(x.strip()) for x in y_crop.split(","))
 
         if y_crop is not None:
             for i in range(0, len(self._images)):
@@ -290,7 +297,7 @@ class ImagesCombiner(object):
             CCDData | None: sum of images reduced
         """        
         conf: Config = Config()
-        EXPOSURE_KEY = 'EXPTIME'        # TODO: maybe use a keyword instead of harded-code key ?
+        EXPOSURE_KEY = ImagesCombiner.EXPOSURE_KEY
 
         # collect current images directory from first image
         CAPTURE_DIR =  str(Path(self.get_image_names()[0]).absolute().parent) + '/'
@@ -299,7 +306,7 @@ class ImagesCombiner(object):
         y_center = 0.5      # default to middle
         y_ratio = 0.3       # default to 30%
         if (y_crop := conf.get_str('pre_processing','y_crop')) is not None:
-            y_center, y_ratio= eval(y_crop)
+            y_center, y_ratio = (float(x.strip()) for x in y_crop.split(","))
 
         # read master frames
         master_bias = None
@@ -370,50 +377,59 @@ class ImagesCombiner(object):
         #return master_sciences.sum()
         return master_sciences.median()
 
-    def spec_align(self, ref_image_index: int = 0): 
+    def spec_align(self, ref_image_index: int = 0):
         """
-        align a set of loaded frames - specific to spectra fields (fft based)
+        Align a set of loaded frames against a reference image.
+
+        Uses phase_cross_correlation (scikit-image)
+
+        Args:
+            ref_image_index (int): index of the reference image (default: 0)
 
         Returns:
-            loaded images registered
-        """           
-        ### Collect arrays and crosscorrelate all (except the first) with the first.
-        logging.info('align: fftconvolve running...')
-        nX, nY = self._images[ref_image_index].shape
-        correlations = [fftconvolve(self._images[ref_image_index].data.astype('float32'),
-                                    image[::-1, ::-1].data.astype('float32'),
-                                    mode='same') 
-                        for image in self._images[1:]]
-    
-        ### For each image determine the coordinate of maximum cross-correlation.
-        logging.info('align: get max cross-correlation for every image...')
-        shift_indices = [np.unravel_index(np.argmax(corr_array, axis=None), corr_array.shape) 
-                        for corr_array in correlations]
-        
-        deltas = [(ind[0] - int(nX / 2), ind[1] - int(nY / 2)) 
-                  for ind in shift_indices]
-        
-        np.set_printoptions(legacy="1.25")
-        logging.info('images deltas from reference image #0:')
-        logging.info(deltas)
-    
-        ### Warn for ghost images if realignment requires shifting by more than 5% of the field size.
-        x_frac = abs(max(deltas, key=lambda x: abs(x[0]))[0]) / nX
-        y_frac = abs(max(deltas, key=lambda x: abs(x[1]))[1]) / nY
-        t_frac = max(x_frac, y_frac)
-        if t_frac > 0.05:
-            logging.warning('align: shifting by {}% of the field size'.format(int(100 * t_frac)))
-    
-        ### Roll the images to realign them
-        logging.info('align: images realignement ...')
-        realigned_images = [CCDData(np.roll(image, deltas[i], axis=(0, 1)).data, unit = u.Unit('adu'), header = image.header) 
-                            for (i, image) in enumerate(self._images[1:])]
+            ImagesCombiner: new combiner with all images shifted to the reference
+        """
+        if len(self._images) == 1:
+            logging.info('align: single image, nothing to align')
+            return self
 
-        ### do not forget the reference image
-        realigned_images.append(CCDData(self._images[ref_image_index].data, unit = u.Unit('adu'), header = self._images[ref_image_index].header))
-        logging.info('align: complete') 
+        ref_data = self._images[ref_image_index].data.astype('float32')
+        logging.info(f'align: reference image index={ref_image_index}, shape={ref_data.shape}')
 
-        return ImagesCombiner(images=realigned_images, names=self._image_names, max_memory=self._memory_limit)
+        realigned_images = []
+        for i, image in enumerate(self._images):
+            if i == ref_image_index:
+                realigned_images.append(image)
+                continue
+
+            moving = image.data.astype('float32')
+
+            # phase_cross_correlation returns (shift, error, phasediff)
+            # shift is (row_shift, col_shift) — i.e. (dy, dx)
+            shift, error, _ = phase_cross_correlation(ref_data, moving, normalization=None)
+            dy, dx = float(shift[0]), float(shift[1])
+            logging.info(f'align: image #{i} shift = (dy={dy:.2f}, dx={dx:.2f} px), error={error:.4f}')
+
+            # Warn if shift is large (> 5 % of field size)
+            nY, nX = ref_data.shape
+            if max(abs(dy) / nY, abs(dx) / nX) > 0.05:
+                logging.warning(
+                    f'align: image #{i} requires a large shift '
+                    f'({abs(dy)/nY*100:.1f}% Y, {abs(dx)/nX*100:.1f}% X) — check acquisition'
+                )
+
+            # ndimage.shift fills borders with cval=0 (no cyclic wrap-around)
+            shifted = ndimage.shift(moving, shift=(dy, dx), order=1, cval=0.0)
+            realigned_images.append(
+                CCDData(shifted, unit=u.Unit('adu'), header=image.header)
+            )
+
+        logging.info(f'align: {len(realigned_images)} images registered')
+        return ImagesCombiner(
+            images=realigned_images,
+            names=self._image_names,
+            max_memory=self._memory_limit,
+        )
 
 """
 namespace wrapper to image(s) loading function
