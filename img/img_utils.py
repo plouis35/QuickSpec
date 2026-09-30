@@ -96,7 +96,8 @@ class ImagesCombiner(object):
         return(combine(self._images,
                        method = 'sum',
                        dtype = np.float32,
-                       mem_limit = self._memory_limit)
+                       mem_limit = self._memory_limit,
+                       processes=8)
               )
 
     def sigmaclip(self, low_thresh: int = 5, high_thresh: int = 5) -> CCDData:
@@ -119,7 +120,8 @@ class ImagesCombiner(object):
                        sigma_clip_func = np.ma.median, 
                        signma_clip_dev_func = mad_std, 
                        dtype = np.float32,
-                       mem_limit = self._memory_limit)
+                       mem_limit = self._memory_limit,
+                       processes=8)
               )
 
     def median(self) -> CCDData:
@@ -133,7 +135,8 @@ class ImagesCombiner(object):
         return (combine(self._images, 
                         method = 'median', 
                         dtype = np.float32, 
-                        mem_limit = self._memory_limit)
+                        mem_limit = self._memory_limit,
+                        processes=8)
                )
 
     def trim(self, trim_region: str | None):
@@ -374,8 +377,8 @@ class ImagesCombiner(object):
 
         ### combine reduced frames
         #return master_sciences.median() # TODO : should be a parameter : median or sum ?
-        #return master_sciences.sum()
-        return master_sciences.median()
+        return master_sciences.sum()
+        #return master_sciences.median()
 
     def spec_align(self, ref_image_index: int = 0):
         """
