@@ -299,7 +299,7 @@ def apply_response(science_spectrum: Spectrum) -> Spectrum | None:
             )
         else:
             logging.error(f"{resp_path}: no data found in HDUs")
-            return None
+            return science_spectrum
 
         resampler = FluxConservingResampler(extrapolation_treatment='truncate')
         resp_resampled = resampler(resp1d, science_spectrum.spectral_axis)
@@ -311,7 +311,7 @@ def apply_response(science_spectrum: Spectrum) -> Spectrum | None:
     except Exception as e:
         logging.error(f"{e}")
         logging.error("no response file applied")
-        return None
+        return science_spectrum
 
 
 def apply_median_smooth(science_spectrum: Spectrum, smooth_width: int = 1) -> Spectrum | None:

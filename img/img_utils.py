@@ -352,17 +352,7 @@ class ImagesCombiner(object):
         except Exception as e:
             logging.error(f"cannot read masterflat: {e}")
 
-        # register images, if requested
-        try:
-           reg_flag: bool | None = conf.get_bool('pre_processing', 'registration')
-           if reg_flag in (None, True):
-                self.spec_align()
-                logging.info(f"images registered")
-
-        except Exception as e:
-            logging.error(f"cannot register images: {e}")
-
-
+ 
         ### reduce science frames
         try:
             master_sciences = self.reduce(
@@ -375,9 +365,20 @@ class ImagesCombiner(object):
             logging.error(f"unable to reduce data: {e}")
             return None
 
-        ### combine reduced frames
+        # register images, if requested
+        realigned_sciences = master_sciences
+        try:
+           reg_flag: bool | None = conf.get_bool('pre_processing', 'registration')
+           if reg_flag in (None, True):
+                realigned_sciences = self.spec_align()
+                logging.info(f"images registered")
+
+        except Exception as e:
+            logging.error(f"cannot register images: {e}")
+
+        ### and finally combine reduced frames
         #return master_sciences.median() # TODO : should be a parameter : median or sum ?
-        return master_sciences.sum()
+        return realigned_sciences.sum()
         #return master_sciences.median()
 
     def spec_align(self, ref_image_index: int = 0):
@@ -411,7 +412,7 @@ class ImagesCombiner(object):
             # shift is (row_shift, col_shift) — i.e. (dy, dx)
             shift, error, _ = phase_cross_correlation(ref_data, moving, normalization=None)
             dy, dx = float(shift[0]), float(shift[1])
-            logging.info(f'align: image #{i} shift = (dy={dy:.2f}, dx={dx:.2f} px), error={error:.4f}')
+            logging.info(f'align: image #{i} shift = (dy={dy:.2f}, dx={dx:.2f} px)') #, error={error:.4f}')
 
             # Warn if shift is large (> 5 % of field size)
             nY, nX = ref_data.shape
@@ -421,7 +422,7 @@ class ImagesCombiner(object):
                     f'({abs(dy)/nY*100:.1f}% Y, {abs(dx)/nX*100:.1f}% X) — check acquisition'
                 )
 
-            # ndimage.shift fills borders with cval=0 (no cyclic wrap-around)
+            # ndimage.shift fills borders with 0
             shifted = ndimage.shift(moving, shift=(dy, dx), order=1, cval=0.0)
             realigned_images.append(
                 CCDData(shifted, unit=u.Unit('adu'), header=image.header)
