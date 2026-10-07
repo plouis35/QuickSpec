@@ -103,30 +103,30 @@ class Application(tk.Tk):
 
     def create_buttons(self) -> None:
         """
-        creates global buttons to load, process_all and process_step_by_step spectra
+        creates buttons to load, process_all, process_step_by_step and SA100 mode
         """        
-        bt_load = ttk.Button(self.bt_frame, text="Load", command=self.cb_open_files) 
+        bt_load = ttk.Button(self.bt_frame, text="Load & reduce", command=self.cb_open_files) 
         bt_load.pack(side=tk.LEFT, padx=5, pady=0)
 
         bt_run = ttk.Button(self.bt_frame, text="Run all", command=self.cb_run_all)
         bt_run.pack(side=tk.LEFT, padx=5, pady=0)
 
-        _step_options = ["Reduce image(s)", 
+        _step_options = [
                                     "Find spectrum",
                                     "Extract spectrum", 
                                     "Calibrate spectrum", 
                                     "Apply response",
-                                    "Smooth/crop/normalize"]
+                                    "Smooth, crop & normalize"
+                                    ]
         bt_step_default = "Run step"
         _var = tk.StringVar(value=bt_step_default)
 
         _step_map = {
-            _step_options[0]: self.cb_reduce_images,
-            _step_options[1]: self.cb_trace_spectrum,
-            _step_options[2]: self.cb_extract_spectrum,
-            _step_options[3]: self.cb_calibrate_spectrum,
-            _step_options[4]: self.cb_apply_response,
-            _step_options[5]: self.cb_smooth_spectrum,
+            _step_options[0]: self.cb_trace_spectrum,
+            _step_options[1]: self.cb_extract_spectrum,
+            _step_options[2]: self.cb_calibrate_spectrum,
+            _step_options[3]: self.cb_apply_response,
+            _step_options[4]: self.cb_smooth_spectrum,
         }
 
         def cb_run_step(selected_step: tk.StringVar) -> None:
@@ -139,6 +139,10 @@ class Application(tk.Tk):
 
         bt_steps = ttk.OptionMenu(self.bt_frame, _var, bt_step_default, *(_step_options), command = cb_run_step)
         bt_steps.pack(side=tk.LEFT, padx=5, pady=0)
+
+        bt_sa100 = ttk.Button(self.bt_frame, text="Slitless", command=self.cb_slitless) 
+        bt_sa100.pack(side=tk.LEFT, padx=5, pady=0)
+
 
     def set_cursor(self, cursor: str = '') -> None:
         """
@@ -179,7 +183,8 @@ class Application(tk.Tk):
     @run_long_operation
     def cb_run_all(self) -> bool:
         logging.info('run all started...')
-        for action in ( self.cb_reduce_images, 
+        #for action in ( self.cb_reduce_images, 
+        for action in (
                         self.cb_trace_spectrum, 
                         self.cb_extract_spectrum, 
                         self.cb_calibrate_spectrum,
@@ -190,9 +195,6 @@ class Application(tk.Tk):
                  return False
         return True
     
-    @run_long_operation
-    def cb_reduce_images(self) -> bool:
-        return self._image.reduce_images()
 
     @run_long_operation
     def cb_trace_spectrum(self) -> bool:
@@ -214,6 +216,11 @@ class Application(tk.Tk):
     def cb_smooth_spectrum(self) -> bool:
         return self._spectrum.do_smooth(self._image.img_stacked)
 
+    @run_long_operation
+    def cb_slitless(self) -> bool:
+        return True
+
+    @run_long_operation
     def cb_open_files(self) -> bool:
         """
         Prompt user to select files, classify them, and dispatch to
@@ -247,9 +254,7 @@ class Application(tk.Tk):
 
         if image_paths:
             self._image.clear_image()
-            self.set_cursor("watch")
             self._image.load_images(image_paths)
-            self.set_cursor()
 
         return True
 

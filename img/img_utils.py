@@ -32,6 +32,7 @@ from ccdproc import ImageFileCollection, gain_correct
 from astropy.stats import mad_std
 
 from skimage.registration import phase_cross_correlation
+from scipy.ndimage import median_filter
 import scipy.ndimage as ndimage
 
 from app.config import Config
@@ -254,8 +255,13 @@ class ImagesCombiner(object):
         Returns:
             self: images set updated
         """        
-        for i in range(0, len(self._images)):
-            self._images[i] = flat_correct(ccd = self._images[i], flat = frame, min_value = None) #, norm_value = 10000 * u.adu)
+        for i in range(0, len(self._images)):  
+            with np.errstate(divide="raise", invalid="raise"):
+                try:          
+                    self._images[i] = flat_correct(ccd = self._images[i], flat = frame) #, norm_value = 10000 * u.adu)
+                except (RuntimeWarning, Exception) as e:
+                    logging.error(f"{e} - detected in flat processing -> aborted")
+                return self 
 
         logging.info(f'masterflat divided to {len(self._images)} images')
         return self
@@ -277,17 +283,19 @@ class ImagesCombiner(object):
         for i in range(0, len(self._images)):
             self._images[i] = ccd_process(ccd = self._images[i], 
                 oscan = None, 
-                gain_corrected = True, 
                 trim = None, 
                 error = False,
 #                gain = camera_electronic_gain*u.electron/u.adu ,
 #                readnoise = camera_readout_noise*u.electron,
                 master_bias = master_bias,
                 dark_frame = master_dark,
-                master_flat = master_flat,
+                #master_flat = master_flat,
                 exposure_key = exposure_key,
                 exposure_unit = u.Unit('second'),
                 dark_scale = True)            
+
+        # manage flat division after offset/dark subtraction, to avoid scaling issues
+        self.flat_divide(master_flat)
 
         logging.info(f'{len(self._images)} images reduced')
         return self
@@ -397,7 +405,9 @@ class ImagesCombiner(object):
             logging.info('align: single image, nothing to align')
             return self
 
-        ref_data = self._images[ref_image_index].data.astype('float32')
+        #ref_data = self._images[ref_image_index].data.astype('float32')
+        ref_data = self._images[ref_image_index].data
+
         logging.info(f'align: reference image index={ref_image_index}, shape={ref_data.shape}')
 
         realigned_images = []
@@ -406,13 +416,18 @@ class ImagesCombiner(object):
                 realigned_images.append(image)
                 continue
 
-            moving = image.data.astype('float32')
+            #moving = image.data.astype('float32')
+            moving = image.data
 
             # phase_cross_correlation returns (shift, error, phasediff)
-            # shift is (row_shift, col_shift) — i.e. (dy, dx)
-            shift, error, _ = phase_cross_correlation(ref_data, moving, normalization=None)
+            shift, error, phasediff = phase_cross_correlation(
+                        ref_data,
+                        moving,
+                        normalization=None
+                        )
+
             dy, dx = float(shift[0]), float(shift[1])
-            logging.info(f'align: image #{i} shift = (dy={dy:.2f}, dx={dx:.2f} px)') #, error={error:.4f}')
+            logging.info(f'align: image #{i} shift = (dy={dy:.2f}, dx={dx:.2f} px, error={error:.4f}')
 
             # Warn if shift is large (> 5 % of field size)
             nY, nX = ref_data.shape

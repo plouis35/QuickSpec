@@ -12,8 +12,8 @@ from astropy.utils.exceptions import AstropyWarning
 from app.config import Config
 from img.img_utils import Images, ImagesCombiner
 
-warnings.simplefilter('ignore', category=AstropyWarning)
-warnings.simplefilter('ignore', UserWarning)
+#warnings.simplefilter('ignore', category=AstropyWarning)
+#warnings.simplefilter('ignore', UserWarning)
 
 # Empty placeholder shape used before any image is loaded
 _INIT_SHAPE: tuple[int, int] = (2, 8)
@@ -78,10 +78,10 @@ class ImageModel:
 
     def load(self, paths: list[str]) -> CCDData | None:
         """
-        Load and sum a list of FITS images.
+        Load a list of 2D images.
 
         Args:
-            paths (list[str]): FITS file paths to load
+            paths (list[str]): file paths to load
 
         Returns:
             CCDData | None: summed image, also stored in self.img_stacked
@@ -93,14 +93,20 @@ class ImageModel:
             combiner = Images.from_fits_by_names_list(
                 imgs=paths, max_memory=max_memory
             ).y_crop(y_crop=y_crop)
-            stacked = combiner.sum()
         except Exception as e:
             logging.error(f"load failed: {e}")
             return None
 
-        self.img_stacked  = stacked.copy()
         self.img_combiner = combiner
-        self.img_reduced  = False
+
+        stacked = self.reduce()
+
+        if stacked is None:
+            logging.error("unable to reduce images")
+            return None
+
+        self.img_stacked = stacked.copy()
+        self.img_reduced = True
 
         v_std, v_mean, v_min, v_max = self.stats()
         logging.info(f"image stats: min={v_min}, max={v_max}, mean={v_mean}, std={v_std}")
@@ -117,23 +123,10 @@ class ImageModel:
             logging.error("please load some images before reducing")
             return None
 
-        if self.img_reduced:
-            logging.warning("reduce already done — skipped")
-            return self.img_stacked
-
         try:
             result = self.img_combiner.reduce_images()
         except Exception as e:
             logging.error(f"reduce failed: {e}")
             return None
 
-        if result is None:
-            logging.error("unable to reduce images")
-            return None
-
-        self.img_stacked = result.copy()
-        self.img_reduced = True
-
-        v_std, v_mean, v_min, v_max = self.stats()
-        logging.info(f"image stats: min={v_min}, max={v_max}, mean={v_mean}, std={v_std}")
-        return self.img_stacked
+        return result

@@ -19,10 +19,6 @@ from specreduce import WavelengthCalibration1D
 
 from app.config import Config
 
-# ---------------------------------------------------------------------------
-# Safe model / fitter resolution
-# ---------------------------------------------------------------------------
-
 ALLOWED_TRACE_MODELS: dict = {
     'models.Polynomial1D(degree=2)': models.Polynomial1D(degree=2),
     'models.Polynomial1D(degree=3)': models.Polynomial1D(degree=3),
@@ -53,7 +49,7 @@ def _parse_model(value: str | None, allowed: dict, default, label: str):
 
 def _parse_float_list(value: str, label: str) -> list[float] | None:
     """
-    Safely parse a comma-separated list of floats from a config string.
+    Safe parse a comma-separated list of floats from a config string.
     """
     try:
         return [float(x.strip()) for x in value.split(',')]
@@ -62,9 +58,6 @@ def _parse_float_list(value: str, label: str) -> list[float] | None:
         return None
 
 
-# ---------------------------------------------------------------------------
-# Core processing functions
-# ---------------------------------------------------------------------------
 
 def trace_spectrum(
     img_stacked: CCDData,
@@ -269,7 +262,7 @@ def calibrate_spectrum(
 
 def apply_response(science_spectrum: Spectrum) -> Spectrum | None:
     """
-    Divide a calibrated 1D spectrum by an instrumental response file.
+    Divide a calibrated 1D spectrum by an existing instrumental response file.
 
     Args:
         science_spectrum (Spectrum): calibrated 1D spectrum
@@ -301,9 +294,12 @@ def apply_response(science_spectrum: Spectrum) -> Spectrum | None:
             logging.error(f"{resp_path}: no data found in HDUs")
             return science_spectrum
 
+        # resample the response to the science spectrum's wavelength grid
         resampler = FluxConservingResampler(extrapolation_treatment='truncate')
         resp_resampled = resampler(resp1d, science_spectrum.spectral_axis)
         spec_resampled = resampler(science_spectrum, resp_resampled.spectral_axis)
+
+        # finally apply the response correction
         final_spec = spec_resampled / resp_resampled
         logging.info('response applied')
         return final_spec

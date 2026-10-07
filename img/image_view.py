@@ -1,7 +1,5 @@
 """
 ImageView — all UI rendering logic for the 2D image panel.
-
-Depends on: Tkinter, Matplotlib.
 """
 import logging
 
@@ -168,7 +166,7 @@ class ImageView:
         self.canvas.draw_idle()
 
     # ------------------------------------------------------------------
-    # Internal helpers
+    # Private
     # ------------------------------------------------------------------
 
     def _apply_cut(self, low_cut: float | None, high_cut: float | None) -> None:

@@ -1,7 +1,5 @@
 """
 SpectrumView — all UI rendering logic for the 1D spectrum panel.
-
-Depends on: Tkinter, Matplotlib.
 """
 import logging
 

@@ -1,11 +1,8 @@
 """
-Spectrum — thin controller wiring Spectrum_Model <-> Spectrum_View.
+Spectrum — controller code for Spectrum_Model <-> Spectrum_View.
 
   - instantiate model and view
   - translate UI events (button clicks) into model calls
-  - pass model results to the view for display
-  - read config values needed to bridge model ↔ view
-
 """
 import logging
 from pathlib import Path

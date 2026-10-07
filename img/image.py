@@ -1,9 +1,8 @@
 """
-Image — thin controller wiring Image_Model <-> Image_View.
+Image — controller code for Image_Model <-> Image_View.
 
   - instantiate model and view
-  - translate UI events (Clear button, sliders) into model/view calls
-  - orchestrate load → display and reduce → display sequences
+  - translate UI events (Clear button, sliders) into model calls
 """
 import logging
 import numpy as np
@@ -39,7 +38,7 @@ class Image:
         self.view.show_image(self.model.img_stacked.data, show_colorbar=True)
 
     # ------------------------------------------------------------------
-    # Public interface (called by Application / main.py)
+    # Public
     # ------------------------------------------------------------------
 
     @property
@@ -76,23 +75,8 @@ class Image:
         self._refresh_cuts()
         return True
 
-    def reduce_images(self) -> bool:
-        """
-        Reduce loaded images with calibration frames and redisplay.
-
-        Returns:
-            bool: True on success
-        """
-        result = self.model.reduce()
-        if result is None:
-            return False
-
-        self.view.show_image(self.model.img_stacked.data, show_colorbar=True)
-        self._refresh_cuts()
-        return True
-
     # ------------------------------------------------------------------
-    # Internal helpers
+    # Private
     # ------------------------------------------------------------------
 
     def _refresh_cuts(self) -> None:

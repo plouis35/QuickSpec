@@ -94,7 +94,7 @@ class TestLoad:
         assert result is not None
         assert isinstance(result, CCDData)
         assert model.img_combiner is not None
-        assert model.img_reduced is False
+        assert model.img_reduced is True
 
     def test_load_updates_stacked(self, image_fits_file, synthetic_image):
         model = ImageModel()
@@ -111,7 +111,7 @@ class TestLoad:
         model = ImageModel()
         model.img_reduced = True          # force stale state
         model.load([image_fits_file])
-        assert model.img_reduced is False
+        assert model.img_reduced is True
 
 
 # ---------------------------------------------------------------------------
