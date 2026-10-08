@@ -255,6 +255,24 @@ class ImagesCombiner(object):
         Returns:
             self: images set updated
         """        
+
+        if frame is None:
+            return self
+        
+        # cleanup flat data 
+        mask_zeros = frame.data == 0
+        nb_zeros = np.sum(mask_zeros)
+        if nb_zeros > 0:
+            logging.warning(f"Nombre de pixels à zéro dans le masterflat : {nb_zeros}")
+            frame.data[mask_zeros] = 1e-6
+
+        # Compter  NaN
+        mask_nan = np.isnan(frame.data)
+        nb_nan = np.sum(mask_nan)
+        if nb_nan > 0:
+            logging.warning(f"Pixels invalides (NaN) dans le masterflat: {nb_nan}")
+            frame.data[mask_nan] = 1e-6
+
         for i in range(0, len(self._images)):  
             with np.errstate(divide="raise", invalid="raise"):
                 try:          
@@ -302,7 +320,7 @@ class ImagesCombiner(object):
 
     def reduce_images(self) -> CCDData | None:
         """
-        wrapper to CCDProc.ccd_process reduce routine - operates on all images from images set
+        safe wrapper to CCDProc.ccd_process reduce routine - operates on all images from images set
 
         Returns:
             CCDData | None: sum of images reduced
@@ -324,6 +342,7 @@ class ImagesCombiner(object):
         master_dark = None
         master_flat = None
 
+        # load masterbias
         try:
             if (bias_file := conf.get_str('pre_processing', 'master_offset')) is not None:
                 master_bias = CCDData.read(CAPTURE_DIR + bias_file, unit = u.Unit('adu'))
@@ -336,6 +355,7 @@ class ImagesCombiner(object):
         except Exception as e:
             logging.error(f"cannot read masterbias: {e}")
 
+        # load masterdark
         try:
             if (dark_file := conf.get_str('pre_processing', 'master_dark')) is not None:
                 master_dark = CCDData.read(CAPTURE_DIR + dark_file, unit = u.Unit('adu'))
@@ -348,6 +368,7 @@ class ImagesCombiner(object):
         except Exception as e:
             logging.error(f"cannot read masterdark: {e}")
 
+        # load masterflat
         try:
             if (flat_file := conf.get_str('pre_processing', 'master_flat')) is not None:
                 master_flat = CCDData.read(CAPTURE_DIR + flat_file, unit = u.Unit('adu'))

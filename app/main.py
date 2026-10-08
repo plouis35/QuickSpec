@@ -105,28 +105,27 @@ class Application(tk.Tk):
         """
         creates buttons to load, process_all, process_step_by_step and SA100 mode
         """        
-        bt_load = ttk.Button(self.bt_frame, text="Load & reduce", command=self.cb_open_files) 
+        bt_load = ttk.Button(self.bt_frame, text="Load", command=self.cb_open_files) 
         bt_load.pack(side=tk.LEFT, padx=5, pady=0)
 
-        bt_run = ttk.Button(self.bt_frame, text="Run all", command=self.cb_run_all)
-        bt_run.pack(side=tk.LEFT, padx=5, pady=0)
-
         _step_options = [
+                                    "Process all ...",
                                     "Find spectrum",
                                     "Extract spectrum", 
                                     "Calibrate spectrum", 
                                     "Apply response",
                                     "Smooth, crop & normalize"
                                     ]
-        bt_step_default = "Run step"
+        bt_step_default = "Process"
         _var = tk.StringVar(value=bt_step_default)
 
         _step_map = {
-            _step_options[0]: self.cb_trace_spectrum,
-            _step_options[1]: self.cb_extract_spectrum,
-            _step_options[2]: self.cb_calibrate_spectrum,
-            _step_options[3]: self.cb_apply_response,
-            _step_options[4]: self.cb_smooth_spectrum,
+            _step_options[0]: self.cb_run_all,
+            _step_options[1]: self.cb_trace_spectrum,
+            _step_options[2]: self.cb_extract_spectrum,
+            _step_options[3]: self.cb_calibrate_spectrum,
+            _step_options[4]: self.cb_apply_response,
+            _step_options[5]: self.cb_smooth_spectrum,
         }
 
         def cb_run_step(selected_step: tk.StringVar) -> None:
