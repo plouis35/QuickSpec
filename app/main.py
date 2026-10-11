@@ -96,7 +96,8 @@ class Application(tk.Tk):
         paned_window.add(child=spc_frame)
 
         # intialize image axe
-        self._image = Image(img_frame, self.bt_frame)
+        self._image = Image(img_frame, self.bt_frame,
+                            on_sa100_ready=self._on_sa100_ready)
 
         # initialize spectrum axe
         self._spectrum = Spectrum(spc_frame, self._image.img_axe)
@@ -105,8 +106,8 @@ class Application(tk.Tk):
         """
         creates buttons to load, process_all, process_step_by_step and SA100 mode
         """        
-        bt_load = ttk.Button(self.bt_frame, text="Load", command=self.cb_open_files) 
-        bt_load.pack(side=tk.LEFT, padx=5, pady=0)
+        self.bt_load = ttk.Button(self.bt_frame, text="Load, reduce & register", command=self.cb_open_files) 
+        self.bt_load.pack(side=tk.LEFT, padx=5, pady=0)
 
         _step_options = [
                                     "Process all ...",
@@ -116,7 +117,7 @@ class Application(tk.Tk):
                                     "Apply response",
                                     "Smooth, crop & normalize"
                                     ]
-        bt_step_default = "Process"
+        bt_step_default = "Longslit"
         _var = tk.StringVar(value=bt_step_default)
 
         _step_map = {
@@ -136,11 +137,12 @@ class Application(tk.Tk):
                 logging.warning(f"unknown step: {selected_step}")
             _var.set(bt_step_default)
 
-        bt_steps = ttk.OptionMenu(self.bt_frame, _var, bt_step_default, *(_step_options), command = cb_run_step)
-        bt_steps.pack(side=tk.LEFT, padx=5, pady=0)
+        self.bt_steps = ttk.OptionMenu(self.bt_frame, _var, bt_step_default, *(_step_options), command = cb_run_step)
+        self.bt_steps['menu'].insert_separator(1)
+        self.bt_steps.pack(side=tk.LEFT, padx=5, pady=0)
 
-        bt_sa100 = ttk.Button(self.bt_frame, text="Slitless", command=self.cb_slitless) 
-        bt_sa100.pack(side=tk.LEFT, padx=5, pady=0)
+        self.bt_sa100 = ttk.Button(self.bt_frame, text="Slitless", command=self.cb_slitless) 
+        self.bt_sa100.pack(side=tk.LEFT, padx=5, pady=0)
 
 
     def set_cursor(self, cursor: str = '') -> None:
@@ -181,8 +183,9 @@ class Application(tk.Tk):
 
     @run_long_operation
     def cb_run_all(self) -> bool:
+        self.bt_sa100.config(state='disabled')
+
         logging.info('run all started...')
-        #for action in ( self.cb_reduce_images, 
         for action in (
                         self.cb_trace_spectrum, 
                         self.cb_extract_spectrum, 
@@ -191,7 +194,10 @@ class Application(tk.Tk):
                         self.cb_smooth_spectrum): 
              if action() is not True:
                  logging.error('run all aborted')
+                 self.bt_sa100.config(state='normal')
                  return False
+             
+        self.bt_sa100.config(state='normal')
         return True
     
 
@@ -217,6 +223,15 @@ class Application(tk.Tk):
 
     @run_long_operation
     def cb_slitless(self) -> bool:
+        # restore stacked image
+        self._image.view.clear()
+        self._image.view.show_image(self._image.img_stacked.data, show_colorbar=True)
+        self._image._refresh_cuts()
+
+        # process sa100 images
+        self.bt_steps.config(state='disabled')
+        self._image.view.toggle_sa100()
+        self.bt_steps.config(state='normal')
         return True
 
     @run_long_operation
@@ -257,6 +272,20 @@ class Application(tk.Tk):
 
         return True
 
+    def _on_sa100_ready(self, spc_strip, sky_strip, x0_rotated: float) -> None:
+        """
+        Called by Image controller after sa100 stacked image is rotated.
+        Triggers SA100 extraction and calibration after zero order, spectrum trace and sky location is selected.
+
+        Args:
+            spc_strip:    CCDData — spectrum strip (horizontal, starting at order 0)
+            sky_strip:    CCDData — sky strip for background subtraction
+            x0_rotated:   x position of order 0 in the rectified image
+        """
+        self.set_cursor("watch")
+        self._spectrum.do_sa100_extract(spc_strip, sky_strip, x0_rotated)
+        self.set_cursor()
+
     def _start_watchdog(self) -> None:
         """
         Start a watchdog Observer thread that reacts to new FITS file creation
@@ -291,13 +320,12 @@ class Application(tk.Tk):
     def _on_new_fits_file(self, filepath: str) -> None:
         """
         Callback fired by the watchdog thread when a new FITS file appears.
-        Schedules the actual processing on the Tk main thread via after().
+        Schedules the processing on the Tk main thread via after().
 
         Args:
             filepath (str): absolute path of the new FITS file
         """
         logging.info(f"new FIT file detected: {filepath}")
-        # Marshal back to Tk thread — never touch GUI from a background thread
         self.after(0, lambda: self._process_new_fits(filepath))
 
     def _process_new_fits(self, filepath: str) -> None:

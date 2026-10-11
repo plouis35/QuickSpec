@@ -109,7 +109,7 @@ class ImageModel:
         self.img_reduced = True
 
         v_std, v_mean, v_min, v_max = self.stats()
-        logging.info(f"image stats: min={v_min}, max={v_max}, mean={v_mean}, std={v_std}")
+        logging.info(f"image stats: min={v_min:.2f}, max={v_max:.2f}, mean={v_mean:.2f}, std={v_std:.2f}")
         return self.img_stacked
 
     def reduce(self) -> CCDData | None:

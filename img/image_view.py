@@ -16,16 +16,12 @@ from matplotlib.backends._backend_tk import NavigationToolbar2Tk
 
 from app.config import Config
 
-
 class ImageView:
     """
     Manages all Tkinter/Matplotlib widgets for the 2D image panel.
-
-    Receives array data to display; knows nothing about how
-    images were loaded or reduced.
     """
 
-    def __init__(self, img_frame: ttk.Frame, bt_frame: ttk.Frame, on_clear) -> None:
+    def __init__(self, img_frame: ttk.Frame, bt_frame: ttk.Frame, on_clear, on_sa100_points) -> None:
         """
         Build the image panel (canvas, toolbar, sliders).
 
@@ -33,11 +29,20 @@ class ImageView:
             img_frame (ttk.Frame): frame for the Matplotlib canvas
             bt_frame (ttk.Frame):  frame for the control buttons / sliders
             on_clear (callable):   callback for the Clear button
+            on_sa100_points (callable): callback(x0, y0, x1, y1) fired after
+                                        the user clicks SA100 reference points
         """
         self.conf = Config()
         self._colorbar: Colorbar | None = None
         self._axes_image: AxesImage | None = None
         self._cmap: str = 'grey'
+
+        # SA100 state
+        self._on_sa100_points = on_sa100_points
+        self._sa100_active: bool = False
+        self._sa100_clicks: list[tuple[float, float]] = []
+        self._sa100_markers = []          # list of Matplotlib Artist handles
+        self._click_cid = None            # Matplotlib event connection id
 
         # Matplotlib figure + axes
         self.figure = Figure(figsize=(10, 3))
@@ -164,6 +169,143 @@ class ImageView:
         """
         self._apply_cut(low_cut, high_cut)
         self.canvas.draw_idle()
+
+    def draw_sa100_zones(self, x0: float, y0: float, 
+                         x1: float, y1: float,
+                         half_height: int, sky_offset: int, sky_half_height: int) -> None:
+        """
+        Overlay spectrum and sky zone lines on the image after rectification.
+
+        Called by the controller once the geometry is known, so the user
+        can verify visually before extraction.
+
+        Args:
+            x0, y0:       order-0 position on the *rectified* image
+            x1, y1:       end of spectrum zone (rightmost pixel)
+            half_height:  half-height of extraction strip (pixels)
+            sky_offset:   offset from trace centre to sky band centre (pixels)
+        """
+        # clear previous zone lines (keep markers)
+        for art in getattr(self, '_zone_artists', []):
+            try:
+                art.remove()
+            except Exception:
+                pass
+        self._zone_artists = []
+
+        kw = dict(linewidth=0.8, linestyle='--')
+
+        # spectrum strip boundaries
+        for dy, color in ((+half_height, 'red'), (-half_height, 'red')):
+            line = self.axe.axhline(y0 + dy, color=color, **kw)
+            self._zone_artists.append(line)
+
+        # sky strip boundaries
+        for dy, color in (
+            (+sky_offset + sky_half_height, 'blue'), (+sky_offset - sky_half_height, 'blue'),
+        ):
+            line = self.axe.axhline(y0 + dy, color=color, **kw)
+            self._zone_artists.append(line)
+
+        # order-0 vertical marker
+        vline = self.axe.axvline(x0, color='yellow', linewidth=0.8, linestyle=':')
+        self._zone_artists.append(vline)
+
+        self.canvas.draw_idle()
+
+ 
+    def toggle_sa100(self) -> None:
+        """Activate or deactivate SA100 3-click mode."""
+        if self._sa100_active:
+            self._cancel_sa100()
+        else:
+            self._start_sa100()
+
+    def _start_sa100(self) -> None:
+        """Enter SA100 mode: change cursor, connect click handler."""
+
+        self._sa100_active = True
+        self._sa100_clicks = []
+        #self.axe.text(0, 0, f"Slitless mode activated: 3x dblclics on star / spectrum / sky",
+         #     fontsize=10, color='yellow',
+          #    ha='left', va='bottom',
+           #   bbox=dict(facecolor='black', alpha=0.5, pad=2))
+        
+        # crosshair cursor
+        self.canvas.get_tk_widget().config(cursor='crosshair')
+        self._click_cid = self.canvas.mpl_connect(
+            'button_press_event', self._on_canvas_click
+        )
+        logging.info("SA100 mode ON — click 0 order, then a point on the spectrum, and finally a point for the sky")
+
+    def _cancel_sa100(self) -> None:
+        """Exit SA100 mode and clean up markers."""
+        self._sa100_active = False
+        self._sa100_clicks = []
+        #self._sa100_btn_var.set("SA100 ○")
+        self.canvas.get_tk_widget().config(cursor='')
+        if self._click_cid is not None:
+            self.canvas.mpl_disconnect(self._click_cid)
+            self._click_cid = None
+        # remove click markers
+        for art in self._sa100_markers:
+            try:
+                art.remove()
+            except Exception:
+                pass
+        self._sa100_markers.clear()
+        self.canvas.draw_idle()
+
+    def _on_canvas_click(self, event) -> None:
+        """
+        Handle doubleclics in SA100 mode.
+
+        First  : mark order 0 with a red cross, prompt for second click.
+        Second  : mark spectrum point with a blue cross.
+        Third : mark sky zone with a green cross, fire callback to start sa100 processing.
+        """
+        #if event.inaxes != self.axe or event.button != 1:
+        if event.inaxes != self.axe or event.dblclick != True:
+            return
+        
+        x, y = int(event.xdata), int(event.ydata)
+        if x is None or y is None:
+            return
+
+        self._sa100_clicks.append((x, y))
+        n = len(self._sa100_clicks)
+
+        if n == 1:
+            marker, = self.axe.plot(x, y, 'r+', markersize=18, markeredgewidth=2)
+            self._sa100_markers.append(marker)
+            self.canvas.draw_idle()
+            logging.info(f"SA100: order 0 at ({x:.1f}, {y:.1f})")
+
+        elif n == 2:
+            marker, = self.axe.plot(x, y, 'b+', markersize=18, markeredgewidth=2)
+            self._sa100_markers.append(marker)
+            self.canvas.draw_idle()
+            logging.info(f"SA100: spectrum point at ({x:.1f}, {y:.1f})")
+
+
+        elif n == 3:
+            marker, = self.axe.plot(x, y, 'g+', markersize=18, markeredgewidth=2)
+            self._sa100_markers.append(marker)
+            self.canvas.draw_idle()
+            logging.info(f"SA100: sky offset at ({x:.1f}, {y:.1f})")
+
+            # save points
+            x0, y0 = self._sa100_clicks[0]
+            x1, y1 = self._sa100_clicks[1]
+            x2, y2 = self._sa100_clicks[2]
+
+            # clear points on canvas
+            self._cancel_sa100()
+
+            #  call processing callback function
+            if self._on_sa100_points is not None:
+                self._on_sa100_points(x0, y0, x1, y1, x2, y2)
+
 
     # ------------------------------------------------------------------
     # Private

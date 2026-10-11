@@ -37,7 +37,7 @@ class Spectrum:
         )
 
     # ------------------------------------------------------------------
-    # Public interface (called by Application / main.py)
+    # Public
     # ------------------------------------------------------------------
 
     def open_spectrum(self, path: str) -> bool:
@@ -125,8 +125,31 @@ class Spectrum:
         )
         return True
 
+
+    def do_sa100_extract(self, spc_strip, sky_strip, x0_rotated: float) -> bool:
+        """
+        SA100 mode: extract, calibrate and display a spectrum from
+        rectified spectrum and sky strips.
+
+        Args:
+            spc_strip (CCDData):  horizontal spectrum strip
+            sky_strip (CCDData):  sky background strip
+            x0_rotated (float):  x position of order 0
+
+        Returns:
+            bool: True on success
+        """
+        spec = self.model.sa100_extract(spc_strip, sky_strip, x0_rotated)
+        if spec is None:
+            return False
+        self.view.clear()
+        name = SpectrumModel.get_object_name(spc_strip.header)
+        self.view.show_spectrum(name=name, spectrum=spec, calibrated=True)
+        return True
+
+
     # ------------------------------------------------------------------
-    # UI callbacks (wired to SpectrumView buttons)
+    # UI callbacks (to SpectrumView buttons)
     # ------------------------------------------------------------------
 
     def cb_clear(self) -> None:

@@ -17,6 +17,7 @@ from specreduce.tracing import FlatTrace, FitTrace
 
 from app.config import Config
 import spc.spc_utils as spc_utils
+from img import sa100_geometry as sa100
 
 
 class SpectrumModel:
@@ -305,3 +306,59 @@ class SpectrumModel:
 
         self.science_spectrum = spectrum
         return spectrum
+
+    def sa100_extract(
+        self,
+        spc_strip: 'CCDData',
+        sky_strip: 'CCDData',
+        x0_rotated: float,
+    ) -> Spectrum | None:
+        """
+        Extract and wavelength-calibrate a 1D spectrum from a SA100 strip.
+
+        Pipeline:
+            1. Bin spectrum strip along vertical axis 
+            2. Bin sky strip and subtract
+            3. Apply linear SA100 wavelength calibration
+            4. Store result
+
+        Args:
+            spc_strip (CCDData):  horizontal spectrum strip starting at order 0
+            sky_strip (CCDData):  sky background strip
+            x0_rotated (float):  x coordinate of order 0 (for offset correction)
+
+        Returns:
+            Spectrum | None: calibrated 1D spectrum, or None on error
+        """
+        try:
+            # collapse strips
+            spc_1d = np.sum(spc_strip.data.astype(np.float32), axis=0)
+            sky_1d = np.sum(sky_strip.data.astype(np.float32), axis=0)
+
+            # scale sky to spectrum width and subtract
+            scale = spc_strip.data.shape[0] / max(sky_strip.data.shape[0], 1)
+            flux_1d = spc_1d - sky_1d * scale
+            flux_1d = np.clip(flux_1d, 0, None)   # no negative flux
+
+            # wavelength calibration
+            distance_mm   = self.conf.get_float('sa100', 'distance_mm')   or 35.0
+            pixel_size_um = self.conf.get_float('sa100', 'pixel_size_um') or 4.65
+            offset_px     = self.conf.get_int('sa100', 'order_zero_offset_px') or 0
+
+            result = sa100.calibrate_sa100(
+                flux_1d=flux_1d,
+                distance_mm=distance_mm,
+                pixel_size_um=pixel_size_um,
+                order_zero_offset_px=offset_px,
+            )
+            self.science_spectrum = result
+            logging.info(
+                f"SA100: extracted {len(result.flux)} pts, "
+                f"λ=[{result.spectral_axis[0].value:.0f}"
+                f"–{result.spectral_axis[-1].value:.0f}] Å"
+            )
+            return result
+
+        except Exception as e:
+            logging.error(f"SA100 extraction failed: {e}")
+            return None

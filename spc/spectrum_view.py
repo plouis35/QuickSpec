@@ -25,9 +25,6 @@ from app.config import Config
 class SpectrumView:
     """
     Manages all Tkinter/Matplotlib widgets for the 1D spectrum panel.
-
-    Receives Spectrum objects to display; knows nothing about how
-    they were computed.
     """
 
     def __init__(self, spc_frame: ttk.Frame, on_clear, on_show_lines, on_colorize) -> None:
