@@ -561,9 +561,11 @@ class Images(ImagesCombiner):
               #                             readnoise = camera_readout_noise,
                #                            disregard_nan = True
                 #                          ))
-            images.append(CCDData.read(fp, unit = u.Unit('adu')))
+            ccd = CCDData.read(fp, unit = u.Unit('adu'))
+            images.append(ccd)
             names.append(fp)
             logging.info(f'image : {fp} loaded')
+            #logging.info(f'image : {fp} metadata : {repr(ccd.header)}')
         
         return ImagesCombiner(images=images, names=names, max_memory=max_memory)
     

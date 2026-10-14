@@ -13,6 +13,7 @@ from matplotlib.axes import Axes
 from matplotlib.colorbar import Colorbar
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.backends._backend_tk import NavigationToolbar2Tk
+from skimage.measure import centroid
 
 from app.config import Config
 
@@ -264,37 +265,76 @@ class ImageView:
         Second  : mark spectrum point with a blue cross.
         Third : mark sky zone with a green cross, fire callback to start sa100 processing.
         """
+        SEARCH_HALF_SIZE = 20       # search window half size (px)
+
         #if event.inaxes != self.axe or event.button != 1:
         if event.inaxes != self.axe or event.dblclick != True:
             return
         
-        x, y = int(event.xdata), int(event.ydata)
-        if x is None or y is None:
+        if event.xdata is None or event.ydata is None:
             return
 
-        self._sa100_clicks.append((x, y))
+        x, y = int(event.xdata), int(event.ydata)
         n = len(self._sa100_clicks)
 
-        if n == 1:
-            marker, = self.axe.plot(x, y, 'r+', markersize=18, markeredgewidth=2)
+        if  self._axes_image is None:
+            return 
+        
+        raw_data = self._axes_image.get_array()
+        if hasattr(raw_data, 'data'):
+            raw_data = raw_data.data
+
+        half_size = SEARCH_HALF_SIZE 
+
+        # extract search box image
+        y_min = max(0, y - half_size)
+        y_max = min(raw_data.shape[0], y + half_size)
+        x_min = max(0, x - half_size)
+        x_max = min(raw_data.shape[1], x + half_size)
+        crop = raw_data[y_min:y_max, x_min:x_max]
+
+        # cleanup search box to avoid hot pixels
+        bg = np.median(crop)
+        img_sub = np.maximum(0, crop - bg)
+
+        if n == 0:
+            # zero order centroid 
+            y0, x0 = centroid(img_sub)
+
+            # convert to absolute coords
+            x_ok = x_min + x0
+            y_ok = y_min + y0
+            
+            self._sa100_clicks.append((x_ok, y_ok))
+            marker, = self.axe.plot(x_ok, y_ok, 'r+', markersize=18, markeredgewidth=2)
             self._sa100_markers.append(marker)
             self.canvas.draw_idle()
-            logging.info(f"SA100: order 0 at ({x:.1f}, {y:.1f})")
+            logging.info(f"SA100: order 0 at ({x_ok:.1f}, {y_ok:.1f})")
+
+        elif n == 1:
+            # spectrum centroid 
+            y0, x0 = centroid(img_sub)
+
+            # convert to absolute coords
+            x_ok = x_min + x0
+            y_ok = y_min + y0
+
+            self._sa100_clicks.append((x_ok, y_ok))
+            marker, = self.axe.plot(x_ok, y_ok, 'b+', markersize=18, markeredgewidth=2)
+            self._sa100_markers.append(marker)
+            self.canvas.draw_idle()
+            logging.info(f"SA100: spectrum point at ({x_ok:.1f}, {y_ok:.1f})")
+
 
         elif n == 2:
-            marker, = self.axe.plot(x, y, 'b+', markersize=18, markeredgewidth=2)
-            self._sa100_markers.append(marker)
-            self.canvas.draw_idle()
-            logging.info(f"SA100: spectrum point at ({x:.1f}, {y:.1f})")
-
-
-        elif n == 3:
+            # take x, y as there are clicked by user
+            self._sa100_clicks.append((x, y))
             marker, = self.axe.plot(x, y, 'g+', markersize=18, markeredgewidth=2)
             self._sa100_markers.append(marker)
             self.canvas.draw_idle()
             logging.info(f"SA100: sky offset at ({x:.1f}, {y:.1f})")
 
-            # save points
+            # collect all saved points
             x0, y0 = self._sa100_clicks[0]
             x1, y1 = self._sa100_clicks[1]
             x2, y2 = self._sa100_clicks[2]

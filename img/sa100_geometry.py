@@ -162,10 +162,6 @@ def rotate_point(x: float, y: float, cx: float, cy: float, angle_deg: float) -> 
 # Calibration
 # ---------------------------------------------------------------------------
 
-# Grating constant for SA100: 100 lines/mm --> d = 10000 nm = 10 µm
-# Grating constant for SA200: 200 lines/mm --> d = 20000 nm = 20 µm
-_SA_D_NM = 20000.0   # grating period in nm
-
 def compute_dispersion(distance_mm: float, pixel_size_um: float,
                         ref_wavelength_nm: float = 550.0) -> float:
     """
@@ -185,13 +181,14 @@ def compute_dispersion(distance_mm: float, pixel_size_um: float,
     Returns:
         float: dispersion in Å/pixel (positive, increasing toward red)
     """
+    d_nm = Config().get_float('sa100', 'grating_period_nm') or 5000.0
     lambda_nm = ref_wavelength_nm
-    sin_theta = lambda_nm / _SA_D_NM
+    sin_theta = lambda_nm / d_nm
     cos_theta = math.sqrt(1.0 - sin_theta ** 2)
     # tan(θ) = opposite / adjacent = (n_px × pixel_size) / distance
     # --> dλ/dpx = d × cos(θ) × pixel_size / distance  [all in same unit]
     # pixel_size_um / 1000 --> mm,  result in nm/px × 10 --> Å/px
-    dispersion_nm_per_px = (_SA_D_NM * cos_theta * (pixel_size_um / 1000.0)) / distance_mm
+    dispersion_nm_per_px = (d_nm * cos_theta * (pixel_size_um / 1000.0)) / distance_mm
     dispersion_AA_per_px = dispersion_nm_per_px * 10.0
 
     logging.info(
@@ -228,6 +225,8 @@ def calibrate_sa100(
     distance_mm: float,
     pixel_size_um: float,
     order_zero_offset_px: int = 0,
+    lambda_min: float = 3500.0,
+    lambda_max: float = 7500.0,
 ) -> Spectrum:
     """
     Build a calibrated Spectrum from a 1D flux array extracted from a SA100 image.
@@ -248,8 +247,10 @@ def calibrate_sa100(
         dispersion_AA_per_px=dispersion,
         order_zero_offset_px=order_zero_offset_px,
     )
-    # keep only the visible range (3500–9000 Å) to discard order 0 region
-    mask = wave > 3500.0 #and wave < 9000.0
+    # keep only the requested wavelength range
+    mask = (wave > lambda_min) & (wave < lambda_max)
+    logging.info(f"SA100: wavelength range [{lambda_min:.0f}–{lambda_max:.0f}] Å, "
+                 f"{mask.sum()} pixels kept")
     spc = Spectrum(
         spectral_axis=wave[mask] * u.Angstrom,
         flux=flux_1d[mask] * u.adu,

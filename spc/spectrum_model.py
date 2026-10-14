@@ -344,18 +344,22 @@ class SpectrumModel:
             distance_mm   = self.conf.get_float('sa100', 'distance_mm')   or 35.0
             pixel_size_um = self.conf.get_float('sa100', 'pixel_size_um') or 4.65
             offset_px     = self.conf.get_int('sa100', 'order_zero_offset_px') or 0
+            lambda_min    = self.conf.get_float('sa100', 'lambda_min') or 3500.0
+            lambda_max    = self.conf.get_float('sa100', 'lambda_max') or 7500.0
 
             result = sa100.calibrate_sa100(
                 flux_1d=flux_1d,
                 distance_mm=distance_mm,
                 pixel_size_um=pixel_size_um,
                 order_zero_offset_px=offset_px,
+                lambda_min=lambda_min,
+                lambda_max=lambda_max,
             )
             self.science_spectrum = result
             logging.info(
                 f"SA100: extracted {len(result.flux)} pts, "
-                f"λ=[{result.spectral_axis[0].value:.0f}"
-                f"–{result.spectral_axis[-1].value:.0f}] Å"
+                f"lambda=[{result.spectral_axis[0].value:.0f}"
+                f"–{result.spectral_axis[-1].value:.0f}] Ang"
             )
             return result
 
