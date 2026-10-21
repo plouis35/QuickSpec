@@ -104,47 +104,59 @@ class Application(tk.Tk):
 
     def create_buttons(self) -> None:
         """
-        creates buttons to load, process_all, process_step_by_step and SA100 mode
-        """        
-        self.bt_load = ttk.Button(self.bt_frame, text="Load, reduce & register", command=self.cb_open_files) 
+        creates buttons to load and a two-level menu for longslit / slitless processing
+        """
+        self.bt_load = ttk.Button(self.bt_frame, text="Load, reduce & register", command=self.cb_open_files)
         self.bt_load.pack(side=tk.LEFT, padx=5, pady=0)
 
-        _step_options = [
-                                    "Process all ...",
-                                    "Find spectrum",
-                                    "Extract spectrum", 
-                                    "Calibrate spectrum", 
-                                    "Apply response",
-                                    "Smooth, crop & normalize"
-                                    ]
-        bt_step_default = "Longslit"
-        _var = tk.StringVar(value=bt_step_default)
+        # Menu principal (ttk.Menubutton + tk.Menu pour pouvoir utiliser les cascades)
+        self.bt_process = ttk.Menubutton(self.bt_frame, text="Process")
+        main_menu = tk.Menu(self.bt_process, tearoff=0)
+        self.bt_process["menu"] = main_menu
 
-        _step_map = {
-            _step_options[0]: self.cb_run_all,
-            _step_options[1]: self.cb_trace_spectrum,
-            _step_options[2]: self.cb_extract_spectrum,
-            _step_options[3]: self.cb_calibrate_spectrum,
-            _step_options[4]: self.cb_apply_response,
-            _step_options[5]: self.cb_smooth_spectrum,
-        }
+        def run_step(name: str, action) -> None:
+            """wrapper : log + exécution de l'action"""
+            logging.info(f"step '{name}' started...")
+            action()
 
-        def cb_run_step(selected_step: tk.StringVar) -> None:
-            logging.info(f"step {selected_step} started...")
-            if (action := _step_map.get(selected_step)) is not None:
-                action()
-            else:
-                logging.warning(f"unknown step: {selected_step}")
-            _var.set(bt_step_default)
+        def add_entries(menu: tk.Menu, entries: list) -> None:
+            """
+            ajoute des entrées à un menu.
+            entries : liste de tuples (label, callback) ou None pour un séparateur
+            """
+            for entry in entries:
+                if entry is None:
+                    menu.add_separator()
+                else:
+                    label, action = entry
+                    menu.add_command(
+                        label=label,
+                        command=lambda n=label, a=action: run_step(n, a),
+                    )
 
-        self.bt_steps = ttk.OptionMenu(self.bt_frame, _var, bt_step_default, *(_step_options), command = cb_run_step)
-        self.bt_steps['menu'].insert_separator(1)
-        self.bt_steps.pack(side=tk.LEFT, padx=5, pady=0)
+        # --- Sous-menu Longslit ---
+        longslit_menu = tk.Menu(main_menu, tearoff=0)
+        add_entries(longslit_menu, [
+            ("Process all steps...",           self.cb_run_all),
+            None,
+            ("Find spectrum",             self.cb_trace_spectrum),
+            ("Extract spectrum",          self.cb_extract_spectrum),
+            ("Calibrate spectrum",        self.cb_calibrate_spectrum),
+            ("Apply response",            self.cb_apply_response),
+            ("Smooth, crop & normalize",  self.cb_smooth_spectrum),
+        ])
 
-        self.bt_sa100 = ttk.Button(self.bt_frame, text="Slitless", command=self.cb_slitless) 
-        self.bt_sa100.pack(side=tk.LEFT, padx=5, pady=0)
+        # --- Sous-menu Slitless ---
+        slitless_menu = tk.Menu(main_menu, tearoff=0)
+        add_entries(slitless_menu, [
+            ("3-Click process", self.cb_slitless),
+        ])
 
+        main_menu.add_cascade(label="Longslit", menu=longslit_menu)
+        main_menu.add_cascade(label="Slitless", menu=slitless_menu)
 
+        self.bt_process.pack(side=tk.LEFT, padx=5, pady=0)
+        
     def set_cursor(self, cursor: str = '') -> None:
         """
         set cursor icon to 'hourglass' mode
@@ -183,8 +195,6 @@ class Application(tk.Tk):
 
     @run_long_operation
     def cb_run_all(self) -> bool:
-        self.bt_sa100.config(state='disabled')
-
         logging.info('run all started...')
         for action in (
                         self.cb_trace_spectrum, 
@@ -194,10 +204,8 @@ class Application(tk.Tk):
                         self.cb_smooth_spectrum): 
              if action() is not True:
                  logging.error('run all aborted')
-                 self.bt_sa100.config(state='normal')
                  return False
              
-        self.bt_sa100.config(state='normal')
         return True
     
 
@@ -229,9 +237,7 @@ class Application(tk.Tk):
         self._image._refresh_cuts()
 
         # process sa100 images
-        self.bt_steps.config(state='disabled')
         self._image.view.toggle_sa100()
-        self.bt_steps.config(state='normal')
         return True
 
     @run_long_operation
@@ -348,7 +354,7 @@ class Application(tk.Tk):
 class _FitsEventHandler(FileSystemEventHandler):
     """
     Watchdog event handler that fires a callback when a new FITS file appears.
-    Runs in a background thread — must NOT touch the Tk GUI directly.
+    Runs in a background thread.
     """
     FITS_SUFFIXES = {'.fit', '.fts', '.fits'}
 

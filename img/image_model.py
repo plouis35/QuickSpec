@@ -12,8 +12,8 @@ from astropy.utils.exceptions import AstropyWarning
 from app.config import Config
 from img.img_utils import Images, ImagesCombiner
 
-#warnings.simplefilter('ignore', category=AstropyWarning)
-#warnings.simplefilter('ignore', UserWarning)
+warnings.simplefilter('ignore', category=AstropyWarning)
+warnings.simplefilter('ignore', UserWarning)
 
 # Empty placeholder shape used before any image is loaded
 _INIT_SHAPE: tuple[int, int] = (2, 8)

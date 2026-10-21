@@ -448,7 +448,7 @@ class ImagesCombiner(object):
                         )
 
             dy, dx = float(shift[0]), float(shift[1])
-            logging.info(f'align: image #{i} shift = (dy={dy:.2f}, dx={dx:.2f} px, error={error:.2f}')
+            logging.info(f'align: image #{i} shift = (dy={dy:.2f}, dx={dx:.2f} px') #, error={error:.2f}')
 
             # Warn if shift is large (> 5 % of field size)
             nY, nX = ref_data.shape
