@@ -588,5 +588,3 @@ class Images(ImagesCombiner):
         y1 = round((img.shape[0] * y_center) - ((img.shape[0] * y_ratio) / 2))
         y2 = round((img.shape[0] * y_center) + ((img.shape[0] * y_ratio) / 2))
         return x1, x2, y1, y2
-
-

@@ -109,7 +109,6 @@ class Application(tk.Tk):
         self.bt_load = ttk.Button(self.bt_frame, text="Load, reduce & register", command=self.cb_open_files)
         self.bt_load.pack(side=tk.LEFT, padx=5, pady=0)
 
-        # Menu principal (ttk.Menubutton + tk.Menu pour pouvoir utiliser les cascades)
         self.bt_process = ttk.Menubutton(self.bt_frame, text="Process")
         main_menu = tk.Menu(self.bt_process, tearoff=0)
         self.bt_process["menu"] = main_menu
@@ -121,8 +120,8 @@ class Application(tk.Tk):
 
         def add_entries(menu: tk.Menu, entries: list) -> None:
             """
-            ajoute des entrées à un menu.
-            entries : liste de tuples (label, callback) ou None pour un séparateur
+            add entries to a menu.
+            entries : tuples list (label, callback) or None for a line separator
             """
             for entry in entries:
                 if entry is None:
@@ -134,10 +133,11 @@ class Application(tk.Tk):
                         command=lambda n=label, a=action: run_step(n, a),
                     )
 
-        # --- Sous-menu Longslit ---
+        # --- Longslit menu ---
         longslit_menu = tk.Menu(main_menu, tearoff=0)
+
         add_entries(longslit_menu, [
-            ("Process all steps...",           self.cb_run_all),
+            ("Process all steps...",      self.cb_run_all),
             None,
             ("Find spectrum",             self.cb_trace_spectrum),
             ("Extract spectrum",          self.cb_extract_spectrum),
@@ -146,10 +146,10 @@ class Application(tk.Tk):
             ("Smooth, crop & normalize",  self.cb_smooth_spectrum),
         ])
 
-        # --- Sous-menu Slitless ---
+        # --- Slitless menu ---
         slitless_menu = tk.Menu(main_menu, tearoff=0)
         add_entries(slitless_menu, [
-            ("3-Click process", self.cb_slitless),
+            ("3-Clics process",           self.cb_slitless),
         ])
 
         main_menu.add_cascade(label="Longslit", menu=longslit_menu)
