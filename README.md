@@ -56,5 +56,7 @@ is the relative vertical center from 0 to 1 (`0.5` is the image center), and
 `--size` is the fraction of image height kept on either side of that center:
 `0.2` therefore keeps 20% above and 20% below, or 40% of the height in total.
 Quote wildcard patterns so they are expanded by the program. Each result is
-written beside its source as `<original-name>_cropped.<original-extension>`;
-existing files are not overwritten.
+written beside its source. If the source name ends in `-<digits>` before its
+extension (for example, `image-12.fits`), `-cropped` is inserted before that
+suffix (`image-cropped-12.fits`). Otherwise, `_cropped` is appended before the
+extension. Existing files are not overwritten.

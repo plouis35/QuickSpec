@@ -3,6 +3,7 @@
 import argparse
 import glob
 import math
+import re
 from pathlib import Path
 
 from img.img_utils import Images
@@ -19,9 +20,22 @@ def _expand_inputs(patterns: list[str]) -> list[Path]:
 
 
 def _output_path(source: Path) -> Path:
-    suffix = "".join(source.suffixes)
-    stem = source.name[:-len(suffix)] if suffix else source.name
-    return source.with_name(f"{stem}_cropped{suffix}")
+    fits_extensions = (".fits.gz", ".fit.gz", ".fts.gz", ".fits", ".fit", ".fts")
+    extension = next(
+        (
+            source.name[-len(candidate):]
+            for candidate in fits_extensions
+            if source.name.lower().endswith(candidate)
+        ),
+        source.suffix,
+    )
+    stem = source.name[:-len(extension)] if extension else source.name
+    match = re.search(r"(-\d+)$", stem)
+    if match:
+        stem = f"{stem[:match.start()]}-cropped{match.group(1)}"
+    else:
+        stem = f"{stem}_cropped"
+    return source.with_name(f"{stem}{extension}")
 
 
 def main(argv: list[str] | None = None) -> int:

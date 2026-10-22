@@ -6,7 +6,22 @@ from astropy import units as u
 from astropy.nddata import CCDData
 
 from img.img_utils import ImagesCombiner
-from tools.crop_fits import main
+from tools.crop_fits import _output_path, main
+
+
+@pytest.mark.parametrize(
+    ("source_name", "expected_name"),
+    [
+        ("image-12.fits", "image-cropped-12.fits"),
+        ("target.v2-007.fit", "target.v2-cropped-007.fit"),
+        ("image.fits", "image_cropped.fits"),
+        ("image-12.fits.gz", "image-cropped-12.fits.gz"),
+    ],
+)
+def test_output_path_inserts_cropped_before_trailing_dash_number(
+    source_name, expected_name
+):
+    assert _output_path(Path(source_name)).name == expected_name
 
 
 def test_y_crop_keeps_full_width(synthetic_image):
