@@ -69,8 +69,6 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    if not math.isfinite(args.center) or not math.isfinite(args.size):
-        parser.error("center and size values must be finite")
     if not 0 <= args.center <= 1:
         parser.error("center must be between 0 and 1")
     if not 0 < args.size <= 1:

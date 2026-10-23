@@ -106,7 +106,7 @@ class Application(tk.Tk):
         """
         creates buttons to load and a two-level menu for longslit / slitless processing
         """
-        self.bt_load = ttk.Button(self.bt_frame, text="Load, reduce & register", command=self.cb_open_files)
+        self.bt_load = ttk.Button(self.bt_frame, text="Load", command=self.cb_open_files)
         self.bt_load.pack(side=tk.LEFT, padx=5, pady=0)
 
         self.bt_process = ttk.Menubutton(self.bt_frame, text="Process")

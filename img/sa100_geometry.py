@@ -260,9 +260,9 @@ def calibrate_sa100(
     #spc.write(f"spectrum1D_{cur_time}.fits", overwrite=True)  # format par défaut : tabular-fits
 
     data = np.column_stack([spc.spectral_axis.value, spc.flux.value])
-    np.savetxt(f"spectrum1D_{cur_time}.dat", data,
-            header="wavelength(AA)  flux(ADU)",
-            comments='# ')
+    #np.savetxt(f"spectrum1D_{cur_time}.dat", data,
+     #       header="wavelength(AA)  flux(ADU)",
+      #      comments='# ')
 
     #tab = Table([spc.spectral_axis.value, spc.flux.value],
      #           names=['wavelength', 'flux'],
