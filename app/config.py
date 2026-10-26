@@ -3,7 +3,6 @@ Singleton-type class to manage configuration INI files
 Hide exceptions related to keyword/section missing (i.e. returns None instead of raising exception)
 """
 import os
-import time
 import configparser
 import logging
 import functools
@@ -14,7 +13,6 @@ class Config(object):
     _instance = None
     _configDir: str = './'
     _configFile: str = 'quickspec.ini'
-    _last_time_check: float = time.time()
 
     def __new__(cls):
         if cls._instance is None:
@@ -28,12 +26,11 @@ class Config(object):
         create a new INI file if not exist
         """         
         self._config_path: str = os.path.join(Config._configDir, Config._configFile)
-        self.config = configparser.ConfigParser(inline_comment_prefixes=('#', ';')) 
-
         if not os.path.isfile(self._config_path):
             self._new_config()
-
-        self.config.read(self._config_path)
+        self.config = configparser.ConfigParser(inline_comment_prefixes=('#', ';'))
+        self._config_mtime_ns = None
+        self.reload()
 
     def set_conf_directory(self, new_dir: str) -> None:
         Config._configDir = new_dir
@@ -41,6 +38,37 @@ class Config(object):
 
     def get_conf_directory(self) -> str:
         return Config._configDir
+
+    @property
+    def config_path(self) -> str:
+        return self._config_path
+
+    def reload(self) -> bool:
+        """Load the current configuration file and remember its modification time."""
+        try:
+            config_mtime_ns = os.stat(self._config_path).st_mtime_ns
+            config = configparser.ConfigParser(inline_comment_prefixes=('#', ';'))
+            with open(self._config_path, encoding='utf-8') as configfile:
+                config.read_file(configfile)
+        except (OSError, configparser.Error) as e:
+            logging.error(f"unable to reload configuration {self._config_path}: {e}")
+            return False
+
+        self.config = config
+        self._config_mtime_ns = config_mtime_ns
+        logging.debug(f"configuration reloaded: {self._config_path}")
+        return True
+
+    def reload_if_changed(self) -> bool:
+        """Reload the configuration when its file timestamp has changed."""
+        try:
+            config_mtime_ns = os.stat(self._config_path).st_mtime_ns
+        except OSError as e:
+            logging.error(f"unable to check configuration {self._config_path}: {e}")
+            return False
+        if config_mtime_ns == self._config_mtime_ns:
+            return False
+        return self.reload()
 
     @staticmethod
     def check_changes(func):
@@ -56,14 +84,8 @@ class Config(object):
         """        
         @functools.wraps(func)
         def wrap(self, *args, **kwargs):
-            # check if config file has been modified - if so re-read it
-            if Config._last_time_check <= os.path.getmtime(self._config_path): 
-                logging.warning("config has been modified - reloading it... ")
-                self._initialize()
-                Config._last_time_check = time.time()
-
-            retcode = func(self, *args, **kwargs)
-            return retcode
+            self.reload_if_changed()
+            return func(self, *args, **kwargs)
         return wrap
 
     @check_changes
@@ -112,7 +134,8 @@ class Config(object):
         NOTE: be sure README.md is updated accordingly
         """        
         # static config template to write to first opening of a directory
-        contents: LiteralString = f"""[logger]
+        contents: LiteralString = f"""
+[logger]
 level = INFO                                    # DEBUG, INFO, WARNING, ERROR
 
 [display]
@@ -217,6 +240,6 @@ response_file = _rep.fits                       # response spectrum - generated 
 #611.60 = Eu 
 #336.11 = TiII
 """
-        logging.info(f"creating a new config file: {self._config_path}")
+        logging.debug(f"creating a new config file: {self._config_path}")
         with open(self._config_path, 'w', encoding="utf-8") as configfile:
             configfile.write(contents + '\n')

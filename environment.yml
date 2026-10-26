@@ -9,6 +9,7 @@ dependencies:
   - photutils>2
   - specreduce>=1.8
   - watchdog>=5.0
+  - pyside6
   - scikit-image
   - colorlog
   - pytest

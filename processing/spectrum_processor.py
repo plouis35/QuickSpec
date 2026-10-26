@@ -1,8 +1,4 @@
-"""
-SpectrumModel — spectra processing logic
-
-Holds the state of the current spectrum pipeline and exposes all processing steps.
-"""
+"""Spectrum loading, extraction, calibration, and post-processing."""
 import logging
 import numpy as np
 from pathlib import Path
@@ -20,7 +16,7 @@ import spc.spc_utils as spc_utils
 from img import sa100_geometry as sa100
 
 
-class SpectrumModel:
+class SpectrumProcessor:
     """
     Holds all spectrum processing state and business logic.
 

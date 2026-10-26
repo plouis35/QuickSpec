@@ -1,13 +1,14 @@
-"""Crop FITS images from the command line."""
+"""
+CLI to crop FITS images vertically while keeping their full width.
+Center and size are fractions of image height.
+"""
 
 import argparse
 import glob
-import math
 import re
 from pathlib import Path
 
 from img.img_utils import Images
-
 
 def _expand_inputs(patterns: list[str]) -> list[Path]:
     """Expand shell-style patterns and keep each input only once."""
@@ -20,6 +21,7 @@ def _expand_inputs(patterns: list[str]) -> list[Path]:
 
 
 def _output_path(source: Path) -> Path:
+    """ compute output filenames depending according to sequence nb if any"""
     fits_extensions = (".fits.gz", ".fit.gz", ".fts.gz", ".fits", ".fit", ".fts")
     extension = next(
         (
@@ -48,7 +50,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "inputs",
         nargs="+",
-        help="FITS file paths or glob patterns (quote patterns to pass them literally)",
+        help="FITS file paths or wildcard patterns",
     )
     parser.add_argument(
         "--center",

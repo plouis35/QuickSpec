@@ -1,6 +1,4 @@
-"""
-ImageModel — processing modules for 2D spectral images.
-"""
+"""Image loading, reduction, and SA100 geometry processing."""
 import logging
 import warnings
 import numpy as np
@@ -12,6 +10,7 @@ from astropy.utils.exceptions import AstropyWarning
 from app.config import Config
 from img.img_utils import Images, ImagesCombiner
 
+
 warnings.simplefilter('ignore', category=AstropyWarning)
 warnings.simplefilter('ignore', UserWarning)
 
@@ -19,7 +18,7 @@ warnings.simplefilter('ignore', UserWarning)
 _INIT_SHAPE: tuple[int, int] = (2, 8)
 
 
-class ImageModel:
+class ImageProcessor:
     """
     Holds the state of the current 2D image pipeline and exposes
     one method per processing step.
@@ -130,3 +129,4 @@ class ImageModel:
             return None
 
         return result
+

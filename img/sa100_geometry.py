@@ -30,6 +30,51 @@ from skimage.transform import rotate as ski_rotate
 # Geometry
 # ---------------------------------------------------------------------------
 
+def rectify_sa100(
+    image: CCDData,
+    x0: float,
+    y0: float,
+    x1: float,
+    y1: float,
+    sky_y: float,
+) -> tuple[CCDData, CCDData, CCDData, float, float, int, int, int] | None:
+    """Rectify an SA100 image and return its spectrum and sky extraction strips."""
+    if image.data.shape[0] < 10:
+        logging.error("SA100: please load an image first")
+        return None
+
+    angle = compute_angle(x0, y0, x1, y1)
+    rectified = rectify(image, angle)
+    height, width = rectified.data.shape
+    x0_rotated, y0_rotated = rotate_point(
+        x0, y0, width / 2.0, height / 2.0, angle
+    )
+
+    conf = Config()
+
+    half_height = conf.get_int('sa100', 'half_height') or 5
+    sky_offset = int(sky_y - y1)
+    sky_half_height = conf.get_int('sa100', 'sky_half_height') or 10
+    spectrum_strip, sky_strip = crop_spectrum(
+        rectified,
+        x0_rotated,
+        y0_rotated,
+        half_height=half_height,
+        sky_offset=sky_offset,
+        sky_half_height=sky_half_height,
+    )
+    return (
+        rectified,
+        spectrum_strip,
+        sky_strip,
+        x0_rotated,
+        y0_rotated,
+        half_height,
+        sky_offset,
+        sky_half_height,
+    )
+
+
 def compute_angle(x0: float, y0: float, x1: float, y1: float) -> float:
     """
     Compute the dispersion angle in degrees from two clicked points.
@@ -270,5 +315,4 @@ def calibrate_sa100(
     #tab.write(f"spectrum1D_{cur_time}_tbl.dat", format='ascii', overwrite=True)
 
     return spc
-
 

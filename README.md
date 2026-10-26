@@ -1,5 +1,5 @@
 # QuickSpec
-![Alt text](./screenshot_01.PNG)
+![Alt text](./tcrb_snap.jpg)
 
 Quick-look spectra reduction &amp; calibration tool - aimed at demonstrating spectroscopy science to public or students
 
@@ -38,9 +38,9 @@ from sources:
 
 # Basic usage
 - move the QuickSpec console window so that output logging information is always visible
-- press ```load`` button to select images or spectra; images will be reduced, registered and summed (DOF are ignored when not existing) 
+- select ```File > Load``` to choose images or spectra; images will be reduced, registered and summed (DOF are ignored when not existing)
 - use a text editor to open and adjust the parameter file created under that images directory (**quickspec.ini**); it is recommended to open the calibration images first in order to define the proper x-pixel / wavelength tuples
-- select ```longslit - process all``` menu to generate a calibrated spectrum for longslite spectra
-- select ```slitless - 3-clics process``` menu to select zero order, trace and sky in order to generate a calibrated spectrum for SA100 spectra
+- select ```Longslit > Process auto``` to generate a calibrated spectrum for longslit spectra
+- select ```Slitless > 3-click process``` to select zero order, trace and sky locations in order to generate a calibrated spectrum for SA100 spectra
 - press ```colorize``` or ```show lines``` to visualize spectrum properties
 - press ```clear``` or any panel to reset loaded data

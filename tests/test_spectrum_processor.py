@@ -1,5 +1,5 @@
 """
-Tests for spc/spectrum_model.py
+Tests for processing/spectrum_processor.py
 
 Covers: state management, I/O, and processing steps.
 No GUI, no Tkinter, no Matplotlib.
@@ -10,7 +10,7 @@ from astropy import units as u
 from astropy.nddata import CCDData
 from specutils import Spectrum
 
-from spc.spectrum_model import SpectrumModel
+from processing.spectrum_processor import SpectrumProcessor
 
 
 # ---------------------------------------------------------------------------
@@ -19,12 +19,12 @@ from spc.spectrum_model import SpectrumModel
 
 class TestReset:
     def test_initial_state_is_empty(self):
-        model = SpectrumModel()
+        model = SpectrumProcessor()
         assert model.science_spectrum is None
         assert model.science_trace is None
 
     def test_reset_clears_spectrum(self, flat_spectrum):
-        model = SpectrumModel()
+        model = SpectrumProcessor()
         model.science_spectrum = flat_spectrum
         model.reset()
         assert model.science_spectrum is None
@@ -37,23 +37,23 @@ class TestReset:
 
 class TestGetObjectName:
     def test_returns_no_name_when_header_is_none(self):
-        assert SpectrumModel.get_object_name(None) == 'no_name'
+        assert SpectrumProcessor.get_object_name(None) == 'no_name'
 
     def test_reads_objname_key(self):
         header = {'OBJNAME': 'Vega'}
-        assert SpectrumModel.get_object_name(header) == 'Vega'
+        assert SpectrumProcessor.get_object_name(header) == 'Vega'
 
     def test_falls_back_to_object_key(self):
         header = {'OBJECT': 'Sirius'}
-        assert SpectrumModel.get_object_name(header) == 'Sirius'
+        assert SpectrumProcessor.get_object_name(header) == 'Sirius'
 
     def test_prefers_objname_over_object(self):
         header = {'OBJNAME': 'Vega', 'OBJECT': 'Sirius'}
-        assert SpectrumModel.get_object_name(header) == 'Vega'
+        assert SpectrumProcessor.get_object_name(header) == 'Vega'
 
     def test_returns_no_name_when_keys_absent(self):
         header = {'EXPTIME': 30.0}
-        assert SpectrumModel.get_object_name(header) == 'no_name'
+        assert SpectrumProcessor.get_object_name(header) == 'no_name'
 
 
 # ---------------------------------------------------------------------------
@@ -62,16 +62,16 @@ class TestGetObjectName:
 
 class TestIsCalibrated:
     def test_returns_false_when_no_spectrum(self):
-        model = SpectrumModel()
+        model = SpectrumProcessor()
         assert model.is_calibrated() is False
 
     def test_returns_false_for_pixel_axis(self, pixel_spectrum):
-        model = SpectrumModel()
+        model = SpectrumProcessor()
         model.science_spectrum = pixel_spectrum
         assert model.is_calibrated() is False
 
     def test_returns_true_for_wavelength_axis(self, flat_spectrum):
-        model = SpectrumModel()
+        model = SpectrumProcessor()
         model.science_spectrum = flat_spectrum
         assert model.is_calibrated() is True
 
@@ -82,26 +82,26 @@ class TestIsCalibrated:
 
 class TestLoadSpectrum:
     def test_load_fits(self, spectrum_fits_file):
-        model = SpectrumModel()
+        model = SpectrumProcessor()
         result = model.load_spectrum(spectrum_fits_file)
         assert result is not None
         assert isinstance(result, Spectrum)
         assert model.science_spectrum is result
 
     def test_load_dat(self, spectrum_dat_file):
-        model = SpectrumModel()
+        model = SpectrumProcessor()
         result = model.load_spectrum(spectrum_dat_file)
         assert result is not None
         assert isinstance(result, Spectrum)
 
     def test_load_nonexistent_file_returns_none(self):
-        model = SpectrumModel()
+        model = SpectrumProcessor()
         result = model.load_spectrum("/nonexistent/path/spectrum.fits")
         assert result is None
         assert model.science_spectrum is None
 
     def test_loaded_spectrum_has_correct_length(self, spectrum_fits_file, flat_spectrum):
-        model = SpectrumModel()
+        model = SpectrumProcessor()
         result = model.load_spectrum(spectrum_fits_file)
         assert len(result.flux) == len(flat_spectrum.flux)
 
@@ -112,11 +112,11 @@ class TestLoadSpectrum:
 
 class TestSmooth:
     def test_smooth_returns_none_without_spectrum(self):
-        model = SpectrumModel()
+        model = SpectrumProcessor()
         assert model.smooth() is None
 
     def test_smooth_preserves_spectrum_length(self, flat_spectrum):
-        model = SpectrumModel()
+        model = SpectrumProcessor()
         model.science_spectrum = flat_spectrum
         result = model.smooth()
         # smooth may crop but should still return a valid Spectrum
@@ -125,7 +125,7 @@ class TestSmooth:
 
     def test_smooth_normalizes_flux(self, noisy_spectrum):
         """After smooth+normalize the flux near the norm region should be ~1."""
-        model = SpectrumModel()
+        model = SpectrumProcessor()
         model.science_spectrum = noisy_spectrum
         result = model.smooth()
         assert result is not None
@@ -134,7 +134,7 @@ class TestSmooth:
         np.testing.assert_allclose(region.flux.mean().value, 1.0, rtol=0.05)
 
     def test_smooth_updates_internal_state(self, flat_spectrum):
-        model = SpectrumModel()
+        model = SpectrumProcessor()
         model.science_spectrum = flat_spectrum
         result = model.smooth()
         assert model.science_spectrum is result
@@ -146,12 +146,12 @@ class TestSmooth:
 
 class TestTrace:
     def test_trace_returns_none_without_image(self):
-        model = SpectrumModel()
+        model = SpectrumProcessor()
         result = model.trace(None)
         assert result is None
 
     def test_flat_trace_on_synthetic_image(self, synthetic_image):
-        model = SpectrumModel()
+        model = SpectrumProcessor()
         result = model.trace(synthetic_image)
         assert result is not None
         assert model.science_trace is result

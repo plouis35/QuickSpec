@@ -31,9 +31,19 @@ class LogHandler(logging.Handler):
 
     def initialize(self) -> None:
         """
-        add console and file handlers
+        Add the formatted console and file handlers.
         to be called once when app starts
         other modules juste import logging and use logging.warn/info/error to log messages
         """        
+        for handler in tuple(self.log.handlers):
+            formatter = handler.formatter
+            if (
+                type(handler) is logging.StreamHandler
+                and formatter is not None
+                and formatter._style._fmt == logging.BASIC_FORMAT
+            ):
+                self.log.removeHandler(handler)
+                handler.close()
+
         self.log.addHandler(self.stream)
         self.log.addHandler(self.file_handler)

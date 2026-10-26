@@ -5,15 +5,16 @@ New values are interpolated from a mouse selected region boundary * random value
 import sys
 import numpy as np
 from pathlib import Path
-#import tkinter as tk
-from tkinter.filedialog import askopenfilename
-import matplotlib           # macOS bug
-matplotlib.use('TkAgg')     # macOS bug
+import matplotlib
+matplotlib.use('qtagg')
 import matplotlib.pyplot as plt
+from PySide6.QtWidgets import QApplication, QFileDialog
 from matplotlib.widgets import Button, TextBox, SpanSelector
 from specutils import Spectrum1D
 from astropy.io import fits
 import astropy.units as u
+
+app = QApplication.instance() or QApplication(sys.argv)
 
 # globals
 file_path: str = ''
@@ -65,12 +66,12 @@ def cb_load_fits(event) -> None:
     global file_path
     global line
 
-    file_path = askopenfilename(title='Select spectrum',
-                        filetypes=[("fits files", '*.fit'), 
-                                    ("fits files", "*.fts"), 
-                                    ("fits files", "*.fits"),
-                                    ],
-                        )
+    file_path, _selected_filter = QFileDialog.getOpenFileName(
+        None,
+        'Select spectrum',
+        '',
+        'FITS files (*.fit *.fts *.fits)',
+    )
 
     if not file_path:
         print(f"FATAL: no file selected")
@@ -160,4 +161,3 @@ span = SpanSelector(ax, on_select, 'horizontal', useblit=True, props=dict(alpha=
 
 # show everything and wait for buttons
 plt.show()
-

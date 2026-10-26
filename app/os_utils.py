@@ -39,13 +39,13 @@ def get_current_path() -> str:
 
 def show_versions() -> None:
     """Log platform and key package versions at startup."""
-    from tkinter import TkVersion
-
     logging.info("versions installed:")
     logging.info(f"platform = {platform.system()}, release = {platform.release()}")
     logging.info(f"python = {sys.version}")
-    logging.info(f"tkinter = {TkVersion}")
-    for module in ['matplotlib', 'numpy', 'scipy', 'astropy', 'specutils', 'specreduce', 'ccdproc']:
+    for module in [
+        'PySide6', 'matplotlib', 'numpy', 'scipy', 'astropy', 'specutils',
+        'specreduce', 'ccdproc',
+    ]:
         try:
             logging.info(f"{module} = {version(module)}")
         except Exception as e:
